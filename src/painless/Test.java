@@ -15,6 +15,8 @@ public class Test {
 
         int z = 1;
 
+        z = input.get(x) != null ? y[0][0] = z : z;
+
         return y[0][0] = z;
     }
 }
