@@ -11,7 +11,7 @@ public final class Painless {
         //System.out.println(last);
         //System.out.println(Type.getType("[[[java/lang/Object;").equals(Type.getType("[[[java/lang/Object;")));
         String test =
-                "((map)((map)x.get(y)).get(z));"
+                "x = y() = 3;"
                 ;
         System.out.println(compile("test", test));
     }

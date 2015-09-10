@@ -12,8 +12,9 @@ import org.objectweb.asm.Type;
 final class PainlessCompiler {
     static PainlessExecutable compile(String name, String source, ClassLoader parent) {
         final ParseTree root = createParseTree(source);
-        PainlessAdapter adapter = new PainlessAdapter(root);
-        PainlessAnalyzer analyzer = new PainlessAnalyzer(root, adapter);
+        PainlessValidator.validate(root);
+        //PainlessAdapter adapter = new PainlessAdapter(root);
+        //PainlessAnalyzer analyzer = new PainlessAnalyzer(root, adapter);
         //final byte[] bytes = PainlessWriter.write(source, tree);
         //final PainlessExecutable executable = createExecutable(name, source, parent, bytes);
 

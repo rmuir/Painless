@@ -3,9 +3,7 @@ package painless;
 import org.objectweb.asm.Type;
 
 class PainlessCast {
-    static final Type COMPARATOR_TYPE = Type.getType("Ljava/util/Comparator;");
-    static final Type NUMBER_TYPE     = Type.getType("Ljava/lang/Number;");
-    static final Type OBJECT_TYPE     = Type.getType("Ljava/lang/Object;");
+    /*static final Type OBJECT_TYPE     = Type.getType("Ljava/lang/Object;");
     static final Type STRING_TYPE     = Type.getType("Ljava/lang/String;");
 
     static boolean isNumeric(Type type) {
@@ -36,5 +34,5 @@ class PainlessCast {
     PainlessCast(final Type from, final Type to) {
         this.from = from;
         this.to = to;
-    }
+    }*/
 }

@@ -9,7 +9,39 @@ import java.util.Map;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.Type;
 
-class PainlessAdapter {
+class PainlessUtility {
+    /*static class PainlessVariable {
+        private final String name;
+        private final Type type;
+
+        private final int scope;
+        private final int slot;
+
+        PainlessVariable(final String name, final Type type, final int scope, final int slot) {
+            this.name = name;
+            this.type = type;
+
+            this.slot = slot;
+            this.scope = scope;
+        }
+
+        String getName() {
+            return name;
+        }
+
+        Type getType() {
+            return type;
+        }
+
+        int getScope() {
+            return scope;
+        }
+
+        int getSlot() {
+            return slot;
+        }
+    }
+
     private final Map<ParseTree, PainlessCast> casts;
 
     private final Map<ParseTree, List<PainlessVariable> > contexts;
@@ -98,5 +130,5 @@ class PainlessAdapter {
         slot = type.getSort() == type.LONG || type.getSort() == type.DOUBLE ? slot + 2 : slot + 1;
 
         return variable;
-    }
+    }*/
 }

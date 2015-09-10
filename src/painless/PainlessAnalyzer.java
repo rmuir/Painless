@@ -10,24 +10,24 @@ import java.util.Map;
 import static painless.PainlessCast.*;
 import static painless.PainlessParser.*;
 
-class PainlessAnalyzer extends PainlessBaseVisitor<Object> {
-    final PainlessAdapter adapter;
-    final Map<ParseTree, Type> expected;
+class PainlessAnalyzer extends PainlessBaseVisitor<Boolean> {
+    /*final PainlessAdapter adapter;
+    final Map<ParseTree, Type> state;
     int loop;
 
     PainlessAnalyzer(final ParseTree tree, final PainlessAdapter adapter) {
         this.adapter = adapter;
-        expected = new HashMap<>();
+        state = new HashMap<>();
         loop = 0;
 
         this.adapter.newVariable("this", Type.getType("Lpainless/PainlessExecutable$CompiledPainlessExecutable;"));
         this.adapter.newVariable("input", Type.getType("Ljava/util/Map;"));
 
-        visit(tree);
+        boolean last = visit(tree);
     }
 
     @Override
-    public Object visitSource(PainlessParser.SourceContext ctx) {
+    public Boolean visitSource(PainlessParser.SourceContext ctx) {
         boolean last = false;
 
         adapter.incrementScope(ctx);
@@ -51,9 +51,9 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Object> {
         boolean last;
 
         adapter.incrementScope(ctx);
-        expected.put(expression, Type.BOOLEAN_TYPE);
+        state.put(expression, Type.BOOLEAN_TYPE);
         visit(expression);
-        Type from = expected.get(expression);
+        Type from = state.get(expression);
         adapter.markCast(expression, from, Type.BOOLEAN_TYPE, false);
         last = (Boolean)visit(ctx.block(0));
 
@@ -276,6 +276,11 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Object> {
     }
 
     @Override
+    public Object visitExt(ExtContext ctx) {
+        return null;
+    }
+
+    @Override
     public Object visitPrecedence(PainlessParser.PrecedenceContext ctx) {
         ExpressionContext expression = ctx.expression();
         Type to = expected.get(ctx);
@@ -362,6 +367,36 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Object> {
 
         expected.put(ctx, Type.BOOLEAN_TYPE);
 
+        return null;
+    }
+
+    @Override
+    public Object visitExtdot(ExtdotContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Object visitExtprec(ExtprecContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Object visitExtargs(ExtargsContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Object visitExtarray(ExtarrayContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Object visitExtcast(ExtcastContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Object visitExtvar(ExtvarContext ctx) {
         return null;
     }
 
@@ -620,7 +655,12 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitArguments(PainlessParser.ArgumentsContext ctx) {
+    public Object visitAssignment(AssignmentContext ctx) {
         return null;
     }
+
+    @Override
+    public Object visitArguments(PainlessParser.ArgumentsContext ctx) {
+        return null;
+    }*/
 }

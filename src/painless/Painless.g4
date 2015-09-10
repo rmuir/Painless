@@ -52,14 +52,14 @@ expression
     |               expression BOOLAND expression                             # bool
     |               expression BOOLOR expression                              # bool
     | <assoc=right> expression COND expression COLON expression               # conditional
-    | <assoc=right> expression ASSIGN expression                              # assignment
+    | <assoc=right> external ASSIGN expression                                # assignment
     ;
 
 external
     : LP external RP external?           # extprec
     | LP decltype RP external            # extcast
-    | external '.' external              # extdot
     | LBRACE expression RBRACE external? # extarray
+    | DOT external                       # extdot
     | arguments external?                # extargs
     | ID external?                       # extvar
     ;
@@ -77,6 +77,7 @@ RBRACE:    ']';
 LP:        '(';
 RP:        ')';
 ASSIGN:    '=';
+DOT:       '.';
 COMMA:     ',';
 SEMICOLON: ';';
 IF:        'if';
@@ -135,6 +136,7 @@ TYPE
     | 'double'
     | 'char'
     | 'string'
+    | 'object'
     | 'date'
     | 'timedelta'
     | 'point'

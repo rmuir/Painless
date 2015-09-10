@@ -22,7 +22,7 @@ class PainlessWriter extends PainlessBaseVisitor<Object>{
     }
 
     private ClassWriter writer;
-    private PainlessAdapter execute;
+    //private PainlessAdapter execute;
 
     private PainlessWriter(String source, ParseTree tree) {
         writeBegin(source);
