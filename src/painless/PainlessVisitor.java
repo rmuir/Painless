@@ -219,13 +219,6 @@ public interface PainlessVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitTrue(PainlessParser.TrueContext ctx);
 	/**
-	 * Visit a parse tree produced by the {@code extdot}
-	 * labeled alternative in {@link PainlessParser#external}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitExtdot(PainlessParser.ExtdotContext ctx);
-	/**
 	 * Visit a parse tree produced by the {@code extprec}
 	 * labeled alternative in {@link PainlessParser#external}.
 	 * @param ctx the parse tree
@@ -233,12 +226,12 @@ public interface PainlessVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitExtprec(PainlessParser.ExtprecContext ctx);
 	/**
-	 * Visit a parse tree produced by the {@code extargs}
+	 * Visit a parse tree produced by the {@code extcast}
 	 * labeled alternative in {@link PainlessParser#external}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitExtargs(PainlessParser.ExtargsContext ctx);
+	T visitExtcast(PainlessParser.ExtcastContext ctx);
 	/**
 	 * Visit a parse tree produced by the {@code extarray}
 	 * labeled alternative in {@link PainlessParser#external}.
@@ -247,12 +240,19 @@ public interface PainlessVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitExtarray(PainlessParser.ExtarrayContext ctx);
 	/**
-	 * Visit a parse tree produced by the {@code extcast}
+	 * Visit a parse tree produced by the {@code extdot}
 	 * labeled alternative in {@link PainlessParser#external}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitExtcast(PainlessParser.ExtcastContext ctx);
+	T visitExtdot(PainlessParser.ExtdotContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code extcall}
+	 * labeled alternative in {@link PainlessParser#external}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitExtcall(PainlessParser.ExtcallContext ctx);
 	/**
 	 * Visit a parse tree produced by the {@code extvar}
 	 * labeled alternative in {@link PainlessParser#external}.

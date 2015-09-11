@@ -60,7 +60,7 @@ external
     | LP decltype RP external            # extcast
     | LBRACE expression RBRACE external? # extarray
     | DOT external                       # extdot
-    | arguments external?                # extargs
+    | ID arguments external?             # extcall
     | ID external?                       # extvar
     ;
 

@@ -7,13 +7,26 @@ import java.util.Iterator;
 import java.util.Map;
 
 import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.tree.TerminalNode;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.Method;
 
 import static painless.PainlessParser.*;
 
 class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted> {
-    static final Type OBJECT_TYPE = Type.getType("Ljava/lang/Object;");
-    static final Type STRING_TYPE = Type.getType("Ljava/lang/String;");
+    static final Type OBJECT_TYPE     = Type.getType("Ljava/lang/Object;");
+    static final Type MAP_TYPE        = Type.getType("Ljava/util/Map;");
+    static final Type EXECUTABLE_TYPE = Type.getType("Lpainless/PainlessExecutable$CompiledPainlessExecutable;");
+
+    static class Argument {
+        final String name;
+        final Type type;
+
+        Argument(final String name, final Type type) {
+            this.name = name;
+            this.type = type;
+        }
+    }
 
     static class Cast {
         final Type from;
@@ -25,7 +38,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
         }
     }
 
-    static class Variable {
+    private static class Variable {
         final String name;
         final Type type;
         final int slot;
@@ -37,13 +50,134 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
         }
     }
 
-    static class Argument {
-        final String name;
-        final Type type;
+    private static class Variables {
+        private final Deque<Variable> variables;
+        private final Deque<Integer> scopes;
 
-        Argument(final String name, final Type type) {
-            this.name = name;
-            this.type = type;
+        Variables() {
+            variables = new ArrayDeque<>();
+            scopes = new ArrayDeque<>();
+            scopes.push(0);
+        }
+
+        void incrementScope() {
+            scopes.push(0);
+        }
+
+        void decrementScope() {
+            int remove = scopes.pop();
+
+            while (remove > 0) {
+                variables.pop();
+                --remove;
+            }
+        }
+
+        void add(final String name, final Type type) {
+            if (get(name) != null) {
+                throw new IllegalArgumentException();
+            }
+
+            Variable previous = variables.peek();
+            int slot = 0;
+
+            if (previous != null) {
+                slot = previous.type.equals(Type.DOUBLE_TYPE) || previous.type.equals(Type.LONG_TYPE) ? slot + 2 : slot + 1;
+            }
+
+            Variable variable = new Variable(name, type, slot);
+            variables.push(variable);
+
+            int update = scopes.pop();
+            ++update;
+            scopes.push(update);
+        }
+
+        Variable get(String name) {
+            Iterator<Variable> itr = variables.descendingIterator();
+
+            while (itr.hasNext()) {
+                Variable variable = itr.next();
+
+                if (variable.name.equals(name)) {
+                    return variable;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    private static class External {
+        final Map<String, Type> members;
+        final Map<String, Method> methods;
+
+        External() {
+            members = new HashMap<>();
+            methods = new HashMap<>();
+        }
+    }
+
+    private static class Externals {
+        final Map<String, Type> types;
+        final Map<Type, External> externals;
+
+        Externals() {
+            types = new HashMap<>();
+            externals = new HashMap<>();
+        }
+
+        Type getType(final String type, int dimensions) {
+            Type rtn = types.get(type);
+
+            if (rtn == null) {
+                throw new IllegalArgumentException();
+            }
+
+            if (dimensions > 0) {
+                String descriptor = "";
+
+                while (dimensions > 0) {
+                    descriptor += "[";
+                }
+
+                descriptor += rtn.getDescriptor();
+                rtn = Type.getType(descriptor);
+            }
+
+            return rtn;
+        }
+
+        Type getMember(final Type type, final String name) {
+            External external = externals.get(type);
+
+            if (external == null) {
+                throw new IllegalArgumentException();
+            }
+
+            Type rtn = external.members.get(name);
+
+            if (rtn == null) {
+                throw new IllegalArgumentException();
+            }
+
+            return rtn;
+        }
+
+        Method getMethod(final Type type, final String name) {
+            External external = externals.get(type);
+
+            if (external == null) {
+                throw new IllegalArgumentException();
+            }
+
+            Method rtn = external.methods.get(name);
+
+            if (rtn == null) {
+                throw new IllegalArgumentException();
+            }
+
+            return rtn;
         }
     }
 
@@ -72,69 +206,11 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
         }
     }
 
-    private class Variables {
-        private final Deque<Variable> variables;
-        private final Deque<Integer> scopes;
-
-        Variables() {
-            variables = new ArrayDeque<>();
-            scopes = new ArrayDeque<>();
-        }
-
-        void incrementScope() {
-            scopes.push(0);
-        }
-
-        void decrementScope() {
-            int remove = scopes.pop();
-
-            while (remove > 0) {
-                variables.pop();
-                --remove;
-            }
-        }
-
-        void addVariable(final String name, final Type type) {
-            if (getVariable(name) != null) {
-                throw new IllegalArgumentException();
-            }
-
-            Variable previous = variables.peek();
-            int slot = 0;
-
-            if (previous != null) {
-                slot = previous.type.equals(Type.DOUBLE_TYPE) || previous.type.equals(Type.LONG_TYPE) ? slot + 2 : slot + 1;
-            }
-
-            Variable variable = new Variable(name, type, slot);
-            variables.push(variable);
-
-            int update = scopes.pop();
-            ++update;
-            scopes.push(update);
-        }
-
-        Variable getVariable(String name) {
-            Iterator<Variable> itr = variables.descendingIterator();
-
-            while (itr.hasNext()) {
-                Variable variable = itr.next();
-
-                if (variable.name.equals(name)) {
-                    return variable;
-                }
-            }
-
-            return null;
-        }
-    }
-
-    private Variables variables;
+    private final Variables variables;
+    private final Externals externals;
     private int loop;
 
-    private Map<ParseTree, Cast> casts;
-    private Map<ParseTree, Variable> reads;
-    private Map<ParseTree, Variable> writes;
+    private final Map<ParseTree, Cast> casts;
 
     private PainlessValidator(ParseTree root, Deque<Argument> arguments) {
         variables = new Variables();
@@ -143,14 +219,13 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
         while (itr.hasNext()) {
             Argument argument = itr.next();
-            variables.addVariable(argument.name, argument.type);
+            variables.add(argument.name, argument.type);
         }
 
+        externals = new Externals();
         loop = 0;
 
         casts = new HashMap<>();
-        reads = new HashMap<>();
-        writes = new HashMap<>();
 
         visit(root);
     }
@@ -371,9 +446,9 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
     }
 
     @Override
-    public Extracted visitDeclaration(DeclarationContext ctx) {
+    public Extracted visitDeclaration(PainlessParser.DeclarationContext ctx) {
         DecltypeContext decltype = ctx.decltype();
-        Type to = visit(decltype).type0;
+        Type type = visit(decltype).type0;
 
         for (int child = 0; child < ctx.getChildCount(); ++child) {
             ParseTree cctx = ctx.getChild(child);
@@ -383,24 +458,26 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
                 if (tctx.getSymbol().getType() == PainlessLexer.ID) {
                     String name = tctx.getText();
-                    adapter.newVariable(name, to);
+                    variables.add(name, type);
                 }
             } else if (cctx instanceof ExpressionContext) {
-                expected.put(cctx, to);
-                visit(cctx);
-                Type from = expected.get(cctx);
-                adapter.markCast(cctx, from, to, false);
+                Extracted extcctx = visit(cctx);
+                extcctx.markCast(type, false);
+                //TODO: mark write variable?
             }
         }
 
-        return null;
+        Extracted extracted = new Extracted(ctx);
+        extracted.statement = true;
+
+        return extracted;
     }
 
     @Override
     public Extracted visitDecltype(DecltypeContext ctx) {
         String type = ctx.TYPE().getText();
         int dimensions = ctx.LBRACE().size();
-        String descriptor;
+        /*String descriptor;
 
         switch (type) {
             case "bool":
@@ -448,122 +525,122 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
         for (int dimension = 0; dimension < dimensions; ++dimension) {
             descriptor = '[' + descriptor;
-        }
+        }*/
 
         Extracted extracted = new Extracted(ctx);
         extracted.node0 = ctx;
-        extracted.type0 = Type.getType(descriptor);
+        extracted.type0 = externals.getType(type, dimensions);
 
         return extracted;
     }
 
     @Override
-    public Object visitExt(PainlessParser.ExtContext ctx) {
+    public Extracted visitExt(PainlessParser.ExtContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitComp(PainlessParser.CompContext ctx) {
+    public Extracted visitComp(PainlessParser.CompContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitString(PainlessParser.StringContext ctx) {
+    public Extracted visitString(PainlessParser.StringContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitBool(PainlessParser.BoolContext ctx) {
+    public Extracted visitBool(PainlessParser.BoolContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitConditional(PainlessParser.ConditionalContext ctx) {
+    public Extracted visitConditional(PainlessParser.ConditionalContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitAssignment(PainlessParser.AssignmentContext ctx) {
+    public Extracted visitAssignment(PainlessParser.AssignmentContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitFalse(PainlessParser.FalseContext ctx) {
+    public Extracted visitFalse(PainlessParser.FalseContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitNumeric(PainlessParser.NumericContext ctx) {
+    public Extracted visitNumeric(PainlessParser.NumericContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitUnary(PainlessParser.UnaryContext ctx) {
+    public Extracted visitUnary(PainlessParser.UnaryContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitPrecedence(PainlessParser.PrecedenceContext ctx) {
+    public Extracted visitPrecedence(PainlessParser.PrecedenceContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitCast(PainlessParser.CastContext ctx) {
+    public Extracted visitCast(PainlessParser.CastContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitNull(PainlessParser.NullContext ctx) {
+    public Extracted visitNull(PainlessParser.NullContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitBinary(PainlessParser.BinaryContext ctx) {
+    public Extracted visitBinary(PainlessParser.BinaryContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitChar(PainlessParser.CharContext ctx) {
+    public Extracted visitChar(PainlessParser.CharContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitTrue(PainlessParser.TrueContext ctx) {
+    public Extracted visitTrue(PainlessParser.TrueContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitExtdot(PainlessParser.ExtdotContext ctx) {
+    public Extracted visitExtprec(PainlessParser.ExtprecContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitExtprec(PainlessParser.ExtprecContext ctx) {
+    public Extracted visitExtcast(PainlessParser.ExtcastContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitExtargs(PainlessParser.ExtargsContext ctx) {
+    public Extracted visitExtarray(PainlessParser.ExtarrayContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitExtarray(PainlessParser.ExtarrayContext ctx) {
+    public Extracted visitExtdot(PainlessParser.ExtdotContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitExtcast(PainlessParser.ExtcastContext ctx) {
+    public Extracted visitExtcall(PainlessParser.ExtcallContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitExtvar(PainlessParser.ExtvarContext ctx) {
+    public Extracted visitExtvar(PainlessParser.ExtvarContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitArguments(PainlessParser.ArgumentsContext ctx) {
+    public Extracted visitArguments(PainlessParser.ArgumentsContext ctx) {
         return null;
     }
 }

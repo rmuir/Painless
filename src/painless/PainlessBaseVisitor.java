@@ -228,13 +228,6 @@ public class PainlessBaseVisitor<T> extends AbstractParseTreeVisitor<T> implemen
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitExtdot(PainlessParser.ExtdotContext ctx) { return visitChildren(ctx); }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation returns the result of calling
-	 * {@link #visitChildren} on {@code ctx}.</p>
-	 */
 	@Override public T visitExtprec(PainlessParser.ExtprecContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
@@ -242,7 +235,7 @@ public class PainlessBaseVisitor<T> extends AbstractParseTreeVisitor<T> implemen
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitExtargs(PainlessParser.ExtargsContext ctx) { return visitChildren(ctx); }
+	@Override public T visitExtcast(PainlessParser.ExtcastContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -256,7 +249,14 @@ public class PainlessBaseVisitor<T> extends AbstractParseTreeVisitor<T> implemen
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitExtcast(PainlessParser.ExtcastContext ctx) { return visitChildren(ctx); }
+	@Override public T visitExtdot(PainlessParser.ExtdotContext ctx) { return visitChildren(ctx); }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation returns the result of calling
+	 * {@link #visitChildren} on {@code ctx}.</p>
+	 */
+	@Override public T visitExtcall(PainlessParser.ExtcallContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *

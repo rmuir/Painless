@@ -3,16 +3,23 @@ package painless;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.lang.reflect.Constructor;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.Type;
 
+import painless.PainlessValidator.*;
+
 final class PainlessCompiler {
     static PainlessExecutable compile(String name, String source, ClassLoader parent) {
         final ParseTree root = createParseTree(source);
-        PainlessValidator.validate(root);
+        Deque<Argument> arguments = new ArrayDeque<>();
+        arguments.push(new Argument("this", PainlessValidator.EXECUTABLE_TYPE));
+        arguments.push(new Argument("input", PainlessValidator.MAP_TYPE));
+        PainlessValidator.validate(root, arguments);
         //PainlessAdapter adapter = new PainlessAdapter(root);
         //PainlessAnalyzer analyzer = new PainlessAnalyzer(root, adapter);
         //final byte[] bytes = PainlessWriter.write(source, tree);
