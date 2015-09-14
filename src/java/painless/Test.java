@@ -18,9 +18,16 @@ public class Test {
     }
 
     public int test(Map input) {
-        int[] x = new int[5];
+        int[][] x = new int[5][5];
         int l = x.length;
         x.clone();
+
+        Test y = new Test2(0, 0, null);
+        Long e = Long.parseLong("0");
+
+        int z = ((x)[0])[1];
+
+        //int t = (((Long)(long)(y).hashCode()));
 
         return 0;
     }

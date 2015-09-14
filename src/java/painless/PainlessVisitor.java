@@ -219,11 +219,59 @@ public interface PainlessVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitTrue(PainlessParser.TrueContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link PainlessParser#external}.
+	 * Visit a parse tree produced by {@link PainlessParser#extstart}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitExternal(PainlessParser.ExternalContext ctx);
+	T visitExtstart(PainlessParser.ExtstartContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link PainlessParser#extprec}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitExtprec(PainlessParser.ExtprecContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link PainlessParser#extcast}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitExtcast(PainlessParser.ExtcastContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link PainlessParser#extarray}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitExtarray(PainlessParser.ExtarrayContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link PainlessParser#extdot}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitExtdot(PainlessParser.ExtdotContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link PainlessParser#extfunc}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitExtfunc(PainlessParser.ExtfuncContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link PainlessParser#extstatic}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitExtstatic(PainlessParser.ExtstaticContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link PainlessParser#extcall}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitExtcall(PainlessParser.ExtcallContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link PainlessParser#extmember}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitExtmember(PainlessParser.ExtmemberContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link PainlessParser#arguments}.
 	 * @param ctx the parse tree

@@ -14,13 +14,19 @@ import org.objectweb.asm.commons.Method;
 class PainlessTypes {
     static class Member {
         final String name;
+        final String field;
         final Type type;
         final Type clazz;
 
-        Member(String name, String type, String clazz) {
-            this.name = name;
-            this.type = Type.getType(type);
-            this.clazz = Type.getType(clazz);
+        Member(final String name, final String field, final String type, final String clazz) {
+            try {
+                this.name = name;
+                this.field = field;
+                this.type = Type.getType(type);
+                this.clazz = Type.getType(Class.forName(clazz));
+            } catch (ClassNotFoundException exception) {
+                throw new IllegalArgumentException(exception);
+            }
         }
     }
 
@@ -79,13 +85,19 @@ class PainlessTypes {
         final String name;
         final Type clazz;
 
-        final Map<String, Method> methods;
-        final Map<String, Member> members;
+        private final Map<String, Method> functions;
+        private final Map<String, Member> statics;
+
+        private final Map<String, Method> methods;
+        private final Map<String, Member> members;
 
         ComplexType(final String name, final String clazz) {
             try {
                 this.name = name;
                 this.clazz = Type.getType(Class.forName(clazz));
+
+                this.functions = new HashMap<>();
+                this.statics = new HashMap<>();
 
                 this.methods = new HashMap<>();
                 this.members = new HashMap<>();
@@ -93,25 +105,35 @@ class PainlessTypes {
                 throw new IllegalArgumentException(exception);
             }
         }
+
+        Method getFunction(String function) {
+            return functions.get(function);
+        }
+
+        Member getStatic(String statik) {
+            return statics.get(statik);
+        }
+
+        Method getMethod(String method) {
+            return methods.get(method);
+        }
+
+        Member getMember(String member) {
+            return members.get(member);
+        }
     }
 
     static class Cast {
         final Type from;
         final Type to;
 
-        final boolean box;
-        final boolean unbox;
-
-        Cast(final String from, final String to, final boolean box, final boolean unbox) {
+        Cast(final String from, final String to) {
             this.from = Type.getType(from);
             this.to = Type.getType(to);
-
-            this.box = box;
-            this.unbox = unbox;
         }
 
         @Override
-        public boolean equals(Object object) {
+        public boolean equals(final Object object) {
             if (this == object) {
                 return true;
             }
@@ -120,7 +142,7 @@ class PainlessTypes {
                 return false;
             }
 
-            Cast cast = (Cast)object;
+            final Cast cast = (Cast)object;
 
             if (!from.equals(cast.from)) {
                 return false;
@@ -148,6 +170,8 @@ class PainlessTypes {
     private final Set<Cast> numerics;
     private final Set<Cast> implicits;
     private final Set<Cast> explicits;
+    private final Set<Cast> boxes;
+    private final Set<Cast> unboxes;
 
     PainlessTypes() {
         types = new HashMap<>();
@@ -157,6 +181,8 @@ class PainlessTypes {
         numerics = new HashSet<>();
         implicits = new HashSet<>();
         explicits = new HashSet<>();
+        boxes = new HashSet<>();
+        unboxes = new HashSet<>();
 
         final Properties properties = new Properties();
 
@@ -168,39 +194,41 @@ class PainlessTypes {
 
         for (String key : properties.stringPropertyNames()) {
             if (key.startsWith("basic")) {
-                String property = properties.getProperty(key);
-                String[] split = property.split("\\s+");
+                final String name = key.substring(key.indexOf('.') + 1).trim();
+
+                if (types.containsKey(name)) {
+                    throw new IllegalArgumentException();
+                }
+
+                final String property = properties.getProperty(key);
+                final String[] split = property.split("\\s+");
 
                 if (split.length != 2) {
                     throw new IllegalArgumentException();
                 }
 
-                String name = key.substring(key.indexOf('.') + 1).trim();
-
-                if (types.containsKey(name)) {
-                    throw new IllegalArgumentException();
-                }
-
-                String basic = split[0].trim();
-                String clazz = split[1].trim();
-                BasicType type = new BasicType(name, basic, clazz);
+                final String basic = split[0].trim();
+                final String clazz = split[1].trim();
+                final BasicType type = new BasicType(name, basic, clazz);
 
                 types.put(name, basic);
                 basics.put(name, type);
             } else if (key.startsWith("complex")) {
-                String name = key.substring(key.indexOf('.') + 1).trim();
+                final String name = key.substring(key.indexOf('.') + 1).trim();
 
                 if (types.containsKey(name)) {
                     throw new IllegalArgumentException();
                 }
 
-                String clazz = properties.getProperty(key).trim();
-                ComplexType type = new ComplexType(name, clazz);
+                final String property = properties.getProperty(key);
+                final String clazz = property.trim();
+                final ComplexType type = new ComplexType(name, clazz);
 
                 types.put(name, clazz);
                 complexes.put(name, type);
             } else {
-                boolean valid = key.startsWith("constructor") || key.startsWith("method") ||
+                boolean valid = key.startsWith("constructor") || key.startsWith("function") ||
+                        key.startsWith("static") || key.startsWith("method") ||
                         key.startsWith("member") || key.startsWith("cast");
 
                 if (!valid) {
@@ -218,13 +246,14 @@ class PainlessTypes {
                 }
 
                 String type = split[1].trim();
-                ComplexType complex = complexes.get(type);
+                final ComplexType complex = complexes.get(type);
 
                 if (complex == null) {
                     throw new IllegalArgumentException();
                 }
 
-                String name = split[2].trim();
+                final String name = split[2].trim();
+
                 String arguments = properties.getProperty(key);
                 arguments = arguments.trim();
 
@@ -238,7 +267,7 @@ class PainlessTypes {
 
                 if (split != null) {
                     for (int argument = 0; argument < split.length; ++argument) {
-                        String argtype = types.get(split[argument]);
+                        final String argtype = types.get(split[argument]);
 
                         if (argtype == null) {
                             throw new IllegalArgumentException();
@@ -254,36 +283,36 @@ class PainlessTypes {
 
                 signature += ")";
 
-                Method method = Method.getMethod(signature);
+                final Method method = Method.getMethod(signature);
                 complex.methods.put(name, method);
-            } else if (key.startsWith("method")) {
+            } else if (key.startsWith("function") || key.startsWith("method")) {
                 String[] split = key.split("\\.");
 
                 if (split.length != 3) {
                     throw new IllegalArgumentException();
                 }
 
-                String type = split[1].trim();
-                ComplexType complex = complexes.get(type);
+                final String type = split[1].trim();
+                final ComplexType complex = complexes.get(type);
 
                 if (complex == null) {
                     throw new IllegalArgumentException();
                 }
 
-                String name = split[2].trim();
+                final String name = split[2].trim();
                 String signature = properties.getProperty(key);
 
                 int index = signature.indexOf(" ");
-                String rtn = signature.substring(0, index);
+                final String rtn = signature.substring(0, index);
                 signature = signature.substring(index + 1);
-                String rtntype = types.get(rtn);
+                final String rtntype = types.get(rtn);
 
                 if (rtntype == null) {
                     throw new IllegalArgumentException();
                 }
 
                 index = signature.indexOf("(");
-                String call = signature.substring(0, index);
+                final String call = signature.substring(0, index);
 
                 if ("".equals(call)) {
                     throw new IllegalArgumentException();
@@ -298,13 +327,13 @@ class PainlessTypes {
                 arguments = arguments.replace("(", "").replace(")", "").replace(" ", "");
                 split = arguments.isEmpty() ? null : arguments.split(",");
 
-                signature = rtntype + " " + name + "(";
+                signature = rtntype + " " + call + "(";
 
                 if (split != null) {
                     for (int argument = 0; argument < split.length; ++argument) {
-                        String argtype = split[argument].trim();
-                        BasicType argbasic = basics.get(argtype);
-                        ComplexType argcomplex = complexes.get(argtype);
+                        final String argtype = split[argument].trim();
+                        final BasicType argbasic = basics.get(argtype);
+                        final ComplexType argcomplex = complexes.get(argtype);
 
                         if (argbasic != null) {
                             signature += argbasic.basic.getClassName();
@@ -322,9 +351,16 @@ class PainlessTypes {
 
                 signature += ")";
 
-                Method method = Method.getMethod(signature);
-                complex.methods.put(name, method);
-            } else if (key.startsWith("member")) {
+                final Method method = Method.getMethod(signature);
+
+                if (key.startsWith("function")) {
+                    complex.functions.put(name, method);
+                } else if (key.startsWith("method")) {
+                    complex.methods.put(name, method);
+                } else {
+                    throw new IllegalStateException();
+                }
+            } else if (key.startsWith("static") || key.startsWith("member")) {
                 String[] split = key.split("\\.");
 
                 if (split.length != 3) {
@@ -332,16 +368,16 @@ class PainlessTypes {
                 }
 
                 String type = split[1].trim();
-                ComplexType complex = complexes.get(type);
+                final ComplexType complex = complexes.get(type);
 
                 if (complex == null) {
                     throw new IllegalArgumentException();
                 }
 
-                String name = split[2].trim();
-                String values = properties.getProperty(key);
+                final String name = split[2].trim();
 
-                split = values.split("\\s+");
+                final String property = properties.getProperty(key);
+                split = property.split("\\s+");
 
                 if (split.length != 2) {
                     throw new IllegalArgumentException();
@@ -354,14 +390,21 @@ class PainlessTypes {
                     throw new IllegalArgumentException();
                 }
 
-                String field = split[1];
+                final String field = split[1];
 
                 if ("".equals(field)) {
                     throw new IllegalArgumentException();
                 }
 
-                Member member = new Member(field, type, complex.clazz.getClassName());
-                complex.members.put(name, member);
+                final Member member = new Member(name, field, type, complex.clazz.getClassName());
+
+                if (key.startsWith("static")) {
+                    complex.statics.put(name, member);
+                } else if (key.startsWith("member")) {
+                    complex.members.put(name, member);
+                } else {
+                    throw new IllegalStateException();
+                }
             } else if (key.startsWith("cast")) {
                 String[] split = key.split("\\.");
 
@@ -369,48 +412,47 @@ class PainlessTypes {
                     throw new IllegalArgumentException();
                 }
 
-                String cast = split[1];
+                final String type = split[1];
 
-                String values = properties.getProperty(key);
-                split = values.split("\\s+");
+                final String property = properties.getProperty(key);
+                split = property.split("\\s+");
 
                 if (split.length != 2 && split.length != 3) {
                     throw new IllegalArgumentException();
                 }
 
-                String from = types.get(split[0].trim());
+                final String from = types.get(split[0].trim());
 
                 if (from == null) {
                     throw new IllegalArgumentException();
                 }
 
-                String to = types.get(split[1].trim());
+                final String to = types.get(split[1].trim());
 
                 if (to == null) {
                     throw new IllegalArgumentException();
                 }
 
-                boolean box = false;
-                boolean unbox = false;
+                final Cast cast = new Cast(from, to);
+
+                if ("numeric".equals(type)) {
+                    numerics.add(cast);
+                } else if ("implicit".equals(type)) {
+                    implicits.add(cast);
+                } else if ("explicit".equals(type)) {
+                    explicits.add(cast);
+                } else {
+                    throw new IllegalArgumentException();
+                }
 
                 if (split.length == 3) {
                     if ("box".equals(split[2])) {
-                        box = true;
+                        boxes.add(cast);
                     } else if ("unbox".equals(split[2])) {
-                        unbox = true;
+                        unboxes.add(cast);
                     } else {
                         throw new IllegalArgumentException();
                     }
-                }
-
-                if ("numeric".equals(cast)) {
-                    numerics.add(new Cast(from, to, box, unbox));
-                } else if ("implicit".equals(cast)) {
-                    implicits.add(new Cast(from, to, box, unbox));
-                } else if ("explicit".equals(cast)) {
-                    explicits.add(new Cast(from, to, box, unbox));
-                } else {
-                    throw new IllegalArgumentException();
                 }
             }
         }

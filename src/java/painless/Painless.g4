@@ -38,7 +38,7 @@ expression
     |               TRUE                                                      # true
     |               FALSE                                                     # false
     |               NULL                                                      # null
-    |               external                                                  # ext
+    |               extstart                                                  # ext
     | <assoc=right> ( BOOLNOT | BWNOT | ADD | SUB ) expression                # unary
     | <assoc=right> LP decltype RP expression                                 # cast
     |               expression ( MUL | DIV | REM ) expression                 # binary
@@ -52,17 +52,25 @@ expression
     |               expression BOOLAND expression                             # bool
     |               expression BOOLOR expression                              # bool
     | <assoc=right> expression COND expression COLON expression               # conditional
-    | <assoc=right> external ASSIGN expression                                # assignment
+    | <assoc=right> extstart ASSIGN expression                                # assignment
     ;
 
-external
-    : LP external RP external?
-    | LP decltype RP external
-    | LBRACE expression RBRACE external?
-    | DOT external
-    | ID arguments external?
-    | ID external?
-    ;
+extstart
+   : extprec
+   | extcast
+   | extfunc
+   | extstatic
+   | extmember
+   ;
+
+extprec:   LP ( extprec | extcast | extfunc | extstatic | extcall | extmember) RP ( extdot | extarray )?;
+extcast:   LP decltype RP ( extprec | extcast | extfunc | extstatic | extcall | extmember );
+extarray:  LBRACE expression RBRACE ( extdot | extarray )?;
+extdot:    DOT ( extcall | extmember );
+extfunc:   TYPE DOT ID arguments ( extdot | extarray )?;
+extstatic: TYPE DOT ID ( extdot | extarray )?;
+extcall:   ID arguments ( extdot | extarray )?;
+extmember: ID (extdot | extarray )?;
 
 arguments
     : ( LP ( expression ( COMMA expression )* )? RP )

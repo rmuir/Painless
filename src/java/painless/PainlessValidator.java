@@ -584,7 +584,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
     @Override
     public Extracted visitAssignment(PainlessParser.AssignmentContext ctx) {
-        return visit(ctx.external());
+        return null;
     }
 
     @Override
@@ -630,16 +630,6 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
     @Override
     public Extracted visitTrue(PainlessParser.TrueContext ctx) {
         return null;
-    }
-
-    @Override
-    public Extracted visitExternal(PainlessParser.ExternalContext ctx) {
-        PainlessExternals.parse(this, ctx, null, null);
-
-        Extracted extracted = new Extracted(ctx);
-        extracted.statement = true;
-
-        return extracted;
     }
 
     @Override
