@@ -2,6 +2,8 @@ package painless;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -15,15 +17,51 @@ class PainlessTypes {
     static class Member {
         final String name;
         final String field;
-        final Type type;
         final Type clazz;
+        final Type owner;
 
-        Member(final String name, final String field, final String type, final String clazz) {
+        Member(final String name, final String field, final String clazz, final String owner) {
+            this.name = name;
+            this.field = field;
+
             try {
-                this.name = name;
-                this.field = field;
-                this.type = Type.getType(type);
-                this.clazz = Type.getType(Class.forName(clazz));
+                switch (clazz) {
+                    case "void":
+                        this.clazz = Type.VOID_TYPE;
+                        break;
+                    case "boolean":
+                        this.clazz = Type.BOOLEAN_TYPE;
+                        break;
+                    case "byte":
+                        this.clazz = Type.BYTE_TYPE;
+                        break;
+                    case "short":
+                        this.clazz = Type.SHORT_TYPE;
+                        break;
+                    case "char":
+                        this.clazz = Type.CHAR_TYPE;
+                        break;
+                    case "int":
+                        this.clazz = Type.INT_TYPE;
+                        break;
+                    case "long":
+                        this.clazz = Type.LONG_TYPE;
+                        break;
+                    case "float":
+                        this.clazz = Type.FLOAT_TYPE;
+                        break;
+                    case "double":
+                        this.clazz = Type.DOUBLE_TYPE;
+                        break;
+                    default:
+                        this.clazz = Type.getType(Class.forName(owner));
+                }
+            } catch (ClassNotFoundException exception) {
+                throw new IllegalArgumentException(exception);
+            }
+
+            try {
+                this.owner = Type.getType(Class.forName(owner));
             } catch (ClassNotFoundException exception) {
                 throw new IllegalArgumentException(exception);
             }
@@ -32,50 +70,63 @@ class PainlessTypes {
 
     static class BasicType {
         final String name;
-        final Type basic;
         final Type clazz;
+        final Type object;
 
-        BasicType(final String name, final String basic, final String clazz) {
+        BasicType(final String name, final String clazz, final String object) {
+            this.name = name;
+
             try {
-                this.name = name;
-
-                String descriptor;
-
-                switch (basic) {
+                switch (clazz) {
                     case "void":
-                        descriptor = "V";
+                        this.clazz = Type.VOID_TYPE;
+                        Type.getObjectType()
+                        Void.class.asSubclass(Class.forName(object));
                         break;
                     case "boolean":
-                        descriptor = "Z";
+                        this.clazz = Type.BOOLEAN_TYPE;
+                        Boolean.class.asSubclass(Class.forName(object));
                         break;
                     case "byte":
-                        descriptor = "B";
+                        this.clazz = Type.BYTE_TYPE;
+                        Byte.class.asSubclass(Class.forName(object));
                         break;
                     case "short":
-                        descriptor = "S";
+                        this.clazz = Type.SHORT_TYPE;
+                        Short.class.asSubclass(Class.forName(object));
                         break;
                     case "char":
-                        descriptor = "C";
+                        this.clazz = Type.CHAR_TYPE;
+                        Character.class.asSubclass(Class.forName(object));
                         break;
                     case "int":
-                        descriptor = "I";
+                        this.clazz = Type.INT_TYPE;
+                        Integer.class.asSubclass(Class.forName(object));
                         break;
                     case "long":
-                        descriptor = "J";
+                        this.clazz = Type.LONG_TYPE;
+                        Long.class.asSubclass(Class.forName(object));
                         break;
                     case "float":
-                        descriptor = "F";
+                        this.clazz = Type.FLOAT_TYPE;
+                        Float.class.asSubclass(Class.forName(object));
                         break;
                     case "double":
-                        descriptor = "D";
+                        this.clazz = Type.DOUBLE_TYPE;
+                        Double.class.asSubclass(Class.forName(object));
                         break;
                     default:
                         throw new IllegalArgumentException();
                 }
-
-                this.basic = Type.getType(descriptor);
-                this.clazz = Type.getType(Class.forName(clazz));
             } catch (ClassNotFoundException exception) {
+                throw new IllegalArgumentException();
+            }
+
+            try {
+                this.object = Type.getType(Class.forName(object));
+            } catch (ClassNotFoundException exception) {
+                throw new IllegalArgumentException(exception);
+            } catch (ClassCastException exception) {
                 throw new IllegalArgumentException(exception);
             }
         }
@@ -88,22 +139,25 @@ class PainlessTypes {
         private final Map<String, Method> functions;
         private final Map<String, Member> statics;
 
+        private final Map<String, Method> constructors;
         private final Map<String, Method> methods;
         private final Map<String, Member> members;
 
         ComplexType(final String name, final String clazz) {
+            this.name = name;
+
             try {
-                this.name = name;
                 this.clazz = Type.getType(Class.forName(clazz));
-
-                this.functions = new HashMap<>();
-                this.statics = new HashMap<>();
-
-                this.methods = new HashMap<>();
-                this.members = new HashMap<>();
             } catch (ClassNotFoundException exception) {
                 throw new IllegalArgumentException(exception);
             }
+
+            this.functions = new HashMap<>();
+            this.statics = new HashMap<>();
+
+            this.constructors = new HashMap<>();
+            this.methods = new HashMap<>();
+            this.members = new HashMap<>();
         }
 
         Method getFunction(String function) {
@@ -112,6 +166,10 @@ class PainlessTypes {
 
         Member getStatic(String statik) {
             return statics.get(statik);
+        }
+
+        Method getConstructor(String constructor) {
+            return constructors.get(constructor);
         }
 
         Method getMethod(String method) {
@@ -124,12 +182,12 @@ class PainlessTypes {
     }
 
     static class Cast {
-        final Type from;
-        final Type to;
+        final String from;
+        final String to;
 
         Cast(final String from, final String to) {
-            this.from = Type.getType(from);
-            this.to = Type.getType(to);
+            this.from = from;
+            this.to = to;
         }
 
         @Override
@@ -161,9 +219,43 @@ class PainlessTypes {
         }
     }
 
+    static Class getClass(final Type type) throws ClassNotFoundException {
+        return getClass(type.getClassName());
+    }
+
+    static Class getClass(final String clazz) throws ClassNotFoundException {
+        switch (clazz) {
+            case "void":
+                return void.class;
+            case "boolean":
+                return boolean.class;
+            case "byte":
+                return byte.class;
+            case "short":
+                return short.class;
+            case "char":
+                return char.class;
+            case "int":
+                return int.class;
+            case "long":
+                return long.class;
+            case "float":
+                return float.class;
+            case "double":
+                return double.class;
+            default:
+                return Class.forName(clazz);
+        }
+    }
+
+    static boolean isNumeric(final Type type) {
+
+    }
+
     private static final String PROPERTIES_FILE = PainlessTypes.class.getSimpleName() + ".properties";
 
-    private final Map<String, String> types;
+    private final Map<String, Type> types;
+    private final Map<String, Class> classes;
     private final Map<String, BasicType> basics;
     private final Map<String, ComplexType> complexes;
 
@@ -175,6 +267,7 @@ class PainlessTypes {
 
     PainlessTypes() {
         types = new HashMap<>();
+        classes = new HashMap<>();
         basics = new HashMap<>();
         complexes = new HashMap<>();
 
@@ -207,12 +300,12 @@ class PainlessTypes {
                     throw new IllegalArgumentException();
                 }
 
-                final String basic = split[0].trim();
-                final String clazz = split[1].trim();
-                final BasicType type = new BasicType(name, basic, clazz);
+                final String clazz = split[0].trim();
+                final String object = split[1].trim();
+                final BasicType basic = new BasicType(name, clazz, object);
 
-                types.put(name, basic);
-                basics.put(name, type);
+                types.put(name, clazz);
+                basics.put(name, basic);
             } else if (key.startsWith("complex")) {
                 final String name = key.substring(key.indexOf('.') + 1).trim();
 
@@ -222,10 +315,10 @@ class PainlessTypes {
 
                 final String property = properties.getProperty(key);
                 final String clazz = property.trim();
-                final ComplexType type = new ComplexType(name, clazz);
+                final ComplexType complex = new ComplexType(name, clazz);
 
                 types.put(name, clazz);
-                complexes.put(name, type);
+                complexes.put(name, complex);
             } else {
                 boolean valid = key.startsWith("constructor") || key.startsWith("function") ||
                         key.startsWith("static") || key.startsWith("method") ||
@@ -284,7 +377,7 @@ class PainlessTypes {
                 signature += ")";
 
                 final Method method = Method.getMethod(signature);
-                complex.methods.put(name, method);
+                complex.constructors.put(name, method);
             } else if (key.startsWith("function") || key.startsWith("method")) {
                 String[] split = key.split("\\.");
 
@@ -336,7 +429,7 @@ class PainlessTypes {
                         final ComplexType argcomplex = complexes.get(argtype);
 
                         if (argbasic != null) {
-                            signature += argbasic.basic.getClassName();
+                            signature += argbasic.clazz.getClassName();
                         } else if (argcomplex != null) {
                             signature += argcomplex.clazz.getClassName();
                         } else {
@@ -367,7 +460,7 @@ class PainlessTypes {
                     throw new IllegalArgumentException();
                 }
 
-                String type = split[1].trim();
+                final String type = split[1].trim();
                 final ComplexType complex = complexes.get(type);
 
                 if (complex == null) {
@@ -383,10 +476,9 @@ class PainlessTypes {
                     throw new IllegalArgumentException();
                 }
 
-                type = split[0].trim();
-                type = types.get(type);
+                final String clazz = types.get(split[0].trim());
 
-                if (type == null) {
+                if (clazz == null) {
                     throw new IllegalArgumentException();
                 }
 
@@ -396,7 +488,9 @@ class PainlessTypes {
                     throw new IllegalArgumentException();
                 }
 
-                final Member member = new Member(name, field, type, complex.clazz.getClassName());
+                final String owner = complex.clazz.getClassName();
+
+                final Member member = new Member(name, field, clazz, owner);
 
                 if (key.startsWith("static")) {
                     complex.statics.put(name, member);
@@ -421,15 +515,15 @@ class PainlessTypes {
                     throw new IllegalArgumentException();
                 }
 
-                final String from = types.get(split[0].trim());
+                final String from = split[0].trim();
 
-                if (from == null) {
+                if (!types.containsKey(from)) {
                     throw new IllegalArgumentException();
                 }
 
-                final String to = types.get(split[1].trim());
+                final String to = split[1].trim();
 
-                if (to == null) {
+                if (!types.containsKey(to)) {
                     throw new IllegalArgumentException();
                 }
 
@@ -454,6 +548,169 @@ class PainlessTypes {
                         throw new IllegalArgumentException();
                     }
                 }
+            }
+        }
+
+        for (final ComplexType complex : complexes.values()) {
+            Class clazz;
+
+            try {
+                clazz = getClass(complex.clazz);
+            } catch (ClassNotFoundException exception) {
+                throw new IllegalArgumentException();
+            }
+
+            for (final Method function : complex.functions.values()) {
+                final String name = function.getName();
+                final Type[] types = function.getArgumentTypes();
+                final Class[] arguments = new Class[types.length];
+
+                for (int type = 0; type < types.length; ++type) {
+                    try {
+                        arguments[type] = getClass(types[type]);
+                    } catch (ClassNotFoundException exception) {
+                        throw new IllegalArgumentException();
+                    }
+                }
+
+                java.lang.reflect.Method validate;
+
+                try {
+                    validate = clazz.getMethod(name, arguments);
+                } catch (NoSuchMethodException exception) {
+                    throw new IllegalArgumentException();
+                }
+
+                try {
+                    if (!getClass(function.getReturnType()).equals(validate.getReturnType())) {
+                        throw new IllegalArgumentException();
+                    }
+                } catch (ClassNotFoundException exception ) {
+                    throw new IllegalArgumentException();
+                }
+
+                if (!Modifier.isStatic(validate.getModifiers())) {
+                    throw new IllegalArgumentException();
+                }
+            }
+
+            for (final Member statik : complex.statics.values()) {
+                Field field;
+
+                try {
+                    field = clazz.getField(statik.field);
+                } catch (NoSuchFieldException exception) {
+                    throw new IllegalArgumentException();
+                }
+
+                Class type;
+
+                try {
+                    type = getClass(statik.clazz);
+                } catch (ClassNotFoundException exception) {
+                    throw new IllegalArgumentException();
+                }
+
+                if (!type.equals(field.getType())) {
+                    throw new IllegalArgumentException();
+                }
+
+                if (!Modifier.isStatic(field.getModifiers())) {
+                    throw new IllegalArgumentException();
+                }
+            }
+
+            for (final Method constructor : complex.constructors.values()) {
+                final Type[] types = constructor.getArgumentTypes();
+                final Class[] arguments = new Class[types.length];
+
+                for (int type = 0; type < types.length; ++type) {
+                    try {
+                        arguments[type] = getClass(types[type]);
+                    } catch (ClassNotFoundException exception) {
+                        throw new IllegalArgumentException();
+                    }
+                }
+
+                try {
+                    clazz.getConstructor(arguments);
+                } catch (NoSuchMethodException exception) {
+                    throw new IllegalArgumentException();
+                }
+            }
+
+            for (final Method method : complex.methods.values()) {
+                final String name = method.getName();
+                final Type[] types = method.getArgumentTypes();
+                final Class[] arguments = new Class[types.length];
+
+                for (int type = 0; type < types.length; ++type) {
+                    try {
+                        arguments[type] = getClass(types[type]);
+                    } catch (ClassNotFoundException exception) {
+                        throw new IllegalArgumentException();
+                    }
+                }
+
+                java.lang.reflect.Method validate;
+
+                try {
+                    validate = clazz.getMethod(name, arguments);
+                } catch (NoSuchMethodException exception) {
+                    throw new IllegalArgumentException();
+                }
+
+                try {
+                    if (!getClass(method.getReturnType()).equals(validate.getReturnType())) {
+                        throw new IllegalArgumentException();
+                    }
+                } catch (ClassNotFoundException exception ) {
+                    throw new IllegalArgumentException();
+                }
+
+                if (Modifier.isStatic(validate.getModifiers())) {
+                    throw new IllegalArgumentException();
+                }
+            }
+
+            for (final Member member : complex.members.values()) {
+                Field field;
+
+                try {
+                    field = clazz.getField(member.field);
+                } catch (NoSuchFieldException exception) {
+                    throw new IllegalArgumentException();
+                }
+
+                Class type;
+
+                try {
+                    type = getClass(member.clazz);
+                } catch (ClassNotFoundException exception) {
+                    throw new IllegalArgumentException();
+                }
+
+                if (!type.equals(field.getType())) {
+                    throw new IllegalArgumentException();
+                }
+
+                if (Modifier.isStatic(field.getModifiers())) {
+                    throw new IllegalArgumentException();
+                }
+            }
+        }
+
+        for (Cast numeric : numerics) {
+            try {
+                getClass(numeric.from);
+            } catch (ClassNotFoundException exception) {
+                throw new IllegalArgumentException();
+            }
+
+            try {
+                getClass(numeric.to);
+            } catch (ClassNotFoundException exception) {
+                throw new IllegalArgumentException();
             }
         }
     }

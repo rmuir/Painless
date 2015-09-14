@@ -4,7 +4,7 @@ public class PainlessPoint {
     public double x;
     public double y;
 
-    PainlessPoint(double x, double y) {
+    public PainlessPoint(final double x, final double y) {
         this.x = x;
         this.y = y;
     }

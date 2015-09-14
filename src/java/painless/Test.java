@@ -14,10 +14,10 @@ public class Test {
     int i = 0;
 
     public void test2() {
-        test(new ArrayList());
+        //test(new ArrayList());
     }
 
-    public int test(Map input) {
+    public int test() {
         int[][] x = new int[5][5];
         int l = x.length;
         x.clone();
@@ -29,10 +29,18 @@ public class Test {
 
         //int t = (((Long)(long)(y).hashCode()));
 
+        HashMap hm = new HashMap();
+
+        test(hm);
+
         return 0;
     }
 
     public int test(Object o) {
+        return 1;
+    }
+
+    public int test(Map m) {
         return 1;
     }
 }

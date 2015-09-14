@@ -134,6 +134,8 @@ FALSE: 'false';
 
 NULL: 'null';
 
+VOID: 'void';
+
 TYPE
     : 'bool'
     | 'byte'
