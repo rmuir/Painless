@@ -1,4 +1,4 @@
-// Generated from src/painless/Painless.g4 by ANTLR 4.5
+// Generated from src/java/painless/Painless.g4 by ANTLR 4.5
 package painless;
 import org.antlr.v4.runtime.misc.NotNull;
 import org.antlr.v4.runtime.tree.ParseTreeVisitor;

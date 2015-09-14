@@ -10,10 +10,11 @@ public final class Painless {
         //last &= true;
         //System.out.println(last);
         //System.out.println(Type.getType("[[[java/lang/Object;").equals(Type.getType("[[[java/lang/Object;")));
-        String test =
-                "x([3]) = 1;"
-                ;
-        System.out.println(compile("test", test));
+        //String test =
+        //        "x([3]) = 1;"
+        //        ;
+        //System.out.println(compile("test", test));
+        compile("", "");
     }
 
     public static PainlessExecutable compile(String name, String source) {

@@ -142,6 +142,7 @@ TYPE
     | 'point'
     | 'list'
     | 'map'
+    | '$' [a-z]*
     ;
 
 ID: [_a-zA-Z] [_a-zA-Z0-9]*;

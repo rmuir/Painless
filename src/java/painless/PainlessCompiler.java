@@ -15,7 +15,7 @@ import painless.PainlessValidator.*;
 
 final class PainlessCompiler {
     static PainlessExecutable compile(String name, String source, ClassLoader parent) {
-        new PainlessTypes("PainlessTypes.properties");
+        new PainlessTypes();
         //final ParseTree root = createParseTree(source);
         //Deque<Argument> arguments = new ArrayDeque<>();
         //arguments.push(new Argument("this", PainlessValidator.EXECUTABLE_TYPE));
