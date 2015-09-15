@@ -147,9 +147,6 @@ TYPE
     | 'char'
     | 'string'
     | 'object'
-    | 'date'
-    | 'timedelta'
-    | 'point'
     | 'list'
     | 'map'
     | '$' [a-z]*
