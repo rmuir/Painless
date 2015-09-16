@@ -14,7 +14,7 @@ public final class Painless {
         //        "x([3]) = 1;"
         //        ;
         //System.out.println(compile("test", test));
-        compile("", "");
+        compile("test", "int[] test;");
     }
 
     public static PainlessExecutable compile(String name, String source) {

@@ -178,10 +178,15 @@ class PainlessTypes {
     private final Map<Type, PClass> aclasses;
     private final Map<PCast, PMethod> ptransforms;
 
+    private final PClass parray;
+
     PainlessTypes() {
         pclasses = new HashMap<>();
         aclasses = new HashMap<>();
         ptransforms = new HashMap<>();
+
+        parray = new PClass("[", Type.getType("[Ljava/lang/Object;"));
+        parray.pmembers.put("length", new PMember("length", parray, "arraylength", Type.INT_TYPE));
 
         final Properties properties = new Properties();
 
@@ -616,10 +621,18 @@ class PainlessTypes {
     }
 
     final PClass getPClass(final String ptype) {
+        if (ptype.endsWith("[]")) {
+            return parray;
+        }
+
         return pclasses.get(ptype);
     }
 
     final PClass getPClass(final Type atype) {
+        if (atype.getSort() == Type.ARRAY) {
+            return parray;
+        }
+
         return aclasses.get(atype);
     }
 
