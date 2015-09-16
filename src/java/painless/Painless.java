@@ -3,7 +3,7 @@ package painless;
 import org.objectweb.asm.Type;
 
 public final class Painless {
-    public static void main(String args[]) {
+    public static void main(String args[]) throws Exception {
         //double d = 1/3;
         //System.out.println(d);
         //boolean last = true;

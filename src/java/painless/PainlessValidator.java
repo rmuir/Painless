@@ -3,143 +3,34 @@ package painless;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
-import org.objectweb.asm.Type;
-import org.objectweb.asm.commons.Method;
 
 import static painless.PainlessParser.*;
+import static painless.PainlessTypes.*;
 
-class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted> {
-    static class Argument {
+class PainlessValidator /*extends PainlessBaseVisitor<PainlessValidator.Extracted>*/ {
+    /*static class Argument {
         final String name;
-        final Type type;
+        final VType vtype;
 
-        Argument(final String name, final Type type) {
+        Argument(final String name, final VType vtype) {
             this.name = name;
-            this.type = type;
-        }
-    }
-
-    static class Cast {
-        final Type from;
-        final Type to;
-
-        Cast(final Type from, final Type to) {
-            this.from = from;
-            this.to = to;
-        }
-    }
-
-    private static class External {
-        final Map<String, Type> members;
-        final Map<String, Method> methods;
-
-        External() {
-            members = new HashMap<>();
-            methods = new HashMap<>();
-        }
-    }
-
-    private static class Externals {
-        final Map<String, Type> types;
-        final Map<Type, External> externals;
-        final External array;
-
-        Externals() {
-            types = new HashMap<>();
-            externals = new HashMap<>();
-            array = new External();
-        }
-
-        Type getType(final String type, int dimensions) {
-            Type rtn = types.get(type);
-
-            if (rtn == null) {
-                throw new IllegalArgumentException();
-            }
-
-            if (dimensions > 0) {
-                String descriptor = "";
-
-                while (dimensions > 0) {
-                    descriptor += "[";
-                }
-
-                descriptor += rtn.getDescriptor();
-                rtn = Type.getType(descriptor);
-            }
-
-            return rtn;
-        }
-
-        Type getMember(final Type type, final String name) {
-            External external;
-
-            if (type.getSort() == Type.ARRAY) {
-                if (externals.get(type.getElementType()) == null) {
-                    throw new IllegalArgumentException();
-                }
-
-                external = array;
-            } else {
-                external = externals.get(type);
-            }
-
-            if (external == null) {
-                throw new IllegalArgumentException();
-            }
-
-            Type rtn = external.members.get(name);
-
-            if (rtn == null) {
-                throw new IllegalArgumentException();
-            }
-
-            return rtn;
-        }
-
-        Method getMethod(final Type type, final String name) {
-            External external;
-
-            if (type.getSort() == Type.ARRAY) {
-                if (externals.get(type.getElementType()) == null) {
-                    throw new IllegalArgumentException();
-                }
-
-                external = array;
-            } else {
-                external = externals.get(type);
-            }
-
-            if (external == null) {
-                throw new IllegalArgumentException();
-            }
-
-            Method rtn = external.methods.get(name);
-
-            if (rtn == null) {
-                throw new IllegalArgumentException();
-            }
-
-            return rtn;
+            this.vtype = vtype;
         }
     }
 
     private static class Variable {
         final String name;
-        final Type type;
+        final VType vtype;
         final int slot;
 
-        Variable(final String name, final Type type, final int slot) {
+        Variable(final String name, final VType type, final int slot) {
             this.name = name;
-            this.type = type;
+            this.vtype = type;
             this.slot = slot;
         }
     }
@@ -167,7 +58,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
             }
         }
 
-        void add(final String name, final Type type) {
+        void add(final String name, final VType vtype) {
             if (get(name) != null) {
                 throw new IllegalArgumentException();
             }
@@ -176,10 +67,10 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
             int slot = 0;
 
             if (previous != null) {
-                slot = previous.type.equals(Type.DOUBLE_TYPE) || previous.type.equals(Type.LONG_TYPE) ? slot + 2 : slot + 1;
+                slot += previous.vtype.size;
             }
 
-            Variable variable = new Variable(name, type, slot);
+            Variable variable = new Variable(name, vtype, slot);
             variables.push(variable);
 
             int update = scopes.pop();
@@ -202,18 +93,11 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
         }
     }
 
-    static void validate(ParseTree root, Deque<Argument> arguments) {
-        new PainlessValidator(root, arguments);
-    }
-
-    class Extracted {
+    static class Extracted {
         final ParseTree source;
 
-        ParseTree node0 = null;
-        ParseTree node1 = null;
-
-        Type type0 = null;
-        Type type1 = null;
+        final Deque<ParseTree> nodes;
+        final Deque<VType> vtypes;
 
         boolean statement = false;
         boolean jump = false;
@@ -221,36 +105,58 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
         Extracted(final ParseTree source) {
             this.source = source;
-        }
 
-        void markCast(Type to, boolean explicit) {
+            nodes = new ArrayDeque<>();
+            vtypes = new ArrayDeque<>();
         }
     }
 
+    static void validate(ParseTree root, PainlessTypes types, Deque<Argument> arguments) {
+        new PainlessValidator(root, types, arguments);
+    }
+
+    private final PainlessTypes types;
+
     private final Variables variables;
-    private final Externals externals;
-    private final Deque<Type> types;
     private int loop;
 
-    private final Map<ParseTree, Cast> casts;
+    private final Map<ParseTree, PCast> casts;
 
-    private PainlessValidator(ParseTree root, Deque<Argument> arguments) {
+    private PainlessValidator(ParseTree root, PainlessTypes types, Deque<Argument> arguments) {
+        this.types = types;
+
         variables = new Variables();
 
         Iterator<Argument> itr = arguments.iterator();
 
         while (itr.hasNext()) {
-            Argument argument = itr.next();
-            variables.add(argument.name, argument.type);
+            final Argument argument = itr.next();
+            variables.add(argument.name, argument.vtype);
         }
 
-        externals = new Externals();
-        types = new ArrayDeque<>();
         loop = 0;
 
         casts = new HashMap<>();
 
         visit(root);
+    }
+
+    private void markCast(final Extracted extracted, final VType to, final boolean explicit) {
+        final Iterator<ParseTree> nodes = extracted.nodes.iterator();
+        final Iterator<VType> vtypes = extracted.vtypes.iterator();
+
+        while (nodes.hasNext() && vtypes.hasNext()) {
+            final ParseTree node = nodes.next();
+            final VType from = vtypes.next();
+
+            if (from.dimensions != to.dimensions) {
+
+            }
+        }
+
+        if (nodes.hasNext() && !vtypes.hasNext() || !nodes.hasNext() && vtypes.hasNext()) {
+            throw new IllegalStateException();
+        }
     }
 
     @Override
@@ -280,12 +186,12 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
         return extracted;
     }
 
-    @Override
+    /*@Override
     public Extracted visitIf(IfContext ctx) {
         variables.incrementScope();
 
         Extracted extexpr = visit(ctx.expression());
-        extexpr.markCast(Type.BOOLEAN_TYPE, false);
+        markCast(extexpr, types.getPType(boolean.class).name, false);
 
         Extracted extracted = new Extracted(ctx);
         extracted.statement = true;
@@ -309,7 +215,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
         ExpressionContext ectx = ctx.expression();
         Extracted extexpr = visit(ectx);
-        extexpr.markCast(Type.BOOLEAN_TYPE, false);
+        markCast(extexpr, types.getPType(boolean.class).name, false);
 
         visit(ctx.block());
 
@@ -331,7 +237,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
         ExpressionContext ectx = ctx.expression();
         Extracted extexpr = visit(ectx);
-        extexpr.markCast(Type.BOOLEAN_TYPE, false);
+        markCast(extexpr, types.getPType(boolean.class).name, false);
 
         Extracted extracted = new Extracted(ctx);
         extracted.statement = true;
@@ -354,7 +260,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
         }
 
         Extracted extexpr0 = visit(ctx.expression(0));
-        extexpr0.markCast(Type.BOOLEAN_TYPE, false);
+        markCast(extexpr0, types.getPType(boolean.class).name, false);
 
         Extracted extexpr1 = visit(ctx.expression(1));
 
@@ -407,7 +313,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
     @Override
     public Extracted visitReturn(ReturnContext ctx) {
         Extracted extexpr = visit(ctx.expression());
-        extexpr.markCast(externals.getType("object", 0), false);
+        markCast(extexpr, types.getPType(Object.class).name, false);;
 
         Extracted extracted = new Extracted(ctx);
         extracted.statement = true;
@@ -500,7 +406,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
     public Extracted visitDecltype(DecltypeContext ctx) {
         String type = ctx.TYPE().getText();
         int dimensions = ctx.LBRACE().size();
-        /*String descriptor;
+        String descriptor;
 
         switch (type) {
             case "bool":
@@ -548,7 +454,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
         for (int dimension = 0; dimension < dimensions; ++dimension) {
             descriptor = '[' + descriptor;
-        }*/
+        }
 
         Extracted extracted = new Extracted(ctx);
         extracted.node0 = ctx;
@@ -633,7 +539,52 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
     }
 
     @Override
-    public Extracted visitArguments(PainlessParser.ArgumentsContext ctx) {
+    public Extracted visitExtstart(ExtstartContext ctx) {
         return null;
     }
+
+    @Override
+    public Extracted visitExtprec(ExtprecContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Extracted visitExtcast(ExtcastContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Extracted visitExtarray(ExtarrayContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Extracted visitExtdot(ExtdotContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Extracted visitExtfunc(ExtfuncContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Extracted visitExtstatic(ExtstaticContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Extracted visitExtcall(ExtcallContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Extracted visitExtmember(ExtmemberContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Extracted visitArguments(PainlessParser.ArgumentsContext ctx) {
+        return null;
+    }*/
 }
