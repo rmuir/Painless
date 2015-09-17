@@ -195,7 +195,7 @@ class PainlessWriter extends PainlessBaseVisitor<Object>{
 
     @Override
     public Object visitNumeric(NumericContext ctx) {
-        /*if (!PainlessTypeUtility.isDescriptorNumeric(expected.peek())) {
+        /*if (!PainlessTypeUtility.isDescriptorNumeric(aexpected.peek())) {
             throw new IllegalStateException();
         }
 

@@ -46,7 +46,12 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
         boolean jump;
         boolean statement;
 
-        Type aexpected;
+        Type adecltype;
+
+        Object constant;
+
+        ParseTree castnodes[];
+        Type castatypes[];
 
         Metadata(final ParseTree node) {
             this.node = node;
@@ -55,7 +60,12 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
             jump = false;
             statement = false;
 
-            aexpected = null;
+            adecltype = null;
+
+            constant = null;
+
+            castnodes = null;
+            castatypes = null;
         }
     }
 
@@ -164,12 +174,38 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
                 asort == INT || asort == LONG || asort == FLOAT || asort == DOUBLE;
     }
 
-    private void markCast(final Metadata metadata, final Type afrom, final Type ato, final boolean explicit) {
+    private void markCast(final Metadata metadata, final Type ato, final boolean explicit) {
         //TODO: check legality of cast
     }
 
-    private void markPromotion(final Metadata metadata, final Type amax, final Type aone, final Type atwo) {
-        //TODO: do necessary promotion
+    private Type getPromotion(final Metadata[] metadatas, final boolean decimal) {
+        Type apromote = INT_TYPE;
+
+        for (final Metadata metadata : metadatas) {
+            for (final Type atype : metadata.castatypes) {
+                if (!isNumeric(atype)) {
+                    throw new IllegalArgumentException();
+                }
+
+                if (atype.getSort() == LONG && apromote.getSort() == INT) {
+                    apromote = LONG_TYPE;
+                } else if (atype.getSort() == FLOAT && apromote.getSort() != DOUBLE) {
+                    if (!decimal) {
+                        throw new IllegalArgumentException();
+                    }
+
+                    apromote = FLOAT_TYPE;
+                } else if (atype.getSort() == DOUBLE) {
+                    if (!decimal) {
+                        throw new IllegalArgumentException();
+                    }
+
+                    apromote = DOUBLE_TYPE;
+                }
+            }
+        }
+
+        return apromote;
     }
 
     @Override
@@ -208,8 +244,8 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         final ExpressionContext ectx = ctx.expression();
         final Metadata expressionmd = createMetadata(ectx);
-        expressionmd.aexpected = BOOLEAN_TYPE;
         visit(ectx);
+        markCast(expressionmd, BOOLEAN_TYPE, false);
 
         final BlockContext bctx0 = ctx.block(0);
         final Metadata blockmd0 = createMetadata(bctx0);
@@ -238,8 +274,8 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         final ExpressionContext ectx = ctx.expression();
         final Metadata expressionmd = createMetadata(ctx);
-        expressionmd.aexpected = BOOLEAN_TYPE;
         visit(ectx);
+        markCast(expressionmd, BOOLEAN_TYPE, false);
 
         final BlockContext bctx = ctx.block();
         createMetadata(bctx);
@@ -266,8 +302,8 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         final ExpressionContext ectx = ctx.expression();
         final Metadata expressionmd = createMetadata(ctx);
-        expressionmd.aexpected = BOOLEAN_TYPE;
         visit(ectx);
+        markCast(expressionmd, BOOLEAN_TYPE, false);
 
         domd.statement = true;
 
@@ -294,8 +330,8 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         final ExpressionContext ectx0 = ctx.expression(0);
         final Metadata expressionmd0 = createMetadata(ectx0);
-        expressionmd0.aexpected = BOOLEAN_TYPE;
         visit(ectx0);
+        markCast(expressionmd0, BOOLEAN_TYPE, false);
 
         final ExpressionContext ectx1 = ctx.expression(0);
         final Metadata expressionmd1 = createMetadata(ectx1);
@@ -364,8 +400,8 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         final ExpressionContext ectx = ctx.expression();
         final Metadata expressionmd = createMetadata(ctx);
-        expressionmd.aexpected = Type.getType("Ljava/lang/Object;");
         visit(ectx);
+        markCast(expressionmd, getType("Ljava/lang/Object;"), false);
 
         returnmd.rtn = true;
         returnmd.statement = true;
@@ -380,6 +416,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
         final ExpressionContext ectx = ctx.expression();
         final Metadata expressionmd = createMetadata(ctx);
         visit(ectx);
+        //TODO: pop return value if necessary?
 
         exprmd.statement = expressionmd.statement;
 
@@ -387,58 +424,64 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
     }
 
     @Override
-    public Extracted visitMultiple(MultipleContext ctx) {
-        Extracted extracted = new Extracted();
+    public Void visitMultiple(final MultipleContext ctx) {
+        final Metadata multiplemd = getMetadata(ctx);
 
         for (StatementContext sctx : ctx.statement()) {
-            if (extracted.rtn || extracted.jump) {
+            if (multiplemd.rtn || multiplemd.jump) {
                 throw new IllegalStateException();
             }
 
-            Extracted extstate = visit(sctx);
+            final Metadata statementmd = new Metadata(sctx);
+            visit(sctx);
 
-            if (!extstate.statement) {
+            if (!statementmd.statement) {
                 throw new IllegalStateException();
             }
 
-            extracted.rtn = extstate.rtn;
-            extracted.jump = extstate.jump;
+            multiplemd.rtn = statementmd.rtn;
+            multiplemd.jump = statementmd.jump;
         }
 
+        multiplemd.statement = true;
 
-        extracted.statement = true;
-
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitSingle(SingleContext ctx) {
-        Extracted extstate = visit(ctx.statement());
+    public Void visitSingle(final SingleContext ctx) {
+        final Metadata singlemd = getMetadata(ctx);
 
-        if (!extstate.statement) {
+        final StatementContext sctx = ctx.statement();
+        final Metadata statementmd = new Metadata(sctx);
+        visit(sctx);
+
+        if (!statementmd.statement) {
             throw new IllegalStateException();
         }
 
-        Extracted extracted = new Extracted();
-        extracted.statement = true;
+        singlemd.statement = true;
 
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitEmpty(EmptyContext ctx) {
-        Extracted extracted = new Extracted();
-        extracted.statement = true;
+    public Void visitEmpty(final EmptyContext ctx) {
+        final Metadata emptymd = getMetadata(ctx);
+        emptymd.statement = true;
 
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitDeclaration(PainlessParser.DeclarationContext ctx) {
-        final DecltypeContext decltype = ctx.decltype();
-        final Type atype = ptypes.getATypeFromPClass(decltype.getText());
+    public Void visitDeclaration(final DeclarationContext ctx) {
+        final Metadata declarationmd = getMetadata(ctx);
 
-        if (atype == null) {
+        final DecltypeContext dctx = ctx.decltype();
+        final Metadata decltypemd = createMetadata(dctx);
+        final Type adecltype = decltypemd.adecltype;
+
+        if (adecltype == null) {
             throw new IllegalArgumentException();
         }
 
@@ -449,49 +492,65 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
                 final TerminalNode tctx = (TerminalNode)cctx;
 
                 if (tctx.getSymbol().getType() == PainlessLexer.ID) {
-                    final String vname = tctx.getText();
-                    variables.add(vname, atype);
+                    final String name = tctx.getText();
+                    addVariable(name, adecltype);
                 }
             } else if (cctx instanceof ExpressionContext) {
-                final Extracted extcctx = visit(cctx);
-                markCast(extcctx, atype, false);
+                final ExpressionContext ectx = (ExpressionContext)cctx;
+                final Metadata expressiondmd = createMetadata(ectx);
+                visit(ectx);
+                markCast(expressiondmd, adecltype, false);
                 //TODO: mark write variable?
             }
         }
 
-        final Extracted extracted = new Extracted();
-        extracted.statement = true;
+        declarationmd.statement = true;
 
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitDecltype(DecltypeContext ctx) {
-        throw new UnsupportedOperationException();
+    public Void visitDecltype(final DecltypeContext ctx) {
+        final Metadata decltypemd = getMetadata(ctx);
+
+        final String ptype = ctx.getText();
+        decltypemd.adecltype = ptypes.getATypeFromPClass(ptype);
+
+        return null;
     }
 
     @Override
-    public Extracted visitExt(ExtContext ctx) {
-        return visit(ctx.extstart());
+    public Void visitPrecedence(final PrecedenceContext ctx) {
+        final Metadata precedencemd = getMetadata(ctx);
+
+        final ExpressionContext ectx = ctx.expression();
+        final Metadata expressionmd = createMetadata(ectx);
+        visit(ectx);
+
+        precedencemd.castnodes = expressionmd.castnodes;
+        precedencemd.castatypes = expressionmd.castatypes;
+        precedencemd.constant = expressionmd.constant;
+
+        return null;
     }
 
     @Override
-    public Extracted visitPrecedence(PrecedenceContext ctx) {
-        return visit(ctx.expression());
-    }
+    public Void visitNumeric(final NumericContext ctx) {
+        final Metadata numericmd = getMetadata(ctx);
 
-    @Override
-    public Extracted visitNumeric(NumericContext ctx) {
-        Type atype;
+        numericmd.castnodes = new ParseTree[] {ctx};
+        numericmd.castatypes = new Type[1];
 
         if (ctx.DECIMAL() != null) {
             final String svalue = ctx.OCTAL().getText();
             final double dvalue = Double.parseDouble(svalue);
 
-            if (dvalue > Float.MIN_VALUE && dvalue < Float.MAX_VALUE) {
-                atype = Type.FLOAT_TYPE;
+            if (svalue.endsWith("f") || svalue.endsWith("F") && dvalue < Float.MAX_VALUE && dvalue > Float.MIN_VALUE) {
+                numericmd.constant = (float)dvalue;
+                numericmd.castatypes[0] = FLOAT_TYPE;
             } else {
-                atype = Type.DOUBLE_TYPE;
+                numericmd.constant = Double.parseDouble(svalue);
+                numericmd.castatypes[0] = DOUBLE_TYPE;
             }
         } else {
             String svalue;
@@ -507,162 +566,344 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
                 svalue = ctx.HEX().getText();
                 lvalue = Long.parseLong(svalue);
             } else {
+                throw new IllegalStateException();
+            }
+
+            if (svalue.endsWith("l") || svalue.endsWith("L")) {
+                numericmd.constant = lvalue;
+                numericmd.castatypes[0] = LONG_TYPE;
+            } else if (lvalue > Integer.MIN_VALUE && lvalue < Integer.MAX_VALUE) {
+                numericmd.constant = (int)lvalue;
+                numericmd.castatypes[0] = INT_TYPE;
+            } else {
                 throw new IllegalArgumentException();
             }
-
-            if (lvalue > Byte.MIN_VALUE && lvalue < Byte.MAX_VALUE) {
-                atype = Type.BYTE_TYPE;
-            } else if (lvalue > Short.MIN_VALUE && lvalue < Short.MAX_VALUE) {
-                atype = Type.SHORT_TYPE;
-            } else if (lvalue > Integer.MIN_VALUE && lvalue < Integer.MAX_VALUE) {
-                atype = Type.INT_TYPE;
-            } else {
-                atype = Type.LONG_TYPE;
-            }
-
-            //TODO: store value for single parse?
         }
 
-        if (ptypes.getPClass(atype) == null) {
+        if (ptypes.getPClass(numericmd.castatypes[0]) == null) {
             throw new IllegalArgumentException();
         }
 
-        final Extracted extracted = new Extracted();
-        extracted.nodes.add(ctx);
-        extracted.atypes.add(atype);
-
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitString(StringContext ctx) {
-        final Type atype = Type.getType("Ljava/lang/String;");
+    public Void visitString(final StringContext ctx) {
+        final Metadata stringmd = getMetadata(ctx);
 
-        if (ptypes.getPClass(atype) == null) {
+        if (ctx.STRING() == null) {
+            throw new IllegalStateException();
+        }
+
+        stringmd.constant = ctx.STRING().getText();
+        stringmd.castnodes = new ParseTree[] {ctx};
+        stringmd.castatypes = new Type[] {getType("Ljava/lang/String;")};
+
+        if (ptypes.getPClass(stringmd.castatypes[0]) == null) {
             throw new IllegalArgumentException();
         }
 
-        final Extracted extracted = new Extracted();
-        extracted.nodes.add(ctx);
-        extracted.atypes.add(atype);
-
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitChar(CharContext ctx) {
-        final Type atype = Type.CHAR_TYPE;
+    public Void visitChar(final CharContext ctx) {
+        final Metadata charmd = getMetadata(ctx);
 
-        if (ptypes.getPClass(atype) == null) {
+        if (ctx.CHAR() == null) {
+            throw new IllegalStateException();
+        }
+
+        if (ctx.CHAR().getText().length() > 1) {
+            throw new IllegalStateException();
+        }
+
+        charmd.constant = ctx.CHAR().getText().charAt(0);
+        charmd.castnodes = new ParseTree[] {ctx};
+        charmd.castatypes = new Type[] {CHAR_TYPE};
+
+        if (ptypes.getPClass(charmd.castatypes[0]) == null) {
             throw new IllegalArgumentException();
         }
 
-        final Extracted extracted = new Extracted();
-        extracted.nodes.add(ctx);
-        extracted.atypes.add(atype);
-
-        return extracted;
+        return null;
     }
     @Override
-    public Extracted visitTrue(TrueContext ctx) {
-        final Type atype = Type.BOOLEAN_TYPE;
+    public Void visitTrue(final TrueContext ctx) {
+        final Metadata truemd = getMetadata(ctx);
 
-        if (ptypes.getPClass(atype) == null) {
+        if (ctx.TRUE() == null) {
+            throw new IllegalStateException();
+        }
+
+        truemd.constant = true;
+        truemd.castnodes = new ParseTree[] {ctx};
+        truemd.castatypes = new Type[] {BOOLEAN_TYPE};
+
+        if (ptypes.getPClass(truemd.castatypes[0]) == null) {
             throw new IllegalArgumentException();
         }
 
-        final Extracted extracted = new Extracted();
-        extracted.nodes.add(ctx);
-        extracted.atypes.add(atype);
-
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitFalse(FalseContext ctx) {
-        final Type atype = Type.BOOLEAN_TYPE;
+    public Void visitFalse(final FalseContext ctx) {
+        final Metadata falsemd = getMetadata(ctx);
 
-        if (ptypes.getPClass(atype) == null) {
+        if (ctx.FALSE() == null) {
+            throw new IllegalStateException();
+        }
+
+        falsemd.constant = false;
+        falsemd.castnodes = new ParseTree[] {ctx};
+        falsemd.castatypes = new Type[] {BOOLEAN_TYPE};
+
+        if (ptypes.getPClass(falsemd.castatypes[0]) == null) {
             throw new IllegalArgumentException();
         }
 
-        final Extracted extracted = new Extracted();
-        extracted.nodes.add(ctx);
-        extracted.atypes.add(atype);
-
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitNull(NullContext ctx) {
-        final Type atype = Type.getType("Ljava/lang/Object;");
+    public Void visitNull(final NullContext ctx) {
+        final Metadata nullmd = getMetadata(ctx);
 
-        if (ptypes.getPClass(atype) == null) {
+        if (ctx.NULL() == null) {
+            throw new IllegalStateException();
+        }
+
+        nullmd.castnodes = new ParseTree[] {ctx};
+        nullmd.castatypes = new Type[] {getType("Ljava/lang/Object;")};
+
+        if (ptypes.getPClass(nullmd.castatypes[0]) == null) {
             throw new IllegalArgumentException();
         }
 
-        final Extracted extracted = new Extracted();
-        extracted.nodes.add(ctx);
-        extracted.atypes.add(atype);
-
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitUnary(UnaryContext ctx) {
-        Type atype;
+    public Void visitExt(final ExtContext ctx) {
+        final Metadata extmd = getMetadata(ctx);
+
+        final ExtstartContext ectx = ctx.extstart();
+        final Metadata extstartmd = createMetadata(ectx);
+        visit(ectx);
+        //TODO: mark read variable
+
+        extmd.statement = extstartmd.statement;
+        extmd.castnodes = extstartmd.castnodes;
+        extmd.castatypes = extstartmd.castatypes;
+
+        return null;
+    }
+
+    @Override
+    public Void visitUnary(final UnaryContext ctx) {
+        final Metadata unarymd = getMetadata(ctx);
+        unarymd.castnodes = new ParseTree[] {ctx};
+        unarymd.castatypes = new Type[1];
+
+        final ExpressionContext ectx = ctx.expression();
+        final Metadata expressionmd = createMetadata(ectx);
+        visit(ectx);
 
         if (ctx.BOOLNOT() != null) {
-            final Extracted extexpr = visit(ctx.expression());
-            markCast(extexpr, Type.BOOLEAN_TYPE, false);
-            atype = Type.BOOLEAN_TYPE;
+            if (expressionmd.constant instanceof Boolean) {
+                unarymd.constant = !((Boolean)expressionmd.constant);
+            } else {
+                markCast(expressionmd, BOOLEAN_TYPE, false);
+            }
+
+            unarymd.castatypes[0] = BOOLEAN_TYPE;
+        } else if (ctx.BWNOT() != null) {
+            if (expressionmd.constant instanceof Byte) {
+                unarymd.constant = ~((byte)expressionmd.constant);
+                unarymd.castatypes[0] = INT_TYPE;
+            } else if (expressionmd.constant instanceof Character) {
+                unarymd.constant = ~((char)expressionmd.constant);
+                unarymd.castatypes[0] = INT_TYPE;
+            } else if (expressionmd.constant instanceof Short) {
+                unarymd.constant = ~((short)expressionmd.constant);
+                unarymd.castatypes[0] = INT_TYPE;
+            } else if (expressionmd.constant instanceof Integer) {
+                unarymd.constant = ~((int)expressionmd.constant);
+                unarymd.castatypes[0] = INT_TYPE;
+            } else if (expressionmd.constant instanceof Long) {
+                unarymd.constant = ~((long)expressionmd.constant);
+                unarymd.castatypes[0] = LONG_TYPE;
+            } else if (expressionmd.constant instanceof Float) {
+                throw new IllegalArgumentException();
+            } else if (expressionmd.constant instanceof Double) {
+                throw new IllegalArgumentException();
+            } else {
+                unarymd.castatypes[0] = getPromotion(new Metadata[] {expressionmd}, false);
+                markCast(expressionmd, unarymd.castatypes[0], false);
+            }
+        } else if (ctx.SUB() != null) {
+            if (expressionmd.constant instanceof Byte) {
+                unarymd.constant = -((byte)expressionmd.constant);
+                unarymd.castatypes[0] = INT_TYPE;
+            } else if (expressionmd.constant instanceof Character) {
+                unarymd.constant = -((char)expressionmd.constant);
+                unarymd.castatypes[0] = INT_TYPE;
+            } else if (expressionmd.constant instanceof Short) {
+                unarymd.constant = -((short)expressionmd.constant);
+                unarymd.castatypes[0] = INT_TYPE;
+            } else if (expressionmd.constant instanceof Integer) {
+                unarymd.constant = -((int)expressionmd.constant);
+                unarymd.castatypes[0] = INT_TYPE;
+            } else if (expressionmd.constant instanceof Long) {
+                unarymd.constant = -((long)expressionmd.constant);
+                unarymd.castatypes[0] = LONG_TYPE;
+            } else if (expressionmd.constant instanceof Float) {
+                unarymd.constant = -((float)expressionmd.constant);
+                unarymd.castatypes[0] = FLOAT_TYPE;
+            } else if (expressionmd.constant instanceof Double) {
+                unarymd.constant = -((double)expressionmd.constant);
+                unarymd.castatypes[0] = DOUBLE_TYPE;
+            } else {
+                unarymd.castatypes[0] = getPromotion(new Metadata[] {expressionmd}, true);
+                markCast(expressionmd, unarymd.castatypes[0], false);
+            }
+        } else if (ctx.ADD() != null) {
+            if (expressionmd.constant instanceof Byte) {
+                unarymd.constant = +((byte)expressionmd.constant);
+                unarymd.castatypes[0] = INT_TYPE;
+            } else if (expressionmd.constant instanceof Character) {
+                unarymd.constant = +((char)expressionmd.constant);
+                unarymd.castatypes[0] = INT_TYPE;
+            } else if (expressionmd.constant instanceof Short) {
+                unarymd.constant = +((short)expressionmd.constant);
+                unarymd.castatypes[0] = INT_TYPE;
+            } else if (expressionmd.constant instanceof Integer) {
+                unarymd.constant = +((int)expressionmd.constant);
+                unarymd.castatypes[0] = INT_TYPE;
+            } else if (expressionmd.constant instanceof Long) {
+                unarymd.constant = +((long)expressionmd.constant);
+                unarymd.castatypes[0] = LONG_TYPE;
+            } else if (expressionmd.constant instanceof Float) {
+                unarymd.constant = +((float)expressionmd.constant);
+                unarymd.castatypes[0] = FLOAT_TYPE;
+            } else if (expressionmd.constant instanceof Double) {
+                unarymd.constant = +((double)expressionmd.constant);
+                unarymd.castatypes[0] = DOUBLE_TYPE;
+            } else {
+                unarymd.castatypes[0] = getPromotion(new Metadata[] {expressionmd}, true);
+                markCast(expressionmd, unarymd.castatypes[0], false);
+            }
         } else {
-            final Extracted extexpr = visit(ctx.expression());
-            atype = markPromotion(new Extracted[] {extexpr});
+            throw new IllegalStateException();
         }
 
-        Extracted extracted = new Extracted();
-        extracted.nodes.add(ctx);
-        extracted.atypes.add(atype);
-
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitCast(CastContext ctx) {
-        String ptype = ctx.decltype().getText();
-        Type atype = ptypes.getATypeFromPClass(ptype);
+    public Void visitCast(final CastContext ctx) {
+        final Metadata castmd = getMetadata(ctx);
+        castmd.castnodes = new ParseTree[] {ctx};
+        castmd.castatypes = new Type[1];
 
-        if (atype == null) {
-            throw new IllegalArgumentException();
+        final DecltypeContext dctx = ctx.decltype();
+        final Metadata decltypemd = createMetadata(dctx);
+        final Type adecltype = decltypemd.adecltype;
+        castmd.castatypes = new Type[] {adecltype};
+
+        final ExpressionContext ectx = ctx.expression();
+        final Metadata expressionmd = createMetadata(ectx);
+        visit(ectx);
+
+        if (expressionmd.constant instanceof Number) {
+            final int adeclsort = adecltype.getSort();
+
+            if (adeclsort == BYTE) {
+                castmd.constant = ((Number)expressionmd.constant).byteValue();
+            } else if (adeclsort == SHORT) {
+                castmd.constant = ((Number)expressionmd.constant).shortValue();
+            } else if (adeclsort == Type.CHAR) {
+                castmd.constant = (char)((Number)expressionmd.constant).longValue();
+            }else if (adeclsort == INT) {
+                castmd.constant = ((Number)expressionmd.constant).intValue();
+            } else if (adeclsort == LONG) {
+                castmd.constant = ((Number)expressionmd.constant).longValue();
+            } else if (adeclsort == FLOAT) {
+                castmd.constant = ((Number)expressionmd.constant).floatValue();
+            } else if (adeclsort == DOUBLE) {
+                castmd.constant = ((Number)expressionmd.constant).doubleValue();
+            }
+        } else if (expressionmd.constant instanceof Character) {
+            final int adeclsort = adecltype.getSort();
+
+            if (adeclsort == BYTE) {
+                castmd.constant = (byte)(char)expressionmd.constant;
+            } else if (adeclsort == SHORT) {
+                castmd.constant = (short)(char)expressionmd.constant;
+            } else if (adeclsort == Type.CHAR) {
+                castmd.constant = expressionmd.constant;
+            }else if (adeclsort == INT) {
+                castmd.constant = (int)(char)expressionmd.constant;
+            } else if (adeclsort == LONG) {
+                castmd.constant = (long)(char)expressionmd.constant;
+            } else if (adeclsort == FLOAT) {
+                castmd.constant = (float)(char)expressionmd.constant;
+            } else if (adeclsort == DOUBLE) {
+                castmd.constant = (double)(char)expressionmd.constant;
+            }
+        } else {
+            markCast(expressionmd, adecltype, true);
         }
 
-        Extracted extexpr = visit(ctx.expression());
-        markCast(extexpr, atype, true);
-
-        Extracted extracted = new Extracted();
-        extracted.nodes.add(ctx);
-        extracted.atypes.add(atype);
-
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitBinary(BinaryContext ctx) {
-        final Extracted[] extexpr = new Extracted[2];
+    public Void visitBinary(final BinaryContext ctx) {
+        final Metadata binarymd = getMetadata(ctx);
+        binarymd.castnodes = new ParseTree[] {ctx};
+        binarymd.castatypes = new Type[1];
 
-        extexpr[0] = visit(ctx.expression(0));
-        extexpr[1] = visit(ctx.expression(0));
-        Type atype = markPromotion(extexpr);
+        final ExpressionContext ectx0 = ctx.expression(0);
+        final Metadata expressionmd0 = createMetadata(ectx0);
+        visit(ectx0);
 
-        Extracted extracted = new Extracted();
-        extracted.nodes.add(ctx);
-        extracted.atypes.add(atype);
+        final ExpressionContext ectx1 = ctx.expression(1);
+        final Metadata expressionmd1 = createMetadata(ectx1);
+        visit(ectx1);
 
-        return extracted;
+        Type apromote = getPromotion(new Metadata[] {expressionmd0, expressionmd1}, true);
+
+        if (ctx.BWAND() != null) {
+            if (expressionmd.constant instanceof Byte) {
+
+            } else if (expressionmd.constant instanceof Character) {
+                unarymd.constant = ~((char)expressionmd.constant);
+                unarymd.castatypes[0] = INT_TYPE;
+            } else if (expressionmd.constant instanceof Short) {
+                unarymd.constant = (short)~((short)expressionmd.constant);
+                unarymd.castatypes[0] = SHORT_TYPE;
+            } else if (expressionmd.constant instanceof Integer) {
+                unarymd.constant = ~((int)expressionmd.constant);
+                unarymd.castatypes[0] = INT_TYPE;
+            } else if (expressionmd.constant instanceof Long) {
+                unarymd.constant = ~((long)expressionmd.constant);
+                unarymd.castatypes[0] = LONG_TYPE;
+            } else if (expressionmd.constant instanceof Float) {
+                throw new IllegalArgumentException();
+            } else if (expressionmd.constant instanceof Double) {
+                throw new IllegalArgumentException();
+            } else {
+                unarymd.castatypes[0] = getPromotion(new Metadata[] {expressionmd}, false);
+                markCast(expressionmd, unarymd.castatypes[0], false);
+            }
+        }
+
+        return null;
     }
 
-    @Override
+    /*@Override
     public Extracted visitComp(PainlessParser.CompContext ctx) {
         final Extracted[] extexpr = new Extracted[2];
 
@@ -673,8 +914,8 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
             markPromotion(extexpr);
         } else if (ctx.EQ() != null || ctx.NE() != null) {
             if (isBoolean(extexpr[0]) && isBoolean(extexpr[1])) {
-                markCast(extexpr[0], Type.BOOLEAN_TYPE, false);
-                markCast(extexpr[0], Type.BOOLEAN_TYPE, false);
+                markCast(extexpr[0], BOOLEAN_TYPE, false);
+                markCast(extexpr[0], BOOLEAN_TYPE, false);
             } else if (isReference(extexpr[0]) && isReference(extexpr[1])) {
                 //TODO: mark comparison type?
             } else {
@@ -686,7 +927,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         Extracted extracted = new Extracted();
         extracted.nodes.add(ctx);
-        extracted.atypes.add(Type.BOOLEAN_TYPE);
+        extracted.atypes.add(BOOLEAN_TYPE);
 
         return extracted;
     }
@@ -697,12 +938,12 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         extexpr[0] = visit(ctx.expression(0));
         extexpr[1] = visit(ctx.expression(0));
-        markCast(extexpr[0], Type.BOOLEAN_TYPE, false);
-        markCast(extexpr[1], Type.BOOLEAN_TYPE, false);
+        markCast(extexpr[0], BOOLEAN_TYPE, false);
+        markCast(extexpr[1], BOOLEAN_TYPE, false);
 
         final Extracted extracted = new Extracted();
         extracted.nodes.add(ctx);
-        extracted.atypes.add(Type.BOOLEAN_TYPE);
+        extracted.atypes.add(BOOLEAN_TYPE);
 
         return extracted;
     }
@@ -710,7 +951,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
     @Override
     public Extracted visitConditional(PainlessParser.ConditionalContext ctx) {
         final Extracted extexpr = visit(ctx.expression(0));
-        markCast(extexpr, Type.BOOLEAN_TYPE, false);
+        markCast(extexpr, BOOLEAN_TYPE, false);
 
         final Extracted extcond0 = visit(ctx.expression(1));
         final Extracted extcond1 = visit(ctx.expression(2));
@@ -828,14 +1069,14 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
     }
 
     public Extracted visitExtarray(final ExtarrayContext ctx, final Type parentatype) {
-        if (parentatype.getSort() != Type.ARRAY) {
+        if (parentatype.getSort() != ARRAY) {
             throw new IllegalArgumentException();
         }
 
         Extracted extexpr = visit(ctx.expression());
-        markCast(extexpr, Type.INT_TYPE, false);
+        markCast(extexpr, INT_TYPE, false);
 
-        final Type atype = Type.getType(parentatype.getDescriptor().substring(1));
+        final Type atype = getType(parentatype.getDescriptor().substring(1));
 
         Extracted extracted;
 
@@ -877,7 +1118,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
             throw new IllegalArgumentException();
         }
 
-        if (atype.getSort() == Type.ARRAY) {
+        if (atype.getSort() == ARRAY) {
             throw new IllegalArgumentException();
         }
 
@@ -904,7 +1145,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         if (statik && "makearray".equals(pname)) {
             int arguments = ctx.arguments().expression().size();
-            visitArguments(ctx.arguments(), new Type[]{Type.INT_TYPE}, true);
+            visitArguments(ctx.arguments(), new Type[]{INT_TYPE}, true);
             String arraytype = "";
 
             for (int bracket = 0; bracket < arguments; ++bracket) {
@@ -912,7 +1153,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
             }
 
             arraytype += parentatype.getDescriptor();
-            atype = Type.getType(arraytype);
+            atype = getType(arraytype);
         }else {
             PMethod pmethod;
 
@@ -973,10 +1214,10 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
             atype = variable.atype;
         } else {
-            if (parentatype.getSort() == Type.ARRAY) {
+            if (parentatype.getSort() == ARRAY) {
                 if ("length".equals(vname)) {
                     writeable = false;
-                    atype = Type.INT_TYPE;
+                    atype = INT_TYPE;
                 } else {
                     throw new IllegalArgumentException();
                 }
@@ -1037,5 +1278,5 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
                 throw new IllegalArgumentException();
             }
         }
-    }
+    }*/
 }
