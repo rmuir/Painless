@@ -16,13 +16,13 @@ class PainlessTypes {
         final String pname;
         final PClass powner;
         final Method amethod;
-        final boolean variadic;
+        final boolean jvariadic;
 
-        private PMethod(final String pname, final PClass powner, Method amethod, boolean variadic) {
+        private PMethod(final String pname, final PClass powner, Method amethod, boolean jvariadic) {
             this.pname = pname;
             this.powner = powner;
             this.amethod = amethod;
-            this.variadic = variadic;
+            this.jvariadic = jvariadic;
         }
     }
 
@@ -463,7 +463,7 @@ class PainlessTypes {
                     throw new IllegalArgumentException();
                 }
 
-                if (pfunction.variadic != validate.isVarArgs()) {
+                if (pfunction.jvariadic != validate.isVarArgs()) {
                     throw new IllegalArgumentException();
                 }
             }
@@ -494,7 +494,7 @@ class PainlessTypes {
                     throw new IllegalArgumentException();
                 }
 
-                if (pconstructor.variadic != validate.isVarArgs()) {
+                if (pconstructor.jvariadic != validate.isVarArgs()) {
                     throw new IllegalArgumentException();
                 }
 
@@ -542,7 +542,7 @@ class PainlessTypes {
                     throw new IllegalArgumentException();
                 }
 
-                if (pmethod.variadic != validate.isVarArgs()) {
+                if (pmethod.jvariadic != validate.isVarArgs()) {
                     throw new IllegalArgumentException();
                 }
 
@@ -643,7 +643,7 @@ class PainlessTypes {
         return aclasses.get(atype);
     }
 
-    final PMethod getTransform(final PCast pcast) {
+    final PMethod getPTransform(final PCast pcast) {
         return ptransforms.get(pcast);
     }
 }

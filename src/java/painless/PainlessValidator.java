@@ -1,7 +1,6 @@
 package painless;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -12,320 +11,379 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import org.objectweb.asm.Type;
 
+import static org.objectweb.asm.Type.*;
+
 import static painless.PainlessParser.*;
 import static painless.PainlessTypes.*;
 
-class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted> {
+class PainlessValidator extends PainlessBaseVisitor<Void> {
     static class Argument {
-        final String vname;
+        final String name;
         final Type atype;
 
-        Argument(final String vname, final Type atype) {
-            this.vname = vname;
+        Argument(final String name, final Type atype) {
+            this.name = name;
             this.atype = atype;
         }
     }
 
-    private static class Variable {
-        final String vname;
+    static class Variable {
+        final String name;
         final Type atype;
-        final int vslot;
+        final int slot;
 
-        Variable(final String vname, final Type atype, final int vslot) {
-            this.vname = vname;
+        Variable(final String name, final Type atype, final int slot) {
+            this.name = name;
             this.atype = atype;
-            this.vslot = vslot;
+            this.slot = slot;
         }
     }
 
-    private static class Variables {
-        private final Deque<Variable> variables;
-        private final Deque<Integer> scopes;
+    static class Metadata {
+        final ParseTree node;
 
-        Variables() {
-            variables = new ArrayDeque<>();
-            scopes = new ArrayDeque<>();
-            scopes.push(0);
-        }
+        boolean rtn;
+        boolean jump;
+        boolean statement;
 
-        void incrementScope() {
-            scopes.push(0);
-        }
+        Type aexpected;
 
-        void decrementScope() {
-            int remove = scopes.pop();
+        Metadata(final ParseTree node) {
+            this.node = node;
 
-            while (remove > 0) {
-                variables.pop();
-                --remove;
-            }
-        }
+            rtn = false;
+            jump = false;
+            statement = false;
 
-        void add(final String vname, final Type atype) {
-            if (get(vname) != null) {
-                throw new IllegalArgumentException();
-            }
-
-            Variable previous = variables.peek();
-            int slot = 0;
-
-            if (previous != null) {
-                slot += previous.atype.getSize();
-            }
-
-            Variable variable = new Variable(vname, atype, slot);
-            variables.push(variable);
-
-            int update = scopes.pop();
-            ++update;
-            scopes.push(update);
-        }
-
-        Variable get(String vname) {
-            Iterator<Variable> itr = variables.descendingIterator();
-
-            while (itr.hasNext()) {
-                Variable variable = itr.next();
-
-                if (variable.vname.equals(vname)) {
-                    return variable;
-                }
-            }
-
-            return null;
+            aexpected = null;
         }
     }
 
-    static class Extracted {
-        final List<ParseTree> nodes;
-        final List<Type> atypes;
-
-        boolean statement = false;
-        boolean jump = false;
-        boolean rtn = false;
-
-        boolean writeable = false;
-
-        Extracted() {
-            nodes = new ArrayList<>();
-            atypes = new ArrayList<>();
-        }
-    }
-
-    static void validate(PainlessTypes ptypes, ParseTree root, Deque<Argument> arguments) {
+    static void validate(final PainlessTypes ptypes, final ParseTree root, final Deque<Argument> arguments) {
         new PainlessValidator(ptypes, root, arguments);
     }
 
     private final PainlessTypes ptypes;
 
     private int loop;
-    private final Variables variables;
+    private final Deque<Integer> scopes;
+    private final Deque<Variable> variables;
 
-    private final Map<ParseTree, PCast> pcasts;
+    private final Map<ParseTree, Metadata> metadata;
 
-    private PainlessValidator(PainlessTypes ptypes, ParseTree root, Deque<Argument> arguments) {
+    private PainlessValidator(final PainlessTypes ptypes, final ParseTree root, final Deque<Argument> arguments) {
         this.ptypes = ptypes;
 
         loop = 0;
-        variables = new Variables();
+        variables = new ArrayDeque<>();
+        scopes = new ArrayDeque<>();
 
-        pcasts = new HashMap<>();
+        metadata = new HashMap<>();
 
-        Iterator<Argument> itr = arguments.iterator();
+        incrementScope();
 
-        while (itr.hasNext()) {
-            final Argument argument = itr.next();
-            variables.add(argument.vname, argument.atype);
+        for (final Argument argument : arguments) {
+            addVariable(argument.name, argument.atype);
         }
 
+        createMetadata(root);
         visit(root);
+
+        decrementScope();
     }
 
-    private boolean isBoolean(final Extracted extracted) {
-        return false;
+    private void incrementScope() {
+        scopes.push(0);
     }
 
-    private boolean isNumeric(final Extracted extracted) {
-        return false;
+    private void decrementScope() {
+        int remove = scopes.pop();
+
+        while (remove > 0) {
+            variables.pop();
+            --remove;
+        }
     }
 
-    private boolean isReference(final Extracted extracted) {
-        return false;
+    private Variable getVariable(final String name) {
+        final Iterator<Variable> itr = variables.descendingIterator();
+
+        while (itr.hasNext()) {
+            final Variable variable = itr.next();
+
+            if (variable.name.equals(name)) {
+                return variable;
+            }
+        }
+
+        return null;
     }
 
-    private void markCast(final Extracted extracted, final Type to, final boolean explicit) {
+    private void addVariable(final String name, final Type atype) {
+        if (getVariable(name) != null) {
+            throw new IllegalArgumentException();
+        }
+
+        final Variable previous = variables.peek();
+        int slot = 0;
+
+        if (previous != null) {
+            slot += previous.atype.getSize();
+        }
+
+        final Variable pvariable = new Variable(name, atype, slot);
+        variables.push(pvariable);
+
+        final int update = scopes.pop() + 1;
+        scopes.push(update);
     }
 
-    private Type markPromotion(final Extracted[] extracted) {
+    private Metadata createMetadata(final ParseTree node) {
+        final Metadata nodemd = new Metadata(node);
+        metadata.put(node, nodemd);
+
+        return nodemd;
+    }
+
+    private Metadata getMetadata(ParseTree node) {
+        final Metadata nodemd = metadata.get(node);
+
+        if (nodemd == null) {
+            throw new IllegalStateException();
+        }
+
+        return nodemd;
+    }
+
+    private boolean isNumeric(final Type atype) {
+        final int asort = atype.getSort();
+
+        //TODO: check implicit transforms
+
+        return asort == BYTE || asort == SHORT || asort == Type.CHAR ||
+                asort == INT || asort == LONG || asort == FLOAT || asort == DOUBLE;
+    }
+
+    private void markCast(final Metadata metadata, final Type afrom, final Type ato, final boolean explicit) {
+        //TODO: check legality of cast
+    }
+
+    private void markPromotion(final Metadata metadata, final Type amax, final Type aone, final Type atwo) {
+        //TODO: do necessary promotion
+    }
+
+    @Override
+    public Void visitSource(final SourceContext ctx) {
+        final Metadata sourcemd = metadata.get(ctx);
+
+        incrementScope();
+
+        for (final StatementContext sctx : ctx.statement()) {
+            if (sourcemd.rtn) {
+                throw new IllegalStateException();
+            }
+
+            final Metadata statementmd = createMetadata(sctx);
+            visit(sctx);
+
+            if (!statementmd.statement) {
+                throw new IllegalStateException();
+            }
+
+            sourcemd.rtn = statementmd.rtn;
+        }
+
+        sourcemd.statement = true;
+
+        decrementScope();
+
         return null;
     }
 
     @Override
-    public Extracted visitSource(SourceContext ctx) {
-        variables.incrementScope();
+    public Void visitIf(IfContext ctx) {
+        final Metadata ifmd = getMetadata(ctx);
 
-        Extracted extracted = new Extracted();
+        incrementScope();
 
-        for (StatementContext sctx : ctx.statement()) {
-            if (extracted.rtn) {
-                throw new IllegalStateException();
-            }
+        final ExpressionContext ectx = ctx.expression();
+        final Metadata expressionmd = createMetadata(ectx);
+        expressionmd.aexpected = BOOLEAN_TYPE;
+        visit(ectx);
 
-            Extracted extstate = visit(sctx);
-
-            if (!extstate.statement) {
-                throw new IllegalStateException();
-            }
-
-            extracted.rtn = extstate.rtn;
-        }
-
-        extracted.statement = true;
-
-        variables.decrementScope();
-
-        return extracted;
-    }
-
-    @Override
-    public Extracted visitIf(IfContext ctx) {
-        variables.incrementScope();
-
-        Extracted extexpr = visit(ctx.expression());
-        markCast(extexpr, Type.BOOLEAN_TYPE, false);
-
-        Extracted extracted = new Extracted();
-        extracted.statement = true;
-        extracted.rtn = visit(ctx.block(0)).rtn;
+        final BlockContext bctx0 = ctx.block(0);
+        final Metadata blockmd0 = createMetadata(bctx0);
+        visit(ctx.block(0));
 
         if (ctx.ELSE() != null) {
-            extracted.rtn &= visit(ctx.block(1)).rtn;
-        } else {
-            extracted.rtn = false;
+            final BlockContext bctx1 = ctx.block(1);
+            final Metadata blockmd1 = createMetadata(bctx1);
+            visit(ctx.block(1));
+            ifmd.rtn = blockmd0.rtn && blockmd1.rtn;
         }
 
-        variables.decrementScope();
+        ifmd.statement = true;
 
-        return extracted;
+        decrementScope();
+
+        return null;
     }
 
     @Override
-    public Extracted visitWhile(WhileContext ctx) {
-        variables.incrementScope();
+    public Void visitWhile(final WhileContext ctx) {
+        final Metadata whilemd = getMetadata(ctx);
+
+        incrementScope();
         ++loop;
 
-        ExpressionContext ectx = ctx.expression();
-        Extracted extexpr = visit(ectx);
-        markCast(extexpr, Type.BOOLEAN_TYPE, false);
+        final ExpressionContext ectx = ctx.expression();
+        final Metadata expressionmd = createMetadata(ctx);
+        expressionmd.aexpected = BOOLEAN_TYPE;
+        visit(ectx);
 
-        visit(ctx.block());
+        final BlockContext bctx = ctx.block();
+        createMetadata(bctx);
+        visit(bctx);
 
-        Extracted extracted = new Extracted();
-        extracted.statement = true;
+        whilemd.statement = true;
 
         --loop;
-        variables.decrementScope();
+        decrementScope();
 
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitDo(DoContext ctx) {
-        variables.incrementScope();
+    public Void visitDo(final DoContext ctx) {
+        final Metadata domd = getMetadata(ctx);
+
+        incrementScope();
         ++loop;
 
-        visit(ctx.block());
+        final BlockContext bctx = ctx.block();
+        createMetadata(bctx);
+        visit(bctx);
 
-        ExpressionContext ectx = ctx.expression();
-        Extracted extexpr = visit(ectx);
-        markCast(extexpr, Type.BOOLEAN_TYPE, false);
+        final ExpressionContext ectx = ctx.expression();
+        final Metadata expressionmd = createMetadata(ctx);
+        expressionmd.aexpected = BOOLEAN_TYPE;
+        visit(ectx);
 
-        Extracted extracted = new Extracted();
-        extracted.statement = true;
+        domd.statement = true;
 
         --loop;
-        variables.decrementScope();
+        decrementScope();
 
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitFor(ForContext ctx) {
-        variables.incrementScope();
+    public Void visitFor(final ForContext ctx) {
+        final Metadata formd = getMetadata(ctx);
+
+        incrementScope();
         ++loop;
 
-        Extracted extdecl = visit(ctx.declaration());
+        final DeclarationContext dctx = ctx.declaration();
+        final Metadata declarationmd = createMetadata(dctx);
+        visit(dctx);
 
-        if (!extdecl.statement) {
+        if (!declarationmd.statement) {
             throw new IllegalStateException();
         }
 
-        Extracted extexpr0 = visit(ctx.expression(0));
-        markCast(extexpr0, Type.BOOLEAN_TYPE, false);
+        final ExpressionContext ectx0 = ctx.expression(0);
+        final Metadata expressionmd0 = createMetadata(ectx0);
+        expressionmd0.aexpected = BOOLEAN_TYPE;
+        visit(ectx0);
 
-        Extracted extexpr1 = visit(ctx.expression(1));
+        final ExpressionContext ectx1 = ctx.expression(0);
+        final Metadata expressionmd1 = createMetadata(ectx1);
+        visit(ectx1);
 
-        if (!extexpr1.statement) {
+        if (!expressionmd1.statement) {
             throw new IllegalStateException();
         }
 
-        visit(ctx.block());
+        final BlockContext bctx = ctx.block();
+        createMetadata(bctx);
+        visit(bctx);
 
-        Extracted extracted = new Extracted();
-        extracted.statement = true;
+        formd.statement = true;
 
         --loop;
-        variables.decrementScope();
+        decrementScope();
 
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitDecl(DeclContext ctx) {
-        return visit(ctx.declaration());
+    public Void visitDecl(final DeclContext ctx) {
+        final Metadata declmd = getMetadata(ctx);
+
+        final DeclarationContext dctx = ctx.declaration();
+        final Metadata declarationmd = createMetadata(dctx);
+        visit(ctx.declaration());
+
+        declmd.statement = declarationmd.statement;
+
+        return null;
     }
 
     @Override
-    public Extracted visitContinue(ContinueContext ctx) {
+    public Void visitContinue(final ContinueContext ctx) {
+        final Metadata continuemd = getMetadata(ctx);
+
         if (loop == 0) {
             throw new IllegalStateException();
         }
 
-        Extracted extracted = new Extracted();
-        extracted.statement = true;
-        extracted.jump = true;
+        continuemd.jump = true;
+        continuemd.statement = true;
 
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitBreak(BreakContext ctx) {
+    public Void visitBreak(final BreakContext ctx) {
+        final Metadata breakmd = getMetadata(ctx);
+
         if (loop == 0) {
             throw new IllegalStateException();
         }
 
-        Extracted extracted = new Extracted();
-        extracted.statement = true;
-        extracted.jump = true;
+        breakmd.jump = true;
+        breakmd.statement = true;
 
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitReturn(ReturnContext ctx) {
-        Extracted extexpr = visit(ctx.expression());
-        markCast(extexpr, Type.BOOLEAN_TYPE, false);;
+    public Void visitReturn(final ReturnContext ctx) {
+        final Metadata returnmd = getMetadata(ctx);
 
-        Extracted extracted = new Extracted();
-        extracted.statement = true;
-        extracted.rtn = true;
+        final ExpressionContext ectx = ctx.expression();
+        final Metadata expressionmd = createMetadata(ctx);
+        expressionmd.aexpected = Type.getType("Ljava/lang/Object;");
+        visit(ectx);
 
-        return extracted;
+        returnmd.rtn = true;
+        returnmd.statement = true;
+
+        return null;
     }
 
     @Override
-    public Extracted visitExpr(ExprContext ctx) {
-        return visit(ctx.expression());
+    public Void visitExpr(final ExprContext ctx) {
+        final Metadata exprmd = getMetadata(ctx);
+
+        final ExpressionContext ectx = ctx.expression();
+        final Metadata expressionmd = createMetadata(ctx);
+        visit(ectx);
+
+        exprmd.statement = expressionmd.statement;
+
+        return null;
     }
 
     @Override

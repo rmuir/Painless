@@ -6,6 +6,6 @@ public class Test {
         a = (char)~a;
         char s = 2*2;
 
-        int i = c/3;
+        double d = 1/3;
     }
 }
