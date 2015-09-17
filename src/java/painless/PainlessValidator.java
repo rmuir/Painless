@@ -45,13 +45,13 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
         boolean rtn;
         boolean jump;
         boolean statement;
+        boolean conditional;
 
         Type adecltype;
 
-        Object constant;
-
         ParseTree castnodes[];
         Type castatypes[];
+        Object constant;
 
         Metadata(final ParseTree node) {
             this.node = node;
@@ -59,13 +59,13 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
             rtn = false;
             jump = false;
             statement = false;
+            conditional = false;
 
             adecltype = null;
 
-            constant = null;
-
             castnodes = null;
             castatypes = null;
+            constant = null;
         }
     }
 
@@ -165,13 +165,29 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
         return nodemd;
     }
 
-    private boolean isNumeric(final Type atype) {
-        final int asort = atype.getSort();
+    private boolean isType(final Type atypes[], final Type aistype, final boolean asort) {
+        boolean istype = true;
 
-        //TODO: check implicit transforms
+        for (Type atype : atypes) {
+           istype &= asort ? atype.getSort() == aistype.getSort() : atype.equals(aistype);
+        }
 
-        return asort == BYTE || asort == SHORT || asort == Type.CHAR ||
-                asort == INT || asort == LONG || asort == FLOAT || asort == DOUBLE;
+        return istype || atypes.length > 0;
+    }
+
+    private boolean isNumeric(final Type atypes[]) {
+        boolean numeric = true;
+
+        for (Type atype : atypes) {
+            final int asort = atype.getSort();
+
+            //TODO: check implicit transforms
+
+            numeric &= asort == BYTE || asort == SHORT || asort == Type.CHAR ||
+                    asort == INT || asort == LONG || asort == FLOAT || asort == DOUBLE;
+        }
+
+        return numeric || atypes.length > 0;
     }
 
     private void markCast(final Metadata metadata, final Type ato, final boolean explicit) {
@@ -182,11 +198,11 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
         Type apromote = INT_TYPE;
 
         for (final Metadata metadata : metadatas) {
-            for (final Type atype : metadata.castatypes) {
-                if (!isNumeric(atype)) {
-                    throw new IllegalArgumentException();
-                }
+            if (!isNumeric(metadata.castatypes)) {
+                throw new IllegalArgumentException();
+            }
 
+            for (final Type atype : metadata.castatypes) {
                 if (atype.getSort() == LONG && apromote.getSort() == INT) {
                     apromote = LONG_TYPE;
                 } else if (atype.getSort() == FLOAT && apromote.getSort() != DOUBLE) {
@@ -206,6 +222,26 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
         }
 
         return apromote;
+    }
+
+    private Number getNFromC(final char character, final Type anumeric) {
+        final int asort = anumeric.getSort();
+
+        if (asort == BYTE) {
+            return new Byte((byte)character);
+        } else if (asort == SHORT) {
+            return new Short((short)character);
+        } else if (asort == INTEGER) {
+            return new Integer(character);
+        } else if (asort == LONG) {
+            return new Long(character);
+        } else if (asort == FLOAT) {
+            return new Float(character);
+        } else if (asort == DOUBLE) {
+            return new Double(character);
+        }
+
+        throw new IllegalArgumentException();
     }
 
     @Override
@@ -273,7 +309,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
         ++loop;
 
         final ExpressionContext ectx = ctx.expression();
-        final Metadata expressionmd = createMetadata(ctx);
+        final Metadata expressionmd = createMetadata(ectx);
         visit(ectx);
         markCast(expressionmd, BOOLEAN_TYPE, false);
 
@@ -301,7 +337,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
         visit(bctx);
 
         final ExpressionContext ectx = ctx.expression();
-        final Metadata expressionmd = createMetadata(ctx);
+        final Metadata expressionmd = createMetadata(ectx);
         visit(ectx);
         markCast(expressionmd, BOOLEAN_TYPE, false);
 
@@ -399,7 +435,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
         final Metadata returnmd = getMetadata(ctx);
 
         final ExpressionContext ectx = ctx.expression();
-        final Metadata expressionmd = createMetadata(ctx);
+        final Metadata expressionmd = createMetadata(ectx);
         visit(ectx);
         markCast(expressionmd, getType("Ljava/lang/Object;"), false);
 
@@ -414,7 +450,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
         final Metadata exprmd = getMetadata(ctx);
 
         final ExpressionContext ectx = ctx.expression();
-        final Metadata expressionmd = createMetadata(ctx);
+        final Metadata expressionmd = createMetadata(ectx);
         visit(ectx);
         //TODO: pop return value if necessary?
 
@@ -542,7 +578,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
         numericmd.castatypes = new Type[1];
 
         if (ctx.DECIMAL() != null) {
-            final String svalue = ctx.OCTAL().getText();
+            final String svalue = ctx.DECIMAL().getText();
             final double dvalue = Double.parseDouble(svalue);
 
             if (svalue.endsWith("f") || svalue.endsWith("F") && dvalue < Float.MAX_VALUE && dvalue > Float.MIN_VALUE) {
@@ -561,10 +597,10 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
                 lvalue = Long.parseLong(svalue, 8);
             } else if (ctx.INTEGER() != null) {
                 svalue = ctx.INTEGER().getText();
-                lvalue = Long.parseLong(svalue, 16);
+                lvalue = Long.parseLong(svalue);
             } else if (ctx.HEX() != null) {
                 svalue = ctx.HEX().getText();
-                lvalue = Long.parseLong(svalue);
+                lvalue = Long.parseLong(svalue, 16);
             } else {
                 throw new IllegalStateException();
             }
@@ -873,102 +909,348 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
         final Metadata expressionmd1 = createMetadata(ectx1);
         visit(ectx1);
 
-        Type apromote = getPromotion(new Metadata[] {expressionmd0, expressionmd1}, true);
+        final boolean decimal = ctx.ADD() != null || ctx.SUB() != null ||
+                ctx.DIV() != null || ctx.MUL() != null || ctx.REM() != null;
+        binarymd.castatypes[0] = getPromotion(new Metadata[] {expressionmd0, expressionmd1}, decimal);
+        final int asort = binarymd.castatypes[0].getSort();
+        Number number0 = null;
+        Number number1 = null;
 
-        if (ctx.BWAND() != null) {
-            if (expressionmd.constant instanceof Byte) {
+        if (expressionmd0.constant instanceof Number) {
+            number0 = (Number)expressionmd0.constant;
+        } else if (expressionmd0.constant instanceof Character) {
+            number0 = getNFromC((char)expressionmd0.constant, binarymd.castatypes[0]);
+        }
 
-            } else if (expressionmd.constant instanceof Character) {
-                unarymd.constant = ~((char)expressionmd.constant);
-                unarymd.castatypes[0] = INT_TYPE;
-            } else if (expressionmd.constant instanceof Short) {
-                unarymd.constant = (short)~((short)expressionmd.constant);
-                unarymd.castatypes[0] = SHORT_TYPE;
-            } else if (expressionmd.constant instanceof Integer) {
-                unarymd.constant = ~((int)expressionmd.constant);
-                unarymd.castatypes[0] = INT_TYPE;
-            } else if (expressionmd.constant instanceof Long) {
-                unarymd.constant = ~((long)expressionmd.constant);
-                unarymd.castatypes[0] = LONG_TYPE;
-            } else if (expressionmd.constant instanceof Float) {
-                throw new IllegalArgumentException();
-            } else if (expressionmd.constant instanceof Double) {
-                throw new IllegalArgumentException();
+        if (expressionmd1.constant instanceof Number) {
+            number1 = (Number)expressionmd1.constant;
+        } else if (expressionmd0.constant instanceof Character) {
+            number1 = getNFromC((char)expressionmd1.constant, binarymd.castatypes[0]);
+        }
+
+        if (number0 != null && number1 != null) {
+            if (ctx.MUL() != null) {
+                if (asort == INT) {
+                    binarymd.constant = number0.intValue() * number1.intValue();
+                } else if (asort == LONG) {
+                    binarymd.constant = number0.longValue() * number1.longValue();
+                } else if (asort == FLOAT) {
+                    binarymd.constant = number0.floatValue() * number1.floatValue();
+                } else if (asort == DOUBLE) {
+                    binarymd.constant = number0.doubleValue() * number1.doubleValue();
+                }
+            } else if (ctx.DIV() != null) {
+                if (asort == INT) {
+                    binarymd.constant = number0.intValue() / number1.intValue();
+                } else if (asort == LONG) {
+                    binarymd.constant = number0.longValue() / number1.longValue();
+                } else if (asort == FLOAT) {
+                    binarymd.constant = number0.floatValue() / number1.floatValue();
+                } else if (asort == DOUBLE) {
+                    binarymd.constant = number0.doubleValue() / number1.doubleValue();
+                }
+            } else if (ctx.REM() != null) {
+                if (asort == INT) {
+                    binarymd.constant = number0.intValue() % number1.intValue();
+                } else if (asort == LONG) {
+                    binarymd.constant = number0.longValue() % number1.longValue();
+                } else if (asort == FLOAT) {
+                    binarymd.constant = number0.floatValue() % number1.floatValue();
+                } else if (asort == DOUBLE) {
+                    binarymd.constant = number0.doubleValue() % number1.doubleValue();
+                }
+            } else if (ctx.ADD() != null) {
+                if (asort == INT) {
+                    binarymd.constant = number0.intValue() + number1.intValue();
+                } else if (asort == LONG) {
+                    binarymd.constant = number0.longValue() + number1.longValue();
+                } else if (asort == FLOAT) {
+                    binarymd.constant = number0.floatValue() + number1.floatValue();
+                } else if (asort == DOUBLE) {
+                    binarymd.constant = number0.doubleValue() + number1.doubleValue();
+                }
+            }  else if (ctx.SUB() != null) {
+                if (asort == INT) {
+                    binarymd.constant = number0.intValue() - number1.intValue();
+                } else if (asort == LONG) {
+                    binarymd.constant = number0.longValue() - number1.longValue();
+                } else if (asort == FLOAT) {
+                    binarymd.constant = number0.floatValue() - number1.floatValue();
+                } else if (asort == DOUBLE) {
+                    binarymd.constant = number0.doubleValue() - number1.doubleValue();
+                }
+            } else if (ctx.LSH() != null) {
+                if (asort == INT) {
+                    binarymd.constant = number0.intValue() << number1.intValue();
+                } else if (asort == LONG) {
+                    binarymd.constant = number0.longValue() << number1.longValue();
+                }
+            } else if (ctx.RSH() != null) {
+                if (asort == INT) {
+                    binarymd.constant = number0.intValue() >> number1.intValue();
+                } else if (asort == LONG) {
+                    binarymd.constant = number0.longValue() >> number1.longValue();
+                }
+            } else if (ctx.USH() != null) {
+                if (asort == INT) {
+                    binarymd.constant = number0.intValue() >>> number1.intValue();
+                } else if (asort == LONG) {
+                    binarymd.constant = number0.longValue() >>> number1.longValue();
+                }
+            } else if (ctx.BWAND() != null) {
+                if (asort == INT) {
+                    binarymd.constant = number0.intValue() & number1.intValue();
+                } else if (asort == LONG) {
+                    binarymd.constant = number0.longValue() & number1.longValue();
+                }
+            } else if (ctx.BWXOR() != null) {
+                if (asort == INT) {
+                    binarymd.constant = number0.intValue() ^ number1.intValue();
+                } else if (asort == LONG) {
+                    binarymd.constant = number0.longValue() ^ number1.longValue();
+                }
+            } else if (ctx.BWOR() != null) {
+                if (asort == INT) {
+                    binarymd.constant = number0.intValue() | number1.intValue();
+                } else if (asort == LONG) {
+                    binarymd.constant = number0.longValue() | number1.longValue();
+                }
             } else {
-                unarymd.castatypes[0] = getPromotion(new Metadata[] {expressionmd}, false);
-                markCast(expressionmd, unarymd.castatypes[0], false);
+                throw new IllegalStateException();
+            }
+        } else {
+            markCast(expressionmd0, binarymd.castatypes[0], false);
+            markCast(expressionmd1, binarymd.castatypes[0], false);
+        }
+
+        return null;
+    }
+
+    @Override
+    public Void visitComp(final CompContext ctx) {
+        final Metadata compmd = getMetadata(ctx);
+        compmd.castnodes = new ParseTree[] {ctx};
+        compmd.castatypes = new Type[] {Type.BOOLEAN_TYPE};
+
+        final ExpressionContext ectx0 = ctx.expression(0);
+        final Metadata expressionmd0 = createMetadata(ectx0);
+        visit(ectx0);
+
+        final ExpressionContext ectx1 = ctx.expression(1);
+        final Metadata expressionmd1 = createMetadata(ectx1);
+        visit(ectx1);
+
+        if (isNumeric(expressionmd0.castatypes) && isNumeric(expressionmd1.castatypes)) {
+            final Type apromote = getPromotion(new Metadata[]{expressionmd0, expressionmd1}, true);
+            final int asort = apromote.getSort();
+            Number number0 = null;
+            Number number1 = null;
+
+            if (expressionmd0.constant instanceof Number) {
+                number0 = (Number) expressionmd0.constant;
+            } else if (expressionmd0.constant instanceof Character) {
+                number0 = getNFromC((char)expressionmd0.constant, apromote);
+            }
+
+            if (expressionmd1.constant instanceof Number) {
+                number1 = (Number) expressionmd1.constant;
+            } else if (expressionmd0.constant instanceof Character) {
+                number1 = getNFromC((char)expressionmd1.constant, apromote);
+            }
+
+            if (number0 != null && number1 != null) {
+                if (ctx.EQ() != null) {
+                    if (asort == INT) {
+                        compmd.constant = number0.intValue() == number1.intValue();
+                    } else if (asort == LONG) {
+                        compmd.constant = number0.longValue() == number1.longValue();
+                    } else if (asort == FLOAT) {
+                        compmd.constant = number0.floatValue() == number1.floatValue();
+                    } else if (asort == DOUBLE) {
+                        compmd.constant = number0.doubleValue() == number1.doubleValue();
+                    }
+                } else if (ctx.NE() != null) {
+                    if (asort == INT) {
+                        compmd.constant = number0.intValue() != number1.intValue();
+                    } else if (asort == LONG) {
+                        compmd.constant = number0.longValue() != number1.longValue();
+                    } else if (asort == FLOAT) {
+                        compmd.constant = number0.floatValue() != number1.floatValue();
+                    } else if (asort == DOUBLE) {
+                        compmd.constant = number0.doubleValue() != number1.doubleValue();
+                    }
+                } else if (ctx.GTE() != null) {
+                    if (asort == INT) {
+                        compmd.constant = number0.intValue() >= number1.intValue();
+                    } else if (asort == LONG) {
+                        compmd.constant = number0.longValue() >= number1.longValue();
+                    } else if (asort == FLOAT) {
+                        compmd.constant = number0.floatValue() >= number1.floatValue();
+                    } else if (asort == DOUBLE) {
+                        compmd.constant = number0.doubleValue() >= number1.doubleValue();
+                    }
+                } else if (ctx.GT() != null) {
+                    if (asort == INT) {
+                        compmd.constant = number0.intValue() > number1.intValue();
+                    } else if (asort == LONG) {
+                        compmd.constant = number0.longValue() > number1.longValue();
+                    } else if (asort == FLOAT) {
+                        compmd.constant = number0.floatValue() > number1.floatValue();
+                    } else if (asort == DOUBLE) {
+                        compmd.constant = number0.doubleValue() > number1.doubleValue();
+                    }
+                } else if (ctx.LTE() != null) {
+                    if (asort == INT) {
+                        compmd.constant = number0.intValue() <= number1.intValue();
+                    } else if (asort == LONG) {
+                        compmd.constant = number0.longValue() <= number1.longValue();
+                    } else if (asort == FLOAT) {
+                        compmd.constant = number0.floatValue() <= number1.floatValue();
+                    } else if (asort == DOUBLE) {
+                        compmd.constant = number0.doubleValue() <= number1.doubleValue();
+                    }
+                } else if (ctx.LT() != null) {
+                    if (asort == INT) {
+                        compmd.constant = number0.intValue() < number1.intValue();
+                    } else if (asort == LONG) {
+                        compmd.constant = number0.longValue() < number1.longValue();
+                    } else if (asort == FLOAT) {
+                        compmd.constant = number0.floatValue() < number1.floatValue();
+                    } else if (asort == DOUBLE) {
+                        compmd.constant = number0.doubleValue() < number1.doubleValue();
+                    }
+                } else {
+                    throw new IllegalStateException();
+                }
+            } else {
+                markCast(expressionmd0, Type.BOOLEAN_TYPE, false);
+                markCast(expressionmd1, Type.BOOLEAN_TYPE, false);
+            }
+
+        } else if (isType(expressionmd0.castatypes, Type.BOOLEAN_TYPE, true) &&
+                isType(expressionmd1.castatypes, Type.BOOLEAN_TYPE, true)) {
+            if (expressionmd0.constant != null && expressionmd1.constant != null) {
+                if (ctx.EQ() != null) {
+                    compmd.constant = (boolean)expressionmd0.constant == (boolean)expressionmd1.constant;
+                } else if (ctx.NE() != null) {
+                    compmd.constant = (boolean)expressionmd0.constant != (boolean)expressionmd1.constant;
+                } else {
+                    throw new IllegalStateException();
+                }
+            } else {
+                markCast(expressionmd0, Type.BOOLEAN_TYPE, false);
+                markCast(expressionmd1, Type.BOOLEAN_TYPE, false);
+            }
+        } else {
+            if (expressionmd0.constant != null && expressionmd1.constant != null) {
+                if (ctx.EQ() != null) {
+                    compmd.constant = expressionmd0.constant == expressionmd1.constant;
+                } else if (ctx.NE() != null) {
+                    compmd.constant = expressionmd0.constant != expressionmd1.constant;
+                } else {
+                    throw new IllegalStateException();
+                }
+            } else {
+                markCast(expressionmd0, Type.BOOLEAN_TYPE, false);
+                markCast(expressionmd1, Type.BOOLEAN_TYPE, false);
             }
         }
 
         return null;
     }
 
-    /*@Override
-    public Extracted visitComp(PainlessParser.CompContext ctx) {
-        final Extracted[] extexpr = new Extracted[2];
+    @Override
+    public Void visitBool(BoolContext ctx) {
+        final Metadata boolmd = getMetadata(ctx);
+        boolmd.castnodes = new ParseTree[] {ctx};
+        boolmd.castatypes = new Type[] {Type.BOOLEAN_TYPE};
 
-        extexpr[0] = visit(ctx.expression(0));
-        extexpr[1] = visit(ctx.expression(0));
+        final ExpressionContext ectx0 = ctx.expression(0);
+        final Metadata expressionmd0 = createMetadata(ectx0);
+        visit(ectx0);
 
-        if (isNumeric(extexpr[0]) && isNumeric(extexpr[1])) {
-            markPromotion(extexpr);
-        } else if (ctx.EQ() != null || ctx.NE() != null) {
-            if (isBoolean(extexpr[0]) && isBoolean(extexpr[1])) {
-                markCast(extexpr[0], BOOLEAN_TYPE, false);
-                markCast(extexpr[0], BOOLEAN_TYPE, false);
-            } else if (isReference(extexpr[0]) && isReference(extexpr[1])) {
-                //TODO: mark comparison type?
+        final ExpressionContext ectx1 = ctx.expression(1);
+        final Metadata expressionmd1 = createMetadata(ectx1);
+        visit(ectx1);
+
+        if (isType(expressionmd0.castatypes, Type.BOOLEAN_TYPE, true) &&
+                isType(expressionmd1.castatypes, Type.BOOLEAN_TYPE, true)) {
+            if (expressionmd0.constant != null && expressionmd1.constant != null) {
+                if (ctx.BOOLAND() != null) {
+                    boolmd.constant = (boolean)expressionmd0.constant && (boolean)expressionmd1.constant;
+                } else if (ctx.BOOLOR() != null) {
+                    boolmd.constant = (boolean)expressionmd0.constant || (boolean)expressionmd1.constant;
+                } else {
+                    throw new IllegalStateException();
+                }
             } else {
-                throw new IllegalArgumentException();
+                markCast(expressionmd0, Type.BOOLEAN_TYPE, false);
+                markCast(expressionmd1, Type.BOOLEAN_TYPE, false);
             }
-        } else {
-            throw new IllegalArgumentException();
         }
 
-        Extracted extracted = new Extracted();
-        extracted.nodes.add(ctx);
-        extracted.atypes.add(BOOLEAN_TYPE);
-
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitBool(BoolContext ctx) {
-        final Extracted[] extexpr = new Extracted[2];
+    public Void visitConditional(PainlessParser.ConditionalContext ctx) {
+        final Metadata conditionalmd = getMetadata(ctx);
 
-        extexpr[0] = visit(ctx.expression(0));
-        extexpr[1] = visit(ctx.expression(0));
-        markCast(extexpr[0], BOOLEAN_TYPE, false);
-        markCast(extexpr[1], BOOLEAN_TYPE, false);
+        final ExpressionContext ectx0 = ctx.expression(0);
+        final Metadata expressionmd0 = createMetadata(ectx0);
+        visit(ectx0);
 
-        final Extracted extracted = new Extracted();
-        extracted.nodes.add(ctx);
-        extracted.atypes.add(BOOLEAN_TYPE);
+        if (expressionmd0.constant instanceof Boolean) {
+            conditionalmd.constant = expressionmd0.constant;
+        }
 
-        return extracted;
+        final ExpressionContext ectx1 = ctx.expression(1);
+        final Metadata expressionmd1 = createMetadata(ectx1);
+        visit(ectx1);
+
+        final ExpressionContext ectx2 = ctx.expression(2);
+        final Metadata expressionmd2 = createMetadata(ectx2);
+        visit(ectx2);
+
+        boolean constant0 = false;
+        boolean constant1 = false;
+
+        if (conditionalmd.constant != null) {
+            if ((boolean)conditionalmd.constant && expressionmd1.constant != null) {
+                constant0 = true;
+            } else if (expressionmd2.constant != null) {
+                constant1 = true;
+            }
+        }
+
+        if (constant0) {
+            conditionalmd.constant = expressionmd1.constant;
+            conditionalmd.castatypes[0] = expressionmd1.castatypes[0];
+        } else if (constant1) {
+            conditionalmd.constant = expressionmd2.constant;
+            conditionalmd.castatypes[0] = expressionmd2.castatypes[0];
+        } else {
+            final int nodeslen1 = expressionmd1.castnodes.length;
+            final int nodeslen2 = expressionmd2.castnodes.length;
+            conditionalmd.castnodes = new ParseTree[nodeslen1 + nodeslen2];
+            System.arraycopy(expressionmd1.castnodes, 0, conditionalmd.castnodes, 0, nodeslen1);
+            System.arraycopy(expressionmd2.castnodes, 0, conditionalmd.castnodes, nodeslen1, nodeslen2);
+
+            final int castslen1 = expressionmd1.castatypes.length;
+            final int castslen2 = expressionmd2.castatypes.length;
+            conditionalmd.castnodes = new ParseTree[castslen1 + castslen2];
+            System.arraycopy(expressionmd1.castatypes, 0, conditionalmd.castatypes, 0, castslen1);
+            System.arraycopy(expressionmd2.castatypes, 0, conditionalmd.castatypes, castslen1, castslen2);
+
+            conditionalmd.conditional = true;
+        }
+
+        return null;
     }
 
     @Override
-    public Extracted visitConditional(PainlessParser.ConditionalContext ctx) {
-        final Extracted extexpr = visit(ctx.expression(0));
-        markCast(extexpr, BOOLEAN_TYPE, false);
-
-        final Extracted extcond0 = visit(ctx.expression(1));
-        final Extracted extcond1 = visit(ctx.expression(2));
-
-        Extracted extracted = new Extracted();
-        extracted.nodes.addAll(extcond0.nodes);
-        extracted.atypes.addAll(extcond0.atypes);
-        extracted.nodes.addAll(extcond1.nodes);
-        extracted.atypes.addAll(extcond1.atypes);
-        extracted.statement = extcond0.statement && extcond1.statement;
-
-        return extracted;
-    }
-
-    @Override
-    public Extracted visitAssignment(PainlessParser.AssignmentContext ctx) {
-        Extracted extext = visit(ctx.extstart());
+    public Void visitAssignment(PainlessParser.AssignmentContext ctx) {
+        Metadata assignmentmd = getMetadata(ctx);
 
         if (!extext.writeable) {
             throw new IllegalArgumentException();
@@ -984,7 +1266,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         //TODO: mark read/write?
 
-        return extracted;
+        return null;
     }
 
     @Override

@@ -15,12 +15,12 @@ public final class Painless {
         //        ;
         //System.out.println(compile("test", test));
 
-        int f = Integer.MIN_VALUE;
-        int n = -f;
+        //int f = Integer.MIN_VALUE;
+        //int n = -f;
 
-        System.out.println(f + " " + n);
+        //System.out.println(f + " " + n);
 
-        //compile("test", "int test; test = ((int[])test).length; return test;");
+        compile("test", "return 9*8/4.33 > 3;");
     }
 
     public static PainlessExecutable compile(String name, String source) {

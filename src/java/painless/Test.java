@@ -9,6 +9,16 @@ public class Test {
         int i = Integer.MAX_VALUE*Integer.MAX_VALUE;
         boolean k = null instanceof Object;
 
-        //double d = 3.0 & 3.4;
+        double d = 3.0 % 3.4;
+
+        testd();
+    }
+
+    double testd() {
+        return 1.0;
+    }
+
+    Object testo() {
+        return new Object();
     }
 }
