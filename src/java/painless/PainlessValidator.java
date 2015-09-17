@@ -104,6 +104,8 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
         boolean jump = false;
         boolean rtn = false;
 
+        boolean writeable = false;
+
         Extracted() {
             nodes = new ArrayList<>();
             atypes = new ArrayList<>();
@@ -139,7 +141,23 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
         visit(root);
     }
 
+    private boolean isBoolean(final Extracted extracted) {
+        return false;
+    }
+
+    private boolean isNumeric(final Extracted extracted) {
+        return false;
+    }
+
+    private boolean isReference(final Extracted extracted) {
+        return false;
+    }
+
     private void markCast(final Extracted extracted, final Type to, final boolean explicit) {
+    }
+
+    private Type markPromotion(final Extracted[] extracted) {
+        return null;
     }
 
     @Override
@@ -359,31 +377,31 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
     @Override
     public Extracted visitDeclaration(PainlessParser.DeclarationContext ctx) {
-        DecltypeContext decltype = ctx.decltype();
-        Type atype = ptypes.getATypeFromPClass(decltype.getText());
+        final DecltypeContext decltype = ctx.decltype();
+        final Type atype = ptypes.getATypeFromPClass(decltype.getText());
 
         if (atype == null) {
             throw new IllegalArgumentException();
         }
 
         for (int child = 0; child < ctx.getChildCount(); ++child) {
-            ParseTree cctx = ctx.getChild(child);
+            final ParseTree cctx = ctx.getChild(child);
 
             if (cctx instanceof TerminalNode) {
-                TerminalNode tctx = (TerminalNode)cctx;
+                final TerminalNode tctx = (TerminalNode)cctx;
 
                 if (tctx.getSymbol().getType() == PainlessLexer.ID) {
-                    String vname = tctx.getText();
+                    final String vname = tctx.getText();
                     variables.add(vname, atype);
                 }
             } else if (cctx instanceof ExpressionContext) {
-                Extracted extcctx = visit(cctx);
+                final Extracted extcctx = visit(cctx);
                 markCast(extcctx, atype, false);
                 //TODO: mark write variable?
             }
         }
 
-        Extracted extracted = new Extracted();
+        final Extracted extracted = new Extracted();
         extracted.statement = true;
 
         return extracted;
@@ -400,73 +418,274 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
     }
 
     @Override
+    public Extracted visitPrecedence(PrecedenceContext ctx) {
+        return visit(ctx.expression());
+    }
+
+    @Override
+    public Extracted visitNumeric(NumericContext ctx) {
+        Type atype;
+
+        if (ctx.DECIMAL() != null) {
+            final String svalue = ctx.OCTAL().getText();
+            final double dvalue = Double.parseDouble(svalue);
+
+            if (dvalue > Float.MIN_VALUE && dvalue < Float.MAX_VALUE) {
+                atype = Type.FLOAT_TYPE;
+            } else {
+                atype = Type.DOUBLE_TYPE;
+            }
+        } else {
+            String svalue;
+            long lvalue;
+
+            if (ctx.OCTAL() != null) {
+                svalue = ctx.OCTAL().getText();
+                lvalue = Long.parseLong(svalue, 8);
+            } else if (ctx.INTEGER() != null) {
+                svalue = ctx.INTEGER().getText();
+                lvalue = Long.parseLong(svalue, 16);
+            } else if (ctx.HEX() != null) {
+                svalue = ctx.HEX().getText();
+                lvalue = Long.parseLong(svalue);
+            } else {
+                throw new IllegalArgumentException();
+            }
+
+            if (lvalue > Byte.MIN_VALUE && lvalue < Byte.MAX_VALUE) {
+                atype = Type.BYTE_TYPE;
+            } else if (lvalue > Short.MIN_VALUE && lvalue < Short.MAX_VALUE) {
+                atype = Type.SHORT_TYPE;
+            } else if (lvalue > Integer.MIN_VALUE && lvalue < Integer.MAX_VALUE) {
+                atype = Type.INT_TYPE;
+            } else {
+                atype = Type.LONG_TYPE;
+            }
+
+            //TODO: store value for single parse?
+        }
+
+        if (ptypes.getPClass(atype) == null) {
+            throw new IllegalArgumentException();
+        }
+
+        final Extracted extracted = new Extracted();
+        extracted.nodes.add(ctx);
+        extracted.atypes.add(atype);
+
+        return extracted;
+    }
+
+    @Override
+    public Extracted visitString(StringContext ctx) {
+        final Type atype = Type.getType("Ljava/lang/String;");
+
+        if (ptypes.getPClass(atype) == null) {
+            throw new IllegalArgumentException();
+        }
+
+        final Extracted extracted = new Extracted();
+        extracted.nodes.add(ctx);
+        extracted.atypes.add(atype);
+
+        return extracted;
+    }
+
+    @Override
+    public Extracted visitChar(CharContext ctx) {
+        final Type atype = Type.CHAR_TYPE;
+
+        if (ptypes.getPClass(atype) == null) {
+            throw new IllegalArgumentException();
+        }
+
+        final Extracted extracted = new Extracted();
+        extracted.nodes.add(ctx);
+        extracted.atypes.add(atype);
+
+        return extracted;
+    }
+    @Override
+    public Extracted visitTrue(TrueContext ctx) {
+        final Type atype = Type.BOOLEAN_TYPE;
+
+        if (ptypes.getPClass(atype) == null) {
+            throw new IllegalArgumentException();
+        }
+
+        final Extracted extracted = new Extracted();
+        extracted.nodes.add(ctx);
+        extracted.atypes.add(atype);
+
+        return extracted;
+    }
+
+    @Override
+    public Extracted visitFalse(FalseContext ctx) {
+        final Type atype = Type.BOOLEAN_TYPE;
+
+        if (ptypes.getPClass(atype) == null) {
+            throw new IllegalArgumentException();
+        }
+
+        final Extracted extracted = new Extracted();
+        extracted.nodes.add(ctx);
+        extracted.atypes.add(atype);
+
+        return extracted;
+    }
+
+    @Override
+    public Extracted visitNull(NullContext ctx) {
+        final Type atype = Type.getType("Ljava/lang/Object;");
+
+        if (ptypes.getPClass(atype) == null) {
+            throw new IllegalArgumentException();
+        }
+
+        final Extracted extracted = new Extracted();
+        extracted.nodes.add(ctx);
+        extracted.atypes.add(atype);
+
+        return extracted;
+    }
+
+    @Override
+    public Extracted visitUnary(UnaryContext ctx) {
+        Type atype;
+
+        if (ctx.BOOLNOT() != null) {
+            final Extracted extexpr = visit(ctx.expression());
+            markCast(extexpr, Type.BOOLEAN_TYPE, false);
+            atype = Type.BOOLEAN_TYPE;
+        } else {
+            final Extracted extexpr = visit(ctx.expression());
+            atype = markPromotion(new Extracted[] {extexpr});
+        }
+
+        Extracted extracted = new Extracted();
+        extracted.nodes.add(ctx);
+        extracted.atypes.add(atype);
+
+        return extracted;
+    }
+
+    @Override
+    public Extracted visitCast(CastContext ctx) {
+        String ptype = ctx.decltype().getText();
+        Type atype = ptypes.getATypeFromPClass(ptype);
+
+        if (atype == null) {
+            throw new IllegalArgumentException();
+        }
+
+        Extracted extexpr = visit(ctx.expression());
+        markCast(extexpr, atype, true);
+
+        Extracted extracted = new Extracted();
+        extracted.nodes.add(ctx);
+        extracted.atypes.add(atype);
+
+        return extracted;
+    }
+
+    @Override
+    public Extracted visitBinary(BinaryContext ctx) {
+        final Extracted[] extexpr = new Extracted[2];
+
+        extexpr[0] = visit(ctx.expression(0));
+        extexpr[1] = visit(ctx.expression(0));
+        Type atype = markPromotion(extexpr);
+
+        Extracted extracted = new Extracted();
+        extracted.nodes.add(ctx);
+        extracted.atypes.add(atype);
+
+        return extracted;
+    }
+
+    @Override
     public Extracted visitComp(PainlessParser.CompContext ctx) {
-        return null;
+        final Extracted[] extexpr = new Extracted[2];
+
+        extexpr[0] = visit(ctx.expression(0));
+        extexpr[1] = visit(ctx.expression(0));
+
+        if (isNumeric(extexpr[0]) && isNumeric(extexpr[1])) {
+            markPromotion(extexpr);
+        } else if (ctx.EQ() != null || ctx.NE() != null) {
+            if (isBoolean(extexpr[0]) && isBoolean(extexpr[1])) {
+                markCast(extexpr[0], Type.BOOLEAN_TYPE, false);
+                markCast(extexpr[0], Type.BOOLEAN_TYPE, false);
+            } else if (isReference(extexpr[0]) && isReference(extexpr[1])) {
+                //TODO: mark comparison type?
+            } else {
+                throw new IllegalArgumentException();
+            }
+        } else {
+            throw new IllegalArgumentException();
+        }
+
+        Extracted extracted = new Extracted();
+        extracted.nodes.add(ctx);
+        extracted.atypes.add(Type.BOOLEAN_TYPE);
+
+        return extracted;
     }
 
     @Override
-    public Extracted visitString(PainlessParser.StringContext ctx) {
-        return null;
-    }
+    public Extracted visitBool(BoolContext ctx) {
+        final Extracted[] extexpr = new Extracted[2];
 
-    @Override
-    public Extracted visitBool(PainlessParser.BoolContext ctx) {
-        return null;
+        extexpr[0] = visit(ctx.expression(0));
+        extexpr[1] = visit(ctx.expression(0));
+        markCast(extexpr[0], Type.BOOLEAN_TYPE, false);
+        markCast(extexpr[1], Type.BOOLEAN_TYPE, false);
+
+        final Extracted extracted = new Extracted();
+        extracted.nodes.add(ctx);
+        extracted.atypes.add(Type.BOOLEAN_TYPE);
+
+        return extracted;
     }
 
     @Override
     public Extracted visitConditional(PainlessParser.ConditionalContext ctx) {
-        return null;
+        final Extracted extexpr = visit(ctx.expression(0));
+        markCast(extexpr, Type.BOOLEAN_TYPE, false);
+
+        final Extracted extcond0 = visit(ctx.expression(1));
+        final Extracted extcond1 = visit(ctx.expression(2));
+
+        Extracted extracted = new Extracted();
+        extracted.nodes.addAll(extcond0.nodes);
+        extracted.atypes.addAll(extcond0.atypes);
+        extracted.nodes.addAll(extcond1.nodes);
+        extracted.atypes.addAll(extcond1.atypes);
+        extracted.statement = extcond0.statement && extcond1.statement;
+
+        return extracted;
     }
 
     @Override
     public Extracted visitAssignment(PainlessParser.AssignmentContext ctx) {
-        return null;
-    }
+        Extracted extext = visit(ctx.extstart());
 
-    @Override
-    public Extracted visitFalse(PainlessParser.FalseContext ctx) {
-        return null;
-    }
+        if (!extext.writeable) {
+            throw new IllegalArgumentException();
+        }
 
-    @Override
-    public Extracted visitNumeric(PainlessParser.NumericContext ctx) {
-        return null;
-    }
+        Extracted extexpr = visit(ctx.expression());
+        markCast(extexpr, extext.atypes.get(0), false);
 
-    @Override
-    public Extracted visitUnary(PainlessParser.UnaryContext ctx) {
-        return null;
-    }
+        Extracted extracted = new Extracted();
+        extracted.nodes.add(ctx);
+        extracted.atypes.add(extext.atypes.get(0));
+        extracted.statement = true;
 
-    @Override
-    public Extracted visitPrecedence(PainlessParser.PrecedenceContext ctx) {
-        return null;
-    }
+        //TODO: mark read/write?
 
-    @Override
-    public Extracted visitCast(PainlessParser.CastContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Extracted visitNull(PainlessParser.NullContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Extracted visitBinary(PainlessParser.BinaryContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Extracted visitChar(PainlessParser.CharContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Extracted visitTrue(PainlessParser.TrueContext ctx) {
-        return null;
+        return extracted;
     }
 
     @Override
@@ -550,7 +769,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
         throw new UnsupportedOperationException();
     }
 
-    public Extracted visitExtarray(ExtarrayContext ctx, Type parentatype) {
+    public Extracted visitExtarray(final ExtarrayContext ctx, final Type parentatype) {
         if (parentatype.getSort() != Type.ARRAY) {
             throw new IllegalArgumentException();
         }
@@ -570,6 +789,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
             extracted = new Extracted();
             extracted.nodes.add(ctx);
             extracted.atypes.add(atype);
+            extracted.writeable = true;
         }
 
         return extracted;
@@ -603,7 +823,10 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
             throw new IllegalArgumentException();
         }
 
-        return visitExtdot(ctx.extdot(), atype, true);
+        Extracted extracted = visitExtdot(ctx.extdot(), atype, true);
+        extracted.writeable = false;
+
+        return extracted;
     }
 
     @Override
@@ -680,6 +903,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
     private Extracted visitExtmember(final ExtmemberContext ctx, final Type parentatype, final boolean statik) {
         final String vname = ctx.ID().getText();
+        boolean writeable = !statik;
         Type atype;
 
         if (parentatype == null) {
@@ -693,6 +917,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
         } else {
             if (parentatype.getSort() == Type.ARRAY) {
                 if ("length".equals(vname)) {
+                    writeable = false;
                     atype = Type.INT_TYPE;
                 } else {
                     throw new IllegalArgumentException();
@@ -724,6 +949,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
             extracted = new Extracted();
             extracted.nodes.add(ctx);
             extracted.atypes.add(atype);
+            extracted.writeable = writeable;
         }
 
         return extracted;
