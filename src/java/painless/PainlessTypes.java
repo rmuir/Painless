@@ -16,11 +16,13 @@ class PainlessTypes {
         final String pname;
         final PClass powner;
         final Method amethod;
+        final boolean variadic;
 
-        private PMethod(final String pname, final PClass powner, Method amethod) {
+        private PMethod(final String pname, final PClass powner, Method amethod, boolean variadic) {
             this.pname = pname;
             this.powner = powner;
             this.amethod = amethod;
+            this.variadic = variadic;
         }
     }
 
@@ -43,10 +45,10 @@ class PainlessTypes {
         final Type atype;
 
         private final Map<String, PMethod> pfunctions;
-        private final Map<String, PMember> pstatics;
-
         private final Map<String, PMethod> pconstructors;
         private final Map<String, PMethod> pmethods;
+
+        private final Map<String, PMember> pstatics;
         private final Map<String, PMember> pmembers;
 
         private PClass(final String pname, final Type atype) {
@@ -54,19 +56,15 @@ class PainlessTypes {
             this.atype = atype;
 
             this.pfunctions = new HashMap<>();
-            this.pstatics = new HashMap<>();
-
             this.pconstructors = new HashMap<>();
             this.pmethods = new HashMap<>();
+
+            this.pstatics = new HashMap<>();
             this.pmembers = new HashMap<>();
         }
 
         PMethod getPFunction(String pfunction) {
             return pfunctions.get(pfunction);
-        }
-
-        PMember getPStatic(String pstatic) {
-            return pstatics.get(pstatic);
         }
 
         PMethod getPConstructor(String pconstructor) {
@@ -75,6 +73,10 @@ class PainlessTypes {
 
         PMethod getPMethod(String pmethod) {
             return pmethods.get(pmethod);
+        }
+
+        PMember getPStatic(String pstatic) {
+            return pstatics.get(pstatic);
         }
 
         PMember getPMember(String pmember) {
@@ -178,15 +180,10 @@ class PainlessTypes {
     private final Map<Type, PClass> aclasses;
     private final Map<PCast, PMethod> ptransforms;
 
-    private final PClass parray;
-
     PainlessTypes() {
         pclasses = new HashMap<>();
         aclasses = new HashMap<>();
         ptransforms = new HashMap<>();
-
-        parray = new PClass("[", Type.getType("[Ljava/lang/Object;"));
-        parray.pmembers.put("length", new PMember("length", parray, "arraylength", Type.INT_TYPE));
 
         final Properties properties = new Properties();
 
@@ -261,14 +258,24 @@ class PainlessTypes {
                 property = property.replace("(", "").replace(")", "").replace(" ", "");
                 final String[] propsplit = property.isEmpty() ? null : property.split(",");
                 final Type[] aarguments = new Type[propsplit == null ? 0 : propsplit.length];
+                boolean variadic = false;
 
                 for (int argument = 0; argument < aarguments.length; ++argument) {
-                    final Type aargtype = getATypeFromPClass(propsplit[argument]);
-                    aarguments[argument] = aargtype;
+                    String pargument = propsplit[argument];
+
+                    if (argument + 1 == aarguments.length) {
+                        if (pargument.endsWith("...")) {
+                            variadic = true;
+                            pargument = pargument.substring(0, pargument.length() - 3);
+                        }
+                    }
+
+                    final Type aargument = getATypeFromPClass(pargument);
+                    aarguments[argument] = aargument;
                 }
 
                 final Method amethod = new Method(aname, artn, aarguments);
-                final PMethod pmethod = new PMethod(pname, powner, amethod);
+                final PMethod pmethod = new PMethod(pname, powner, amethod, variadic);
 
                 if ("constructor".equals(keysplit[0])) {
                     powner.pconstructors.put(pname, pmethod);
@@ -455,34 +462,8 @@ class PainlessTypes {
                 if (!Modifier.isStatic(validate.getModifiers())) {
                     throw new IllegalArgumentException();
                 }
-            }
 
-            for (final PMember pstatic : pclass.pstatics.values()) {
-                Field field;
-
-                try {
-                    field = getJClass(pstatic.powner.atype).getField(pstatic.jfield);
-                } catch (ClassNotFoundException exception) {
-                    throw new IllegalArgumentException();
-                } catch (NoSuchFieldException exception) {
-                    throw new IllegalArgumentException();
-                }
-
-                try {
-                    if (!getJClass(pstatic.atype).equals(field.getType())) {
-                        throw new IllegalArgumentException();
-                    }
-                } catch (ClassNotFoundException exception) {
-                    throw new IllegalArgumentException();
-                }
-
-                final int modifiers = field.getModifiers();
-
-                if (!Modifier.isStatic(modifiers)) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (!Modifier.isFinal(modifiers)) {
+                if (pfunction.variadic != validate.isVarArgs()) {
                     throw new IllegalArgumentException();
                 }
             }
@@ -510,6 +491,10 @@ class PainlessTypes {
                 }
 
                 if (Modifier.isStatic(validate.getModifiers())) {
+                    throw new IllegalArgumentException();
+                }
+
+                if (pconstructor.variadic != validate.isVarArgs()) {
                     throw new IllegalArgumentException();
                 }
 
@@ -557,6 +542,10 @@ class PainlessTypes {
                     throw new IllegalArgumentException();
                 }
 
+                if (pmethod.variadic != validate.isVarArgs()) {
+                    throw new IllegalArgumentException();
+                }
+
                 if (!pmethod.powner.equals(pclass)) {
                     throw new IllegalArgumentException();
                 }
@@ -586,6 +575,36 @@ class PainlessTypes {
                 }
 
                 if (!pmember.powner.equals(pclass)) {
+                    throw new IllegalArgumentException();
+                }
+            }
+
+            for (final PMember pstatic : pclass.pstatics.values()) {
+                Field field;
+
+                try {
+                    field = getJClass(pstatic.powner.atype).getField(pstatic.jfield);
+                } catch (ClassNotFoundException exception) {
+                    throw new IllegalArgumentException();
+                } catch (NoSuchFieldException exception) {
+                    throw new IllegalArgumentException();
+                }
+
+                try {
+                    if (!getJClass(pstatic.atype).equals(field.getType())) {
+                        throw new IllegalArgumentException();
+                    }
+                } catch (ClassNotFoundException exception) {
+                    throw new IllegalArgumentException();
+                }
+
+                final int modifiers = field.getModifiers();
+
+                if (!Modifier.isStatic(modifiers)) {
+                    throw new IllegalArgumentException();
+                }
+
+                if (!Modifier.isFinal(modifiers)) {
                     throw new IllegalArgumentException();
                 }
             }
@@ -620,19 +639,7 @@ class PainlessTypes {
         return Type.getType(descriptor);
     }
 
-    final PClass getPClass(final String ptype) {
-        if (ptype.endsWith("[]")) {
-            return parray;
-        }
-
-        return pclasses.get(ptype);
-    }
-
     final PClass getPClass(final Type atype) {
-        if (atype.getSort() == Type.ARRAY) {
-            return parray;
-        }
-
         return aclasses.get(atype);
     }
 

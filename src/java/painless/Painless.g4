@@ -58,17 +58,15 @@ expression
 extstart
    : extprec
    | extcast
-   | extfunc
-   | extstatic
+   | exttype
    | extmember
    ;
 
-extprec:   LP ( extprec | extcast | extfunc | extstatic | extcall | extmember) RP ( extdot | extarray )?;
-extcast:   LP decltype RP ( extprec | extcast | extfunc | extstatic | extcall | extmember );
+extprec:   LP ( extprec | extcast | exttype | extmember) RP ( extdot | extarray )?;
+extcast:   LP decltype RP ( extprec | extcast | exttype | extmember );
 extarray:  LBRACE expression RBRACE ( extdot | extarray )?;
 extdot:    DOT ( extcall | extmember );
-extfunc:   TYPE DOT ID arguments ( extdot | extarray )?;
-extstatic: TYPE DOT ID ( extdot | extarray )?;
+exttype:   TYPE extdot;
 extcall:   ID arguments ( extdot | extarray )?;
 extmember: ID (extdot | extarray )?;
 

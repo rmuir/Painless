@@ -27,12 +27,12 @@ public class PainlessParser extends Parser {
 	public static final int
 		RULE_source = 0, RULE_statement = 1, RULE_block = 2, RULE_declaration = 3, 
 		RULE_decltype = 4, RULE_expression = 5, RULE_extstart = 6, RULE_extprec = 7, 
-		RULE_extcast = 8, RULE_extarray = 9, RULE_extdot = 10, RULE_extfunc = 11, 
-		RULE_extstatic = 12, RULE_extcall = 13, RULE_extmember = 14, RULE_arguments = 15;
+		RULE_extcast = 8, RULE_extarray = 9, RULE_extdot = 10, RULE_exttype = 11, 
+		RULE_extcall = 12, RULE_extmember = 13, RULE_arguments = 14;
 	public static final String[] ruleNames = {
 		"source", "statement", "block", "declaration", "decltype", "expression", 
-		"extstart", "extprec", "extcast", "extarray", "extdot", "extfunc", "extstatic", 
-		"extcall", "extmember", "arguments"
+		"extstart", "extprec", "extcast", "extarray", "extdot", "exttype", "extcall", 
+		"extmember", "arguments"
 	};
 
 	private static final String[] _LITERAL_NAMES = {
@@ -127,21 +127,21 @@ public class PainlessParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(33); 
+			setState(31); 
 			_errHandler.sync(this);
 			_la = _input.LA(1);
 			do {
 				{
 				{
-				setState(32);
+				setState(30);
 				statement();
 				}
 				}
-				setState(35); 
+				setState(33); 
 				_errHandler.sync(this);
 				_la = _input.LA(1);
 			} while ( (((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << LP) | (1L << IF) | (1L << WHILE) | (1L << DO) | (1L << FOR) | (1L << CONTINUE) | (1L << BREAK) | (1L << RETURN) | (1L << BOOLNOT) | (1L << BWNOT) | (1L << ADD) | (1L << SUB) | (1L << OCTAL) | (1L << HEX) | (1L << INTEGER) | (1L << DECIMAL) | (1L << STRING) | (1L << CHAR) | (1L << TRUE) | (1L << FALSE) | (1L << NULL) | (1L << TYPE) | (1L << ID))) != 0) );
-			setState(37);
+			setState(35);
 			match(EOF);
 			}
 		}
@@ -313,29 +313,29 @@ public class PainlessParser extends Parser {
 		enterRule(_localctx, 2, RULE_statement);
 		int _la;
 		try {
-			setState(90);
+			setState(88);
 			switch ( getInterpreter().adaptivePredict(_input,5,_ctx) ) {
 			case 1:
 				_localctx = new IfContext(_localctx);
 				enterOuterAlt(_localctx, 1);
 				{
-				setState(39);
+				setState(37);
 				match(IF);
-				setState(40);
+				setState(38);
 				match(LP);
-				setState(41);
+				setState(39);
 				expression(0);
-				setState(42);
+				setState(40);
 				match(RP);
-				setState(43);
+				setState(41);
 				block();
-				setState(46);
+				setState(44);
 				switch ( getInterpreter().adaptivePredict(_input,1,_ctx) ) {
 				case 1:
 					{
-					setState(44);
+					setState(42);
 					match(ELSE);
-					setState(45);
+					setState(43);
 					block();
 					}
 					break;
@@ -346,15 +346,15 @@ public class PainlessParser extends Parser {
 				_localctx = new WhileContext(_localctx);
 				enterOuterAlt(_localctx, 2);
 				{
-				setState(48);
+				setState(46);
 				match(WHILE);
-				setState(49);
+				setState(47);
 				match(LP);
-				setState(50);
+				setState(48);
 				expression(0);
-				setState(51);
+				setState(49);
 				match(RP);
-				setState(52);
+				setState(50);
 				block();
 				}
 				break;
@@ -362,17 +362,17 @@ public class PainlessParser extends Parser {
 				_localctx = new DoContext(_localctx);
 				enterOuterAlt(_localctx, 3);
 				{
-				setState(54);
+				setState(52);
 				match(DO);
-				setState(55);
+				setState(53);
 				block();
-				setState(56);
+				setState(54);
 				match(WHILE);
-				setState(57);
+				setState(55);
 				match(LP);
-				setState(58);
+				setState(56);
 				expression(0);
-				setState(59);
+				setState(57);
 				match(RP);
 				}
 				break;
@@ -380,44 +380,44 @@ public class PainlessParser extends Parser {
 				_localctx = new ForContext(_localctx);
 				enterOuterAlt(_localctx, 4);
 				{
-				setState(61);
+				setState(59);
 				match(FOR);
-				setState(62);
+				setState(60);
 				match(LP);
-				setState(64);
+				setState(62);
 				_la = _input.LA(1);
 				if (_la==TYPE) {
 					{
-					setState(63);
+					setState(61);
 					declaration();
 					}
 				}
 
+				setState(64);
+				match(SEMICOLON);
 				setState(66);
-				match(SEMICOLON);
+				_la = _input.LA(1);
+				if ((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << LP) | (1L << BOOLNOT) | (1L << BWNOT) | (1L << ADD) | (1L << SUB) | (1L << OCTAL) | (1L << HEX) | (1L << INTEGER) | (1L << DECIMAL) | (1L << STRING) | (1L << CHAR) | (1L << TRUE) | (1L << FALSE) | (1L << NULL) | (1L << TYPE) | (1L << ID))) != 0)) {
+					{
+					setState(65);
+					expression(0);
+					}
+				}
+
 				setState(68);
-				_la = _input.LA(1);
-				if ((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << LP) | (1L << BOOLNOT) | (1L << BWNOT) | (1L << ADD) | (1L << SUB) | (1L << OCTAL) | (1L << HEX) | (1L << INTEGER) | (1L << DECIMAL) | (1L << STRING) | (1L << CHAR) | (1L << TRUE) | (1L << FALSE) | (1L << NULL) | (1L << TYPE) | (1L << ID))) != 0)) {
-					{
-					setState(67);
-					expression(0);
-					}
-				}
-
-				setState(70);
 				match(SEMICOLON);
-				setState(72);
+				setState(70);
 				_la = _input.LA(1);
 				if ((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << LP) | (1L << BOOLNOT) | (1L << BWNOT) | (1L << ADD) | (1L << SUB) | (1L << OCTAL) | (1L << HEX) | (1L << INTEGER) | (1L << DECIMAL) | (1L << STRING) | (1L << CHAR) | (1L << TRUE) | (1L << FALSE) | (1L << NULL) | (1L << TYPE) | (1L << ID))) != 0)) {
 					{
-					setState(71);
+					setState(69);
 					expression(0);
 					}
 				}
 
-				setState(74);
+				setState(72);
 				match(RP);
-				setState(75);
+				setState(73);
 				block();
 				}
 				break;
@@ -425,9 +425,9 @@ public class PainlessParser extends Parser {
 				_localctx = new DeclContext(_localctx);
 				enterOuterAlt(_localctx, 5);
 				{
-				setState(76);
+				setState(74);
 				declaration();
-				setState(77);
+				setState(75);
 				match(SEMICOLON);
 				}
 				break;
@@ -435,9 +435,9 @@ public class PainlessParser extends Parser {
 				_localctx = new ContinueContext(_localctx);
 				enterOuterAlt(_localctx, 6);
 				{
-				setState(79);
+				setState(77);
 				match(CONTINUE);
-				setState(80);
+				setState(78);
 				match(SEMICOLON);
 				}
 				break;
@@ -445,9 +445,9 @@ public class PainlessParser extends Parser {
 				_localctx = new BreakContext(_localctx);
 				enterOuterAlt(_localctx, 7);
 				{
-				setState(81);
+				setState(79);
 				match(BREAK);
-				setState(82);
+				setState(80);
 				match(SEMICOLON);
 				}
 				break;
@@ -455,11 +455,11 @@ public class PainlessParser extends Parser {
 				_localctx = new ReturnContext(_localctx);
 				enterOuterAlt(_localctx, 8);
 				{
-				setState(83);
+				setState(81);
 				match(RETURN);
-				setState(84);
+				setState(82);
 				expression(0);
-				setState(85);
+				setState(83);
 				match(SEMICOLON);
 				}
 				break;
@@ -467,9 +467,9 @@ public class PainlessParser extends Parser {
 				_localctx = new ExprContext(_localctx);
 				enterOuterAlt(_localctx, 9);
 				{
-				setState(87);
+				setState(85);
 				expression(0);
-				setState(88);
+				setState(86);
 				match(SEMICOLON);
 				}
 				break;
@@ -539,29 +539,29 @@ public class PainlessParser extends Parser {
 		enterRule(_localctx, 4, RULE_block);
 		int _la;
 		try {
-			setState(102);
+			setState(100);
 			switch (_input.LA(1)) {
 			case LBRACK:
 				_localctx = new MultipleContext(_localctx);
 				enterOuterAlt(_localctx, 1);
 				{
-				setState(92);
+				setState(90);
 				match(LBRACK);
-				setState(96);
+				setState(94);
 				_errHandler.sync(this);
 				_la = _input.LA(1);
 				while ((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << LP) | (1L << IF) | (1L << WHILE) | (1L << DO) | (1L << FOR) | (1L << CONTINUE) | (1L << BREAK) | (1L << RETURN) | (1L << BOOLNOT) | (1L << BWNOT) | (1L << ADD) | (1L << SUB) | (1L << OCTAL) | (1L << HEX) | (1L << INTEGER) | (1L << DECIMAL) | (1L << STRING) | (1L << CHAR) | (1L << TRUE) | (1L << FALSE) | (1L << NULL) | (1L << TYPE) | (1L << ID))) != 0)) {
 					{
 					{
-					setState(93);
+					setState(91);
 					statement();
 					}
 					}
-					setState(98);
+					setState(96);
 					_errHandler.sync(this);
 					_la = _input.LA(1);
 				}
-				setState(99);
+				setState(97);
 				match(RBRACK);
 				}
 				break;
@@ -591,7 +591,7 @@ public class PainlessParser extends Parser {
 				_localctx = new SingleContext(_localctx);
 				enterOuterAlt(_localctx, 2);
 				{
-				setState(100);
+				setState(98);
 				statement();
 				}
 				break;
@@ -599,7 +599,7 @@ public class PainlessParser extends Parser {
 				_localctx = new EmptyContext(_localctx);
 				enterOuterAlt(_localctx, 3);
 				{
-				setState(101);
+				setState(99);
 				match(SEMICOLON);
 				}
 				break;
@@ -658,45 +658,45 @@ public class PainlessParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(104);
+			setState(102);
 			decltype();
-			setState(105);
+			setState(103);
 			match(ID);
-			setState(108);
+			setState(106);
 			_la = _input.LA(1);
 			if (_la==ASSIGN) {
 				{
-				setState(106);
+				setState(104);
 				match(ASSIGN);
-				setState(107);
+				setState(105);
 				expression(0);
 				}
 			}
 
-			setState(118);
+			setState(116);
 			_errHandler.sync(this);
 			_la = _input.LA(1);
 			while (_la==COMMA) {
 				{
 				{
-				setState(110);
+				setState(108);
 				match(COMMA);
-				setState(111);
+				setState(109);
 				match(ID);
-				setState(114);
+				setState(112);
 				_la = _input.LA(1);
 				if (_la==ASSIGN) {
 					{
-					setState(112);
+					setState(110);
 					match(ASSIGN);
-					setState(113);
+					setState(111);
 					expression(0);
 					}
 				}
 
 				}
 				}
-				setState(120);
+				setState(118);
 				_errHandler.sync(this);
 				_la = _input.LA(1);
 			}
@@ -741,21 +741,21 @@ public class PainlessParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(121);
+			setState(119);
 			match(TYPE);
-			setState(126);
+			setState(124);
 			_errHandler.sync(this);
 			_la = _input.LA(1);
 			while (_la==LBRACE) {
 				{
 				{
-				setState(122);
+				setState(120);
 				match(LBRACE);
-				setState(123);
+				setState(121);
 				match(RBRACE);
 				}
 				}
-				setState(128);
+				setState(126);
 				_errHandler.sync(this);
 				_la = _input.LA(1);
 			}
@@ -1004,7 +1004,7 @@ public class PainlessParser extends Parser {
 			int _alt;
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(152);
+			setState(150);
 			switch ( getInterpreter().adaptivePredict(_input,12,_ctx) ) {
 			case 1:
 				{
@@ -1012,14 +1012,14 @@ public class PainlessParser extends Parser {
 				_ctx = _localctx;
 				_prevctx = _localctx;
 
-				setState(130);
+				setState(128);
 				_la = _input.LA(1);
 				if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << BOOLNOT) | (1L << BWNOT) | (1L << ADD) | (1L << SUB))) != 0)) ) {
 				_errHandler.recoverInline(this);
 				} else {
 					consume();
 				}
-				setState(131);
+				setState(129);
 				expression(14);
 				}
 				break;
@@ -1028,13 +1028,13 @@ public class PainlessParser extends Parser {
 				_localctx = new CastContext(_localctx);
 				_ctx = _localctx;
 				_prevctx = _localctx;
-				setState(132);
+				setState(130);
 				match(LP);
-				setState(133);
+				setState(131);
 				decltype();
-				setState(134);
+				setState(132);
 				match(RP);
-				setState(135);
+				setState(133);
 				expression(13);
 				}
 				break;
@@ -1043,11 +1043,11 @@ public class PainlessParser extends Parser {
 				_localctx = new AssignmentContext(_localctx);
 				_ctx = _localctx;
 				_prevctx = _localctx;
-				setState(137);
+				setState(135);
 				extstart();
-				setState(138);
+				setState(136);
 				match(ASSIGN);
-				setState(139);
+				setState(137);
 				expression(1);
 				}
 				break;
@@ -1056,11 +1056,11 @@ public class PainlessParser extends Parser {
 				_localctx = new PrecedenceContext(_localctx);
 				_ctx = _localctx;
 				_prevctx = _localctx;
-				setState(141);
+				setState(139);
 				match(LP);
-				setState(142);
+				setState(140);
 				expression(0);
-				setState(143);
+				setState(141);
 				match(RP);
 				}
 				break;
@@ -1069,7 +1069,7 @@ public class PainlessParser extends Parser {
 				_localctx = new NumericContext(_localctx);
 				_ctx = _localctx;
 				_prevctx = _localctx;
-				setState(145);
+				setState(143);
 				_la = _input.LA(1);
 				if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << OCTAL) | (1L << HEX) | (1L << INTEGER) | (1L << DECIMAL))) != 0)) ) {
 				_errHandler.recoverInline(this);
@@ -1083,7 +1083,7 @@ public class PainlessParser extends Parser {
 				_localctx = new StringContext(_localctx);
 				_ctx = _localctx;
 				_prevctx = _localctx;
-				setState(146);
+				setState(144);
 				match(STRING);
 				}
 				break;
@@ -1092,7 +1092,7 @@ public class PainlessParser extends Parser {
 				_localctx = new CharContext(_localctx);
 				_ctx = _localctx;
 				_prevctx = _localctx;
-				setState(147);
+				setState(145);
 				match(CHAR);
 				}
 				break;
@@ -1101,7 +1101,7 @@ public class PainlessParser extends Parser {
 				_localctx = new TrueContext(_localctx);
 				_ctx = _localctx;
 				_prevctx = _localctx;
-				setState(148);
+				setState(146);
 				match(TRUE);
 				}
 				break;
@@ -1110,7 +1110,7 @@ public class PainlessParser extends Parser {
 				_localctx = new FalseContext(_localctx);
 				_ctx = _localctx;
 				_prevctx = _localctx;
-				setState(149);
+				setState(147);
 				match(FALSE);
 				}
 				break;
@@ -1119,7 +1119,7 @@ public class PainlessParser extends Parser {
 				_localctx = new NullContext(_localctx);
 				_ctx = _localctx;
 				_prevctx = _localctx;
-				setState(150);
+				setState(148);
 				match(NULL);
 				}
 				break;
@@ -1128,13 +1128,13 @@ public class PainlessParser extends Parser {
 				_localctx = new ExtContext(_localctx);
 				_ctx = _localctx;
 				_prevctx = _localctx;
-				setState(151);
+				setState(149);
 				extstart();
 				}
 				break;
 			}
 			_ctx.stop = _input.LT(-1);
-			setState(192);
+			setState(190);
 			_errHandler.sync(this);
 			_alt = getInterpreter().adaptivePredict(_input,14,_ctx);
 			while ( _alt!=2 && _alt!=org.antlr.v4.runtime.atn.ATN.INVALID_ALT_NUMBER ) {
@@ -1142,22 +1142,22 @@ public class PainlessParser extends Parser {
 					if ( _parseListeners!=null ) triggerExitRuleEvent();
 					_prevctx = _localctx;
 					{
-					setState(190);
+					setState(188);
 					switch ( getInterpreter().adaptivePredict(_input,13,_ctx) ) {
 					case 1:
 						{
 						_localctx = new BinaryContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
-						setState(154);
+						setState(152);
 						if (!(precpred(_ctx, 12))) throw new FailedPredicateException(this, "precpred(_ctx, 12)");
-						setState(155);
+						setState(153);
 						_la = _input.LA(1);
 						if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << MUL) | (1L << DIV) | (1L << REM))) != 0)) ) {
 						_errHandler.recoverInline(this);
 						} else {
 							consume();
 						}
-						setState(156);
+						setState(154);
 						expression(13);
 						}
 						break;
@@ -1165,16 +1165,16 @@ public class PainlessParser extends Parser {
 						{
 						_localctx = new BinaryContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
-						setState(157);
+						setState(155);
 						if (!(precpred(_ctx, 11))) throw new FailedPredicateException(this, "precpred(_ctx, 11)");
-						setState(158);
+						setState(156);
 						_la = _input.LA(1);
 						if ( !(_la==ADD || _la==SUB) ) {
 						_errHandler.recoverInline(this);
 						} else {
 							consume();
 						}
-						setState(159);
+						setState(157);
 						expression(12);
 						}
 						break;
@@ -1182,16 +1182,16 @@ public class PainlessParser extends Parser {
 						{
 						_localctx = new BinaryContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
-						setState(160);
+						setState(158);
 						if (!(precpred(_ctx, 10))) throw new FailedPredicateException(this, "precpred(_ctx, 10)");
-						setState(161);
+						setState(159);
 						_la = _input.LA(1);
 						if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << LSH) | (1L << RSH) | (1L << USH))) != 0)) ) {
 						_errHandler.recoverInline(this);
 						} else {
 							consume();
 						}
-						setState(162);
+						setState(160);
 						expression(11);
 						}
 						break;
@@ -1199,16 +1199,16 @@ public class PainlessParser extends Parser {
 						{
 						_localctx = new CompContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
-						setState(163);
+						setState(161);
 						if (!(precpred(_ctx, 9))) throw new FailedPredicateException(this, "precpred(_ctx, 9)");
-						setState(164);
+						setState(162);
 						_la = _input.LA(1);
 						if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << LT) | (1L << LTE) | (1L << GT) | (1L << GTE))) != 0)) ) {
 						_errHandler.recoverInline(this);
 						} else {
 							consume();
 						}
-						setState(165);
+						setState(163);
 						expression(10);
 						}
 						break;
@@ -1216,16 +1216,16 @@ public class PainlessParser extends Parser {
 						{
 						_localctx = new CompContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
-						setState(166);
+						setState(164);
 						if (!(precpred(_ctx, 8))) throw new FailedPredicateException(this, "precpred(_ctx, 8)");
-						setState(167);
+						setState(165);
 						_la = _input.LA(1);
 						if ( !(_la==EQ || _la==NE) ) {
 						_errHandler.recoverInline(this);
 						} else {
 							consume();
 						}
-						setState(168);
+						setState(166);
 						expression(9);
 						}
 						break;
@@ -1233,11 +1233,11 @@ public class PainlessParser extends Parser {
 						{
 						_localctx = new BinaryContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
-						setState(169);
+						setState(167);
 						if (!(precpred(_ctx, 7))) throw new FailedPredicateException(this, "precpred(_ctx, 7)");
-						setState(170);
+						setState(168);
 						match(BWAND);
-						setState(171);
+						setState(169);
 						expression(8);
 						}
 						break;
@@ -1245,11 +1245,11 @@ public class PainlessParser extends Parser {
 						{
 						_localctx = new BinaryContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
-						setState(172);
+						setState(170);
 						if (!(precpred(_ctx, 6))) throw new FailedPredicateException(this, "precpred(_ctx, 6)");
-						setState(173);
+						setState(171);
 						match(BWXOR);
-						setState(174);
+						setState(172);
 						expression(7);
 						}
 						break;
@@ -1257,11 +1257,11 @@ public class PainlessParser extends Parser {
 						{
 						_localctx = new BinaryContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
-						setState(175);
+						setState(173);
 						if (!(precpred(_ctx, 5))) throw new FailedPredicateException(this, "precpred(_ctx, 5)");
-						setState(176);
+						setState(174);
 						match(BWOR);
-						setState(177);
+						setState(175);
 						expression(6);
 						}
 						break;
@@ -1269,11 +1269,11 @@ public class PainlessParser extends Parser {
 						{
 						_localctx = new BoolContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
-						setState(178);
+						setState(176);
 						if (!(precpred(_ctx, 4))) throw new FailedPredicateException(this, "precpred(_ctx, 4)");
-						setState(179);
+						setState(177);
 						match(BOOLAND);
-						setState(180);
+						setState(178);
 						expression(5);
 						}
 						break;
@@ -1281,11 +1281,11 @@ public class PainlessParser extends Parser {
 						{
 						_localctx = new BoolContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
-						setState(181);
+						setState(179);
 						if (!(precpred(_ctx, 3))) throw new FailedPredicateException(this, "precpred(_ctx, 3)");
-						setState(182);
+						setState(180);
 						match(BOOLOR);
-						setState(183);
+						setState(181);
 						expression(4);
 						}
 						break;
@@ -1293,22 +1293,22 @@ public class PainlessParser extends Parser {
 						{
 						_localctx = new ConditionalContext(new ExpressionContext(_parentctx, _parentState));
 						pushNewRecursionContext(_localctx, _startState, RULE_expression);
-						setState(184);
+						setState(182);
 						if (!(precpred(_ctx, 2))) throw new FailedPredicateException(this, "precpred(_ctx, 2)");
-						setState(185);
+						setState(183);
 						match(COND);
-						setState(186);
+						setState(184);
 						expression(0);
-						setState(187);
+						setState(185);
 						match(COLON);
-						setState(188);
+						setState(186);
 						expression(2);
 						}
 						break;
 					}
 					} 
 				}
-				setState(194);
+				setState(192);
 				_errHandler.sync(this);
 				_alt = getInterpreter().adaptivePredict(_input,14,_ctx);
 			}
@@ -1332,11 +1332,8 @@ public class PainlessParser extends Parser {
 		public ExtcastContext extcast() {
 			return getRuleContext(ExtcastContext.class,0);
 		}
-		public ExtfuncContext extfunc() {
-			return getRuleContext(ExtfuncContext.class,0);
-		}
-		public ExtstaticContext extstatic() {
-			return getRuleContext(ExtstaticContext.class,0);
+		public ExttypeContext exttype() {
+			return getRuleContext(ExttypeContext.class,0);
 		}
 		public ExtmemberContext extmember() {
 			return getRuleContext(ExtmemberContext.class,0);
@@ -1356,40 +1353,33 @@ public class PainlessParser extends Parser {
 		ExtstartContext _localctx = new ExtstartContext(_ctx, getState());
 		enterRule(_localctx, 12, RULE_extstart);
 		try {
-			setState(200);
+			setState(197);
 			switch ( getInterpreter().adaptivePredict(_input,15,_ctx) ) {
 			case 1:
 				enterOuterAlt(_localctx, 1);
 				{
-				setState(195);
+				setState(193);
 				extprec();
 				}
 				break;
 			case 2:
 				enterOuterAlt(_localctx, 2);
 				{
-				setState(196);
+				setState(194);
 				extcast();
 				}
 				break;
 			case 3:
 				enterOuterAlt(_localctx, 3);
 				{
-				setState(197);
-				extfunc();
+				setState(195);
+				exttype();
 				}
 				break;
 			case 4:
 				enterOuterAlt(_localctx, 4);
 				{
-				setState(198);
-				extstatic();
-				}
-				break;
-			case 5:
-				enterOuterAlt(_localctx, 5);
-				{
-				setState(199);
+				setState(196);
 				extmember();
 				}
 				break;
@@ -1415,14 +1405,8 @@ public class PainlessParser extends Parser {
 		public ExtcastContext extcast() {
 			return getRuleContext(ExtcastContext.class,0);
 		}
-		public ExtfuncContext extfunc() {
-			return getRuleContext(ExtfuncContext.class,0);
-		}
-		public ExtstaticContext extstatic() {
-			return getRuleContext(ExtstaticContext.class,0);
-		}
-		public ExtcallContext extcall() {
-			return getRuleContext(ExtcallContext.class,0);
+		public ExttypeContext exttype() {
+			return getRuleContext(ExttypeContext.class,0);
 		}
 		public ExtmemberContext extmember() {
 			return getRuleContext(ExtmemberContext.class,0);
@@ -1450,60 +1434,48 @@ public class PainlessParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(202);
+			setState(199);
 			match(LP);
-			setState(209);
+			setState(204);
 			switch ( getInterpreter().adaptivePredict(_input,16,_ctx) ) {
 			case 1:
 				{
-				setState(203);
+				setState(200);
 				extprec();
 				}
 				break;
 			case 2:
 				{
-				setState(204);
+				setState(201);
 				extcast();
 				}
 				break;
 			case 3:
 				{
-				setState(205);
-				extfunc();
+				setState(202);
+				exttype();
 				}
 				break;
 			case 4:
 				{
-				setState(206);
-				extstatic();
-				}
-				break;
-			case 5:
-				{
-				setState(207);
-				extcall();
-				}
-				break;
-			case 6:
-				{
-				setState(208);
+				setState(203);
 				extmember();
 				}
 				break;
 			}
-			setState(211);
+			setState(206);
 			match(RP);
-			setState(214);
+			setState(209);
 			switch ( getInterpreter().adaptivePredict(_input,17,_ctx) ) {
 			case 1:
 				{
-				setState(212);
+				setState(207);
 				extdot();
 				}
 				break;
 			case 2:
 				{
-				setState(213);
+				setState(208);
 				extarray();
 				}
 				break;
@@ -1533,14 +1505,8 @@ public class PainlessParser extends Parser {
 		public ExtcastContext extcast() {
 			return getRuleContext(ExtcastContext.class,0);
 		}
-		public ExtfuncContext extfunc() {
-			return getRuleContext(ExtfuncContext.class,0);
-		}
-		public ExtstaticContext extstatic() {
-			return getRuleContext(ExtstaticContext.class,0);
-		}
-		public ExtcallContext extcall() {
-			return getRuleContext(ExtcallContext.class,0);
+		public ExttypeContext exttype() {
+			return getRuleContext(ExttypeContext.class,0);
 		}
 		public ExtmemberContext extmember() {
 			return getRuleContext(ExtmemberContext.class,0);
@@ -1562,47 +1528,35 @@ public class PainlessParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(216);
+			setState(211);
 			match(LP);
-			setState(217);
+			setState(212);
 			decltype();
-			setState(218);
+			setState(213);
 			match(RP);
-			setState(225);
+			setState(218);
 			switch ( getInterpreter().adaptivePredict(_input,18,_ctx) ) {
 			case 1:
 				{
-				setState(219);
+				setState(214);
 				extprec();
 				}
 				break;
 			case 2:
 				{
-				setState(220);
+				setState(215);
 				extcast();
 				}
 				break;
 			case 3:
 				{
-				setState(221);
-				extfunc();
+				setState(216);
+				exttype();
 				}
 				break;
 			case 4:
 				{
-				setState(222);
-				extstatic();
-				}
-				break;
-			case 5:
-				{
-				setState(223);
-				extcall();
-				}
-				break;
-			case 6:
-				{
-				setState(224);
+				setState(217);
 				extmember();
 				}
 				break;
@@ -1649,23 +1603,23 @@ public class PainlessParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(227);
+			setState(220);
 			match(LBRACE);
-			setState(228);
+			setState(221);
 			expression(0);
-			setState(229);
+			setState(222);
 			match(RBRACE);
-			setState(232);
+			setState(225);
 			switch ( getInterpreter().adaptivePredict(_input,19,_ctx) ) {
 			case 1:
 				{
-				setState(230);
+				setState(223);
 				extdot();
 				}
 				break;
 			case 2:
 				{
-				setState(231);
+				setState(224);
 				extarray();
 				}
 				break;
@@ -1708,19 +1662,19 @@ public class PainlessParser extends Parser {
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(234);
+			setState(227);
 			match(DOT);
-			setState(237);
+			setState(230);
 			switch ( getInterpreter().adaptivePredict(_input,20,_ctx) ) {
 			case 1:
 				{
-				setState(235);
+				setState(228);
 				extcall();
 				}
 				break;
 			case 2:
 				{
-				setState(236);
+				setState(229);
 				extmember();
 				}
 				break;
@@ -1738,120 +1692,32 @@ public class PainlessParser extends Parser {
 		return _localctx;
 	}
 
-	public static class ExtfuncContext extends ParserRuleContext {
+	public static class ExttypeContext extends ParserRuleContext {
 		public TerminalNode TYPE() { return getToken(PainlessParser.TYPE, 0); }
-		public TerminalNode DOT() { return getToken(PainlessParser.DOT, 0); }
-		public TerminalNode ID() { return getToken(PainlessParser.ID, 0); }
-		public ArgumentsContext arguments() {
-			return getRuleContext(ArgumentsContext.class,0);
-		}
 		public ExtdotContext extdot() {
 			return getRuleContext(ExtdotContext.class,0);
 		}
-		public ExtarrayContext extarray() {
-			return getRuleContext(ExtarrayContext.class,0);
-		}
-		public ExtfuncContext(ParserRuleContext parent, int invokingState) {
+		public ExttypeContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
-		@Override public int getRuleIndex() { return RULE_extfunc; }
+		@Override public int getRuleIndex() { return RULE_exttype; }
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof PainlessVisitor ) return ((PainlessVisitor<? extends T>)visitor).visitExtfunc(this);
+			if ( visitor instanceof PainlessVisitor ) return ((PainlessVisitor<? extends T>)visitor).visitExttype(this);
 			else return visitor.visitChildren(this);
 		}
 	}
 
-	public final ExtfuncContext extfunc() throws RecognitionException {
-		ExtfuncContext _localctx = new ExtfuncContext(_ctx, getState());
-		enterRule(_localctx, 22, RULE_extfunc);
+	public final ExttypeContext exttype() throws RecognitionException {
+		ExttypeContext _localctx = new ExttypeContext(_ctx, getState());
+		enterRule(_localctx, 22, RULE_exttype);
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(239);
+			setState(232);
 			match(TYPE);
-			setState(240);
-			match(DOT);
-			setState(241);
-			match(ID);
-			setState(242);
-			arguments();
-			setState(245);
-			switch ( getInterpreter().adaptivePredict(_input,21,_ctx) ) {
-			case 1:
-				{
-				setState(243);
-				extdot();
-				}
-				break;
-			case 2:
-				{
-				setState(244);
-				extarray();
-				}
-				break;
-			}
-			}
-		}
-		catch (RecognitionException re) {
-			_localctx.exception = re;
-			_errHandler.reportError(this, re);
-			_errHandler.recover(this, re);
-		}
-		finally {
-			exitRule();
-		}
-		return _localctx;
-	}
-
-	public static class ExtstaticContext extends ParserRuleContext {
-		public TerminalNode TYPE() { return getToken(PainlessParser.TYPE, 0); }
-		public TerminalNode DOT() { return getToken(PainlessParser.DOT, 0); }
-		public TerminalNode ID() { return getToken(PainlessParser.ID, 0); }
-		public ExtdotContext extdot() {
-			return getRuleContext(ExtdotContext.class,0);
-		}
-		public ExtarrayContext extarray() {
-			return getRuleContext(ExtarrayContext.class,0);
-		}
-		public ExtstaticContext(ParserRuleContext parent, int invokingState) {
-			super(parent, invokingState);
-		}
-		@Override public int getRuleIndex() { return RULE_extstatic; }
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof PainlessVisitor ) return ((PainlessVisitor<? extends T>)visitor).visitExtstatic(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-
-	public final ExtstaticContext extstatic() throws RecognitionException {
-		ExtstaticContext _localctx = new ExtstaticContext(_ctx, getState());
-		enterRule(_localctx, 24, RULE_extstatic);
-		try {
-			enterOuterAlt(_localctx, 1);
-			{
-			setState(247);
-			match(TYPE);
-			setState(248);
-			match(DOT);
-			setState(249);
-			match(ID);
-			setState(252);
-			switch ( getInterpreter().adaptivePredict(_input,22,_ctx) ) {
-			case 1:
-				{
-				setState(250);
-				extdot();
-				}
-				break;
-			case 2:
-				{
-				setState(251);
-				extarray();
-				}
-				break;
-			}
+			setState(233);
+			extdot();
 			}
 		}
 		catch (RecognitionException re) {
@@ -1889,25 +1755,25 @@ public class PainlessParser extends Parser {
 
 	public final ExtcallContext extcall() throws RecognitionException {
 		ExtcallContext _localctx = new ExtcallContext(_ctx, getState());
-		enterRule(_localctx, 26, RULE_extcall);
+		enterRule(_localctx, 24, RULE_extcall);
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(254);
+			setState(235);
 			match(ID);
-			setState(255);
+			setState(236);
 			arguments();
-			setState(258);
-			switch ( getInterpreter().adaptivePredict(_input,23,_ctx) ) {
+			setState(239);
+			switch ( getInterpreter().adaptivePredict(_input,21,_ctx) ) {
 			case 1:
 				{
-				setState(256);
+				setState(237);
 				extdot();
 				}
 				break;
 			case 2:
 				{
-				setState(257);
+				setState(238);
 				extarray();
 				}
 				break;
@@ -1946,23 +1812,23 @@ public class PainlessParser extends Parser {
 
 	public final ExtmemberContext extmember() throws RecognitionException {
 		ExtmemberContext _localctx = new ExtmemberContext(_ctx, getState());
-		enterRule(_localctx, 28, RULE_extmember);
+		enterRule(_localctx, 26, RULE_extmember);
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
-			setState(260);
+			setState(241);
 			match(ID);
-			setState(263);
-			switch ( getInterpreter().adaptivePredict(_input,24,_ctx) ) {
+			setState(244);
+			switch ( getInterpreter().adaptivePredict(_input,22,_ctx) ) {
 			case 1:
 				{
-				setState(261);
+				setState(242);
 				extdot();
 				}
 				break;
 			case 2:
 				{
-				setState(262);
+				setState(243);
 				extarray();
 				}
 				break;
@@ -2006,40 +1872,40 @@ public class PainlessParser extends Parser {
 
 	public final ArgumentsContext arguments() throws RecognitionException {
 		ArgumentsContext _localctx = new ArgumentsContext(_ctx, getState());
-		enterRule(_localctx, 30, RULE_arguments);
+		enterRule(_localctx, 28, RULE_arguments);
 		int _la;
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
 			{
-			setState(265);
+			setState(246);
 			match(LP);
-			setState(274);
+			setState(255);
 			_la = _input.LA(1);
 			if ((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << LP) | (1L << BOOLNOT) | (1L << BWNOT) | (1L << ADD) | (1L << SUB) | (1L << OCTAL) | (1L << HEX) | (1L << INTEGER) | (1L << DECIMAL) | (1L << STRING) | (1L << CHAR) | (1L << TRUE) | (1L << FALSE) | (1L << NULL) | (1L << TYPE) | (1L << ID))) != 0)) {
 				{
-				setState(266);
+				setState(247);
 				expression(0);
-				setState(271);
+				setState(252);
 				_errHandler.sync(this);
 				_la = _input.LA(1);
 				while (_la==COMMA) {
 					{
 					{
-					setState(267);
+					setState(248);
 					match(COMMA);
-					setState(268);
+					setState(249);
 					expression(0);
 					}
 					}
-					setState(273);
+					setState(254);
 					_errHandler.sync(this);
 					_la = _input.LA(1);
 				}
 				}
 			}
 
-			setState(276);
+			setState(257);
 			match(RP);
 			}
 			}
@@ -2091,108 +1957,98 @@ public class PainlessParser extends Parser {
 	}
 
 	public static final String _serializedATN =
-		"\3\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd\38\u0119\4\2\t\2\4"+
+		"\3\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd\38\u0106\4\2\t\2\4"+
 		"\3\t\3\4\4\t\4\4\5\t\5\4\6\t\6\4\7\t\7\4\b\t\b\4\t\t\t\4\n\t\n\4\13\t"+
-		"\13\4\f\t\f\4\r\t\r\4\16\t\16\4\17\t\17\4\20\t\20\4\21\t\21\3\2\6\2$\n"+
-		"\2\r\2\16\2%\3\2\3\2\3\3\3\3\3\3\3\3\3\3\3\3\3\3\5\3\61\n\3\3\3\3\3\3"+
-		"\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\5\3C\n\3\3\3\3"+
-		"\3\5\3G\n\3\3\3\3\3\5\3K\n\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3"+
-		"\3\3\3\3\3\3\3\3\3\3\3\5\3]\n\3\3\4\3\4\7\4a\n\4\f\4\16\4d\13\4\3\4\3"+
-		"\4\3\4\5\4i\n\4\3\5\3\5\3\5\3\5\5\5o\n\5\3\5\3\5\3\5\3\5\5\5u\n\5\7\5"+
-		"w\n\5\f\5\16\5z\13\5\3\6\3\6\3\6\7\6\177\n\6\f\6\16\6\u0082\13\6\3\7\3"+
+		"\13\4\f\t\f\4\r\t\r\4\16\t\16\4\17\t\17\4\20\t\20\3\2\6\2\"\n\2\r\2\16"+
+		"\2#\3\2\3\2\3\3\3\3\3\3\3\3\3\3\3\3\3\3\5\3/\n\3\3\3\3\3\3\3\3\3\3\3\3"+
+		"\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\5\3A\n\3\3\3\3\3\5\3E\n\3\3"+
+		"\3\3\3\5\3I\n\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3\3"+
+		"\3\3\3\3\3\5\3[\n\3\3\4\3\4\7\4_\n\4\f\4\16\4b\13\4\3\4\3\4\3\4\5\4g\n"+
+		"\4\3\5\3\5\3\5\3\5\5\5m\n\5\3\5\3\5\3\5\3\5\5\5s\n\5\7\5u\n\5\f\5\16\5"+
+		"x\13\5\3\6\3\6\3\6\7\6}\n\6\f\6\16\6\u0080\13\6\3\7\3\7\3\7\3\7\3\7\3"+
 		"\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7"+
-		"\3\7\3\7\3\7\3\7\5\7\u009b\n\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7"+
+		"\5\7\u0099\n\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7"+
 		"\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3"+
-		"\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\3\7\7\7\u00c1\n\7\f\7\16\7\u00c4\13\7\3"+
-		"\b\3\b\3\b\3\b\3\b\5\b\u00cb\n\b\3\t\3\t\3\t\3\t\3\t\3\t\3\t\5\t\u00d4"+
-		"\n\t\3\t\3\t\3\t\5\t\u00d9\n\t\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\3\n\5\n"+
-		"\u00e4\n\n\3\13\3\13\3\13\3\13\3\13\5\13\u00eb\n\13\3\f\3\f\3\f\5\f\u00f0"+
-		"\n\f\3\r\3\r\3\r\3\r\3\r\3\r\5\r\u00f8\n\r\3\16\3\16\3\16\3\16\3\16\5"+
-		"\16\u00ff\n\16\3\17\3\17\3\17\3\17\5\17\u0105\n\17\3\20\3\20\3\20\5\20"+
-		"\u010a\n\20\3\21\3\21\3\21\3\21\7\21\u0110\n\21\f\21\16\21\u0113\13\21"+
-		"\5\21\u0115\n\21\3\21\3\21\3\21\2\3\f\22\2\4\6\b\n\f\16\20\22\24\26\30"+
-		"\32\34\36 \2\t\4\2\26\27\33\34\3\2-\60\3\2\30\32\3\2\33\34\3\2\35\37\3"+
-		"\2 #\3\2$%\u014e\2#\3\2\2\2\4\\\3\2\2\2\6h\3\2\2\2\bj\3\2\2\2\n{\3\2\2"+
-		"\2\f\u009a\3\2\2\2\16\u00ca\3\2\2\2\20\u00cc\3\2\2\2\22\u00da\3\2\2\2"+
-		"\24\u00e5\3\2\2\2\26\u00ec\3\2\2\2\30\u00f1\3\2\2\2\32\u00f9\3\2\2\2\34"+
-		"\u0100\3\2\2\2\36\u0106\3\2\2\2 \u010b\3\2\2\2\"$\5\4\3\2#\"\3\2\2\2$"+
-		"%\3\2\2\2%#\3\2\2\2%&\3\2\2\2&\'\3\2\2\2\'(\7\2\2\3(\3\3\2\2\2)*\7\16"+
-		"\2\2*+\7\b\2\2+,\5\f\7\2,-\7\t\2\2-\60\5\6\4\2./\7\17\2\2/\61\5\6\4\2"+
-		"\60.\3\2\2\2\60\61\3\2\2\2\61]\3\2\2\2\62\63\7\20\2\2\63\64\7\b\2\2\64"+
-		"\65\5\f\7\2\65\66\7\t\2\2\66\67\5\6\4\2\67]\3\2\2\289\7\21\2\29:\5\6\4"+
-		"\2:;\7\20\2\2;<\7\b\2\2<=\5\f\7\2=>\7\t\2\2>]\3\2\2\2?@\7\22\2\2@B\7\b"+
-		"\2\2AC\5\b\5\2BA\3\2\2\2BC\3\2\2\2CD\3\2\2\2DF\7\r\2\2EG\5\f\7\2FE\3\2"+
-		"\2\2FG\3\2\2\2GH\3\2\2\2HJ\7\r\2\2IK\5\f\7\2JI\3\2\2\2JK\3\2\2\2KL\3\2"+
-		"\2\2LM\7\t\2\2M]\5\6\4\2NO\5\b\5\2OP\7\r\2\2P]\3\2\2\2QR\7\23\2\2R]\7"+
-		"\r\2\2ST\7\24\2\2T]\7\r\2\2UV\7\25\2\2VW\5\f\7\2WX\7\r\2\2X]\3\2\2\2Y"+
-		"Z\5\f\7\2Z[\7\r\2\2[]\3\2\2\2\\)\3\2\2\2\\\62\3\2\2\2\\8\3\2\2\2\\?\3"+
-		"\2\2\2\\N\3\2\2\2\\Q\3\2\2\2\\S\3\2\2\2\\U\3\2\2\2\\Y\3\2\2\2]\5\3\2\2"+
-		"\2^b\7\4\2\2_a\5\4\3\2`_\3\2\2\2ad\3\2\2\2b`\3\2\2\2bc\3\2\2\2ce\3\2\2"+
-		"\2db\3\2\2\2ei\7\5\2\2fi\5\4\3\2gi\7\r\2\2h^\3\2\2\2hf\3\2\2\2hg\3\2\2"+
-		"\2i\7\3\2\2\2jk\5\n\6\2kn\78\2\2lm\7\n\2\2mo\5\f\7\2nl\3\2\2\2no\3\2\2"+
-		"\2ox\3\2\2\2pq\7\f\2\2qt\78\2\2rs\7\n\2\2su\5\f\7\2tr\3\2\2\2tu\3\2\2"+
-		"\2uw\3\2\2\2vp\3\2\2\2wz\3\2\2\2xv\3\2\2\2xy\3\2\2\2y\t\3\2\2\2zx\3\2"+
-		"\2\2{\u0080\7\67\2\2|}\7\6\2\2}\177\7\7\2\2~|\3\2\2\2\177\u0082\3\2\2"+
-		"\2\u0080~\3\2\2\2\u0080\u0081\3\2\2\2\u0081\13\3\2\2\2\u0082\u0080\3\2"+
-		"\2\2\u0083\u0084\b\7\1\2\u0084\u0085\t\2\2\2\u0085\u009b\5\f\7\20\u0086"+
-		"\u0087\7\b\2\2\u0087\u0088\5\n\6\2\u0088\u0089\7\t\2\2\u0089\u008a\5\f"+
-		"\7\17\u008a\u009b\3\2\2\2\u008b\u008c\5\16\b\2\u008c\u008d\7\n\2\2\u008d"+
-		"\u008e\5\f\7\3\u008e\u009b\3\2\2\2\u008f\u0090\7\b\2\2\u0090\u0091\5\f"+
-		"\7\2\u0091\u0092\7\t\2\2\u0092\u009b\3\2\2\2\u0093\u009b\t\3\2\2\u0094"+
-		"\u009b\7\61\2\2\u0095\u009b\7\62\2\2\u0096\u009b\7\63\2\2\u0097\u009b"+
-		"\7\64\2\2\u0098\u009b\7\65\2\2\u0099\u009b\5\16\b\2\u009a\u0083\3\2\2"+
-		"\2\u009a\u0086\3\2\2\2\u009a\u008b\3\2\2\2\u009a\u008f\3\2\2\2\u009a\u0093"+
-		"\3\2\2\2\u009a\u0094\3\2\2\2\u009a\u0095\3\2\2\2\u009a\u0096\3\2\2\2\u009a"+
-		"\u0097\3\2\2\2\u009a\u0098\3\2\2\2\u009a\u0099\3\2\2\2\u009b\u00c2\3\2"+
-		"\2\2\u009c\u009d\f\16\2\2\u009d\u009e\t\4\2\2\u009e\u00c1\5\f\7\17\u009f"+
-		"\u00a0\f\r\2\2\u00a0\u00a1\t\5\2\2\u00a1\u00c1\5\f\7\16\u00a2\u00a3\f"+
-		"\f\2\2\u00a3\u00a4\t\6\2\2\u00a4\u00c1\5\f\7\r\u00a5\u00a6\f\13\2\2\u00a6"+
-		"\u00a7\t\7\2\2\u00a7\u00c1\5\f\7\f\u00a8\u00a9\f\n\2\2\u00a9\u00aa\t\b"+
-		"\2\2\u00aa\u00c1\5\f\7\13\u00ab\u00ac\f\t\2\2\u00ac\u00ad\7&\2\2\u00ad"+
-		"\u00c1\5\f\7\n\u00ae\u00af\f\b\2\2\u00af\u00b0\7\'\2\2\u00b0\u00c1\5\f"+
-		"\7\t\u00b1\u00b2\f\7\2\2\u00b2\u00b3\7(\2\2\u00b3\u00c1\5\f\7\b\u00b4"+
-		"\u00b5\f\6\2\2\u00b5\u00b6\7)\2\2\u00b6\u00c1\5\f\7\7\u00b7\u00b8\f\5"+
-		"\2\2\u00b8\u00b9\7*\2\2\u00b9\u00c1\5\f\7\6\u00ba\u00bb\f\4\2\2\u00bb"+
-		"\u00bc\7+\2\2\u00bc\u00bd\5\f\7\2\u00bd\u00be\7,\2\2\u00be\u00bf\5\f\7"+
-		"\4\u00bf\u00c1\3\2\2\2\u00c0\u009c\3\2\2\2\u00c0\u009f\3\2\2\2\u00c0\u00a2"+
-		"\3\2\2\2\u00c0\u00a5\3\2\2\2\u00c0\u00a8\3\2\2\2\u00c0\u00ab\3\2\2\2\u00c0"+
-		"\u00ae\3\2\2\2\u00c0\u00b1\3\2\2\2\u00c0\u00b4\3\2\2\2\u00c0\u00b7\3\2"+
-		"\2\2\u00c0\u00ba\3\2\2\2\u00c1\u00c4\3\2\2\2\u00c2\u00c0\3\2\2\2\u00c2"+
-		"\u00c3\3\2\2\2\u00c3\r\3\2\2\2\u00c4\u00c2\3\2\2\2\u00c5\u00cb\5\20\t"+
-		"\2\u00c6\u00cb\5\22\n\2\u00c7\u00cb\5\30\r\2\u00c8\u00cb\5\32\16\2\u00c9"+
-		"\u00cb\5\36\20\2\u00ca\u00c5\3\2\2\2\u00ca\u00c6\3\2\2\2\u00ca\u00c7\3"+
-		"\2\2\2\u00ca\u00c8\3\2\2\2\u00ca\u00c9\3\2\2\2\u00cb\17\3\2\2\2\u00cc"+
-		"\u00d3\7\b\2\2\u00cd\u00d4\5\20\t\2\u00ce\u00d4\5\22\n\2\u00cf\u00d4\5"+
-		"\30\r\2\u00d0\u00d4\5\32\16\2\u00d1\u00d4\5\34\17\2\u00d2\u00d4\5\36\20"+
-		"\2\u00d3\u00cd\3\2\2\2\u00d3\u00ce\3\2\2\2\u00d3\u00cf\3\2\2\2\u00d3\u00d0"+
-		"\3\2\2\2\u00d3\u00d1\3\2\2\2\u00d3\u00d2\3\2\2\2\u00d4\u00d5\3\2\2\2\u00d5"+
-		"\u00d8\7\t\2\2\u00d6\u00d9\5\26\f\2\u00d7\u00d9\5\24\13\2\u00d8\u00d6"+
-		"\3\2\2\2\u00d8\u00d7\3\2\2\2\u00d8\u00d9\3\2\2\2\u00d9\21\3\2\2\2\u00da"+
-		"\u00db\7\b\2\2\u00db\u00dc\5\n\6\2\u00dc\u00e3\7\t\2\2\u00dd\u00e4\5\20"+
-		"\t\2\u00de\u00e4\5\22\n\2\u00df\u00e4\5\30\r\2\u00e0\u00e4\5\32\16\2\u00e1"+
-		"\u00e4\5\34\17\2\u00e2\u00e4\5\36\20\2\u00e3\u00dd\3\2\2\2\u00e3\u00de"+
-		"\3\2\2\2\u00e3\u00df\3\2\2\2\u00e3\u00e0\3\2\2\2\u00e3\u00e1\3\2\2\2\u00e3"+
-		"\u00e2\3\2\2\2\u00e4\23\3\2\2\2\u00e5\u00e6\7\6\2\2\u00e6\u00e7\5\f\7"+
-		"\2\u00e7\u00ea\7\7\2\2\u00e8\u00eb\5\26\f\2\u00e9\u00eb\5\24\13\2\u00ea"+
-		"\u00e8\3\2\2\2\u00ea\u00e9\3\2\2\2\u00ea\u00eb\3\2\2\2\u00eb\25\3\2\2"+
-		"\2\u00ec\u00ef\7\13\2\2\u00ed\u00f0\5\34\17\2\u00ee\u00f0\5\36\20\2\u00ef"+
-		"\u00ed\3\2\2\2\u00ef\u00ee\3\2\2\2\u00f0\27\3\2\2\2\u00f1\u00f2\7\67\2"+
-		"\2\u00f2\u00f3\7\13\2\2\u00f3\u00f4\78\2\2\u00f4\u00f7\5 \21\2\u00f5\u00f8"+
-		"\5\26\f\2\u00f6\u00f8\5\24\13\2\u00f7\u00f5\3\2\2\2\u00f7\u00f6\3\2\2"+
-		"\2\u00f7\u00f8\3\2\2\2\u00f8\31\3\2\2\2\u00f9\u00fa\7\67\2\2\u00fa\u00fb"+
-		"\7\13\2\2\u00fb\u00fe\78\2\2\u00fc\u00ff\5\26\f\2\u00fd\u00ff\5\24\13"+
-		"\2\u00fe\u00fc\3\2\2\2\u00fe\u00fd\3\2\2\2\u00fe\u00ff\3\2\2\2\u00ff\33"+
-		"\3\2\2\2\u0100\u0101\78\2\2\u0101\u0104\5 \21\2\u0102\u0105\5\26\f\2\u0103"+
-		"\u0105\5\24\13\2\u0104\u0102\3\2\2\2\u0104\u0103\3\2\2\2\u0104\u0105\3"+
-		"\2\2\2\u0105\35\3\2\2\2\u0106\u0109\78\2\2\u0107\u010a\5\26\f\2\u0108"+
-		"\u010a\5\24\13\2\u0109\u0107\3\2\2\2\u0109\u0108\3\2\2\2\u0109\u010a\3"+
-		"\2\2\2\u010a\37\3\2\2\2\u010b\u0114\7\b\2\2\u010c\u0111\5\f\7\2\u010d"+
-		"\u010e\7\f\2\2\u010e\u0110\5\f\7\2\u010f\u010d\3\2\2\2\u0110\u0113\3\2"+
-		"\2\2\u0111\u010f\3\2\2\2\u0111\u0112\3\2\2\2\u0112\u0115\3\2\2\2\u0113"+
-		"\u0111\3\2\2\2\u0114\u010c\3\2\2\2\u0114\u0115\3\2\2\2\u0115\u0116\3\2"+
-		"\2\2\u0116\u0117\7\t\2\2\u0117!\3\2\2\2\35%\60BFJ\\bhntx\u0080\u009a\u00c0"+
-		"\u00c2\u00ca\u00d3\u00d8\u00e3\u00ea\u00ef\u00f7\u00fe\u0104\u0109\u0111"+
-		"\u0114";
+		"\7\3\7\3\7\3\7\3\7\7\7\u00bf\n\7\f\7\16\7\u00c2\13\7\3\b\3\b\3\b\3\b\5"+
+		"\b\u00c8\n\b\3\t\3\t\3\t\3\t\3\t\5\t\u00cf\n\t\3\t\3\t\3\t\5\t\u00d4\n"+
+		"\t\3\n\3\n\3\n\3\n\3\n\3\n\3\n\5\n\u00dd\n\n\3\13\3\13\3\13\3\13\3\13"+
+		"\5\13\u00e4\n\13\3\f\3\f\3\f\5\f\u00e9\n\f\3\r\3\r\3\r\3\16\3\16\3\16"+
+		"\3\16\5\16\u00f2\n\16\3\17\3\17\3\17\5\17\u00f7\n\17\3\20\3\20\3\20\3"+
+		"\20\7\20\u00fd\n\20\f\20\16\20\u0100\13\20\5\20\u0102\n\20\3\20\3\20\3"+
+		"\20\2\3\f\21\2\4\6\b\n\f\16\20\22\24\26\30\32\34\36\2\t\4\2\26\27\33\34"+
+		"\3\2-\60\3\2\30\32\3\2\33\34\3\2\35\37\3\2 #\3\2$%\u0133\2!\3\2\2\2\4"+
+		"Z\3\2\2\2\6f\3\2\2\2\bh\3\2\2\2\ny\3\2\2\2\f\u0098\3\2\2\2\16\u00c7\3"+
+		"\2\2\2\20\u00c9\3\2\2\2\22\u00d5\3\2\2\2\24\u00de\3\2\2\2\26\u00e5\3\2"+
+		"\2\2\30\u00ea\3\2\2\2\32\u00ed\3\2\2\2\34\u00f3\3\2\2\2\36\u00f8\3\2\2"+
+		"\2 \"\5\4\3\2! \3\2\2\2\"#\3\2\2\2#!\3\2\2\2#$\3\2\2\2$%\3\2\2\2%&\7\2"+
+		"\2\3&\3\3\2\2\2\'(\7\16\2\2()\7\b\2\2)*\5\f\7\2*+\7\t\2\2+.\5\6\4\2,-"+
+		"\7\17\2\2-/\5\6\4\2.,\3\2\2\2./\3\2\2\2/[\3\2\2\2\60\61\7\20\2\2\61\62"+
+		"\7\b\2\2\62\63\5\f\7\2\63\64\7\t\2\2\64\65\5\6\4\2\65[\3\2\2\2\66\67\7"+
+		"\21\2\2\678\5\6\4\289\7\20\2\29:\7\b\2\2:;\5\f\7\2;<\7\t\2\2<[\3\2\2\2"+
+		"=>\7\22\2\2>@\7\b\2\2?A\5\b\5\2@?\3\2\2\2@A\3\2\2\2AB\3\2\2\2BD\7\r\2"+
+		"\2CE\5\f\7\2DC\3\2\2\2DE\3\2\2\2EF\3\2\2\2FH\7\r\2\2GI\5\f\7\2HG\3\2\2"+
+		"\2HI\3\2\2\2IJ\3\2\2\2JK\7\t\2\2K[\5\6\4\2LM\5\b\5\2MN\7\r\2\2N[\3\2\2"+
+		"\2OP\7\23\2\2P[\7\r\2\2QR\7\24\2\2R[\7\r\2\2ST\7\25\2\2TU\5\f\7\2UV\7"+
+		"\r\2\2V[\3\2\2\2WX\5\f\7\2XY\7\r\2\2Y[\3\2\2\2Z\'\3\2\2\2Z\60\3\2\2\2"+
+		"Z\66\3\2\2\2Z=\3\2\2\2ZL\3\2\2\2ZO\3\2\2\2ZQ\3\2\2\2ZS\3\2\2\2ZW\3\2\2"+
+		"\2[\5\3\2\2\2\\`\7\4\2\2]_\5\4\3\2^]\3\2\2\2_b\3\2\2\2`^\3\2\2\2`a\3\2"+
+		"\2\2ac\3\2\2\2b`\3\2\2\2cg\7\5\2\2dg\5\4\3\2eg\7\r\2\2f\\\3\2\2\2fd\3"+
+		"\2\2\2fe\3\2\2\2g\7\3\2\2\2hi\5\n\6\2il\78\2\2jk\7\n\2\2km\5\f\7\2lj\3"+
+		"\2\2\2lm\3\2\2\2mv\3\2\2\2no\7\f\2\2or\78\2\2pq\7\n\2\2qs\5\f\7\2rp\3"+
+		"\2\2\2rs\3\2\2\2su\3\2\2\2tn\3\2\2\2ux\3\2\2\2vt\3\2\2\2vw\3\2\2\2w\t"+
+		"\3\2\2\2xv\3\2\2\2y~\7\67\2\2z{\7\6\2\2{}\7\7\2\2|z\3\2\2\2}\u0080\3\2"+
+		"\2\2~|\3\2\2\2~\177\3\2\2\2\177\13\3\2\2\2\u0080~\3\2\2\2\u0081\u0082"+
+		"\b\7\1\2\u0082\u0083\t\2\2\2\u0083\u0099\5\f\7\20\u0084\u0085\7\b\2\2"+
+		"\u0085\u0086\5\n\6\2\u0086\u0087\7\t\2\2\u0087\u0088\5\f\7\17\u0088\u0099"+
+		"\3\2\2\2\u0089\u008a\5\16\b\2\u008a\u008b\7\n\2\2\u008b\u008c\5\f\7\3"+
+		"\u008c\u0099\3\2\2\2\u008d\u008e\7\b\2\2\u008e\u008f\5\f\7\2\u008f\u0090"+
+		"\7\t\2\2\u0090\u0099\3\2\2\2\u0091\u0099\t\3\2\2\u0092\u0099\7\61\2\2"+
+		"\u0093\u0099\7\62\2\2\u0094\u0099\7\63\2\2\u0095\u0099\7\64\2\2\u0096"+
+		"\u0099\7\65\2\2\u0097\u0099\5\16\b\2\u0098\u0081\3\2\2\2\u0098\u0084\3"+
+		"\2\2\2\u0098\u0089\3\2\2\2\u0098\u008d\3\2\2\2\u0098\u0091\3\2\2\2\u0098"+
+		"\u0092\3\2\2\2\u0098\u0093\3\2\2\2\u0098\u0094\3\2\2\2\u0098\u0095\3\2"+
+		"\2\2\u0098\u0096\3\2\2\2\u0098\u0097\3\2\2\2\u0099\u00c0\3\2\2\2\u009a"+
+		"\u009b\f\16\2\2\u009b\u009c\t\4\2\2\u009c\u00bf\5\f\7\17\u009d\u009e\f"+
+		"\r\2\2\u009e\u009f\t\5\2\2\u009f\u00bf\5\f\7\16\u00a0\u00a1\f\f\2\2\u00a1"+
+		"\u00a2\t\6\2\2\u00a2\u00bf\5\f\7\r\u00a3\u00a4\f\13\2\2\u00a4\u00a5\t"+
+		"\7\2\2\u00a5\u00bf\5\f\7\f\u00a6\u00a7\f\n\2\2\u00a7\u00a8\t\b\2\2\u00a8"+
+		"\u00bf\5\f\7\13\u00a9\u00aa\f\t\2\2\u00aa\u00ab\7&\2\2\u00ab\u00bf\5\f"+
+		"\7\n\u00ac\u00ad\f\b\2\2\u00ad\u00ae\7\'\2\2\u00ae\u00bf\5\f\7\t\u00af"+
+		"\u00b0\f\7\2\2\u00b0\u00b1\7(\2\2\u00b1\u00bf\5\f\7\b\u00b2\u00b3\f\6"+
+		"\2\2\u00b3\u00b4\7)\2\2\u00b4\u00bf\5\f\7\7\u00b5\u00b6\f\5\2\2\u00b6"+
+		"\u00b7\7*\2\2\u00b7\u00bf\5\f\7\6\u00b8\u00b9\f\4\2\2\u00b9\u00ba\7+\2"+
+		"\2\u00ba\u00bb\5\f\7\2\u00bb\u00bc\7,\2\2\u00bc\u00bd\5\f\7\4\u00bd\u00bf"+
+		"\3\2\2\2\u00be\u009a\3\2\2\2\u00be\u009d\3\2\2\2\u00be\u00a0\3\2\2\2\u00be"+
+		"\u00a3\3\2\2\2\u00be\u00a6\3\2\2\2\u00be\u00a9\3\2\2\2\u00be\u00ac\3\2"+
+		"\2\2\u00be\u00af\3\2\2\2\u00be\u00b2\3\2\2\2\u00be\u00b5\3\2\2\2\u00be"+
+		"\u00b8\3\2\2\2\u00bf\u00c2\3\2\2\2\u00c0\u00be\3\2\2\2\u00c0\u00c1\3\2"+
+		"\2\2\u00c1\r\3\2\2\2\u00c2\u00c0\3\2\2\2\u00c3\u00c8\5\20\t\2\u00c4\u00c8"+
+		"\5\22\n\2\u00c5\u00c8\5\30\r\2\u00c6\u00c8\5\34\17\2\u00c7\u00c3\3\2\2"+
+		"\2\u00c7\u00c4\3\2\2\2\u00c7\u00c5\3\2\2\2\u00c7\u00c6\3\2\2\2\u00c8\17"+
+		"\3\2\2\2\u00c9\u00ce\7\b\2\2\u00ca\u00cf\5\20\t\2\u00cb\u00cf\5\22\n\2"+
+		"\u00cc\u00cf\5\30\r\2\u00cd\u00cf\5\34\17\2\u00ce\u00ca\3\2\2\2\u00ce"+
+		"\u00cb\3\2\2\2\u00ce\u00cc\3\2\2\2\u00ce\u00cd\3\2\2\2\u00cf\u00d0\3\2"+
+		"\2\2\u00d0\u00d3\7\t\2\2\u00d1\u00d4\5\26\f\2\u00d2\u00d4\5\24\13\2\u00d3"+
+		"\u00d1\3\2\2\2\u00d3\u00d2\3\2\2\2\u00d3\u00d4\3\2\2\2\u00d4\21\3\2\2"+
+		"\2\u00d5\u00d6\7\b\2\2\u00d6\u00d7\5\n\6\2\u00d7\u00dc\7\t\2\2\u00d8\u00dd"+
+		"\5\20\t\2\u00d9\u00dd\5\22\n\2\u00da\u00dd\5\30\r\2\u00db\u00dd\5\34\17"+
+		"\2\u00dc\u00d8\3\2\2\2\u00dc\u00d9\3\2\2\2\u00dc\u00da\3\2\2\2\u00dc\u00db"+
+		"\3\2\2\2\u00dd\23\3\2\2\2\u00de\u00df\7\6\2\2\u00df\u00e0\5\f\7\2\u00e0"+
+		"\u00e3\7\7\2\2\u00e1\u00e4\5\26\f\2\u00e2\u00e4\5\24\13\2\u00e3\u00e1"+
+		"\3\2\2\2\u00e3\u00e2\3\2\2\2\u00e3\u00e4\3\2\2\2\u00e4\25\3\2\2\2\u00e5"+
+		"\u00e8\7\13\2\2\u00e6\u00e9\5\32\16\2\u00e7\u00e9\5\34\17\2\u00e8\u00e6"+
+		"\3\2\2\2\u00e8\u00e7\3\2\2\2\u00e9\27\3\2\2\2\u00ea\u00eb\7\67\2\2\u00eb"+
+		"\u00ec\5\26\f\2\u00ec\31\3\2\2\2\u00ed\u00ee\78\2\2\u00ee\u00f1\5\36\20"+
+		"\2\u00ef\u00f2\5\26\f\2\u00f0\u00f2\5\24\13\2\u00f1\u00ef\3\2\2\2\u00f1"+
+		"\u00f0\3\2\2\2\u00f1\u00f2\3\2\2\2\u00f2\33\3\2\2\2\u00f3\u00f6\78\2\2"+
+		"\u00f4\u00f7\5\26\f\2\u00f5\u00f7\5\24\13\2\u00f6\u00f4\3\2\2\2\u00f6"+
+		"\u00f5\3\2\2\2\u00f6\u00f7\3\2\2\2\u00f7\35\3\2\2\2\u00f8\u0101\7\b\2"+
+		"\2\u00f9\u00fe\5\f\7\2\u00fa\u00fb\7\f\2\2\u00fb\u00fd\5\f\7\2\u00fc\u00fa"+
+		"\3\2\2\2\u00fd\u0100\3\2\2\2\u00fe\u00fc\3\2\2\2\u00fe\u00ff\3\2\2\2\u00ff"+
+		"\u0102\3\2\2\2\u0100\u00fe\3\2\2\2\u0101\u00f9\3\2\2\2\u0101\u0102\3\2"+
+		"\2\2\u0102\u0103\3\2\2\2\u0103\u0104\7\t\2\2\u0104\37\3\2\2\2\33#.@DH"+
+		"Z`flrv~\u0098\u00be\u00c0\u00c7\u00ce\u00d3\u00dc\u00e3\u00e8\u00f1\u00f6"+
+		"\u00fe\u0101";
 	public static final ATN _ATN =
 		new ATNDeserializer().deserialize(_serializedATN.toCharArray());
 	static {

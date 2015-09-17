@@ -97,8 +97,6 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
     }
 
     static class Extracted {
-        final ParseTree source;
-
         final List<ParseTree> nodes;
         final List<Type> atypes;
 
@@ -106,9 +104,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
         boolean jump = false;
         boolean rtn = false;
 
-        Extracted(final ParseTree source) {
-            this.source = source;
-
+        Extracted() {
             nodes = new ArrayList<>();
             atypes = new ArrayList<>();
         }
@@ -122,7 +118,6 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
     private int loop;
     private final Variables variables;
-    private final Map<ParseTree, Type> atypes;
 
     private final Map<ParseTree, PCast> pcasts;
 
@@ -131,7 +126,6 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
         loop = 0;
         variables = new Variables();
-        atypes = new HashMap<>();
 
         pcasts = new HashMap<>();
 
@@ -152,7 +146,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
     public Extracted visitSource(SourceContext ctx) {
         variables.incrementScope();
 
-        Extracted extracted = new Extracted(ctx);
+        Extracted extracted = new Extracted();
 
         for (StatementContext sctx : ctx.statement()) {
             if (extracted.rtn) {
@@ -182,7 +176,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
         Extracted extexpr = visit(ctx.expression());
         markCast(extexpr, Type.BOOLEAN_TYPE, false);
 
-        Extracted extracted = new Extracted(ctx);
+        Extracted extracted = new Extracted();
         extracted.statement = true;
         extracted.rtn = visit(ctx.block(0)).rtn;
 
@@ -208,7 +202,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
         visit(ctx.block());
 
-        Extracted extracted = new Extracted(ctx);
+        Extracted extracted = new Extracted();
         extracted.statement = true;
 
         --loop;
@@ -228,7 +222,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
         Extracted extexpr = visit(ectx);
         markCast(extexpr, Type.BOOLEAN_TYPE, false);
 
-        Extracted extracted = new Extracted(ctx);
+        Extracted extracted = new Extracted();
         extracted.statement = true;
 
         --loop;
@@ -259,7 +253,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
         visit(ctx.block());
 
-        Extracted extracted = new Extracted(ctx);
+        Extracted extracted = new Extracted();
         extracted.statement = true;
 
         --loop;
@@ -279,7 +273,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
             throw new IllegalStateException();
         }
 
-        Extracted extracted = new Extracted(ctx);
+        Extracted extracted = new Extracted();
         extracted.statement = true;
         extracted.jump = true;
 
@@ -292,7 +286,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
             throw new IllegalStateException();
         }
 
-        Extracted extracted = new Extracted(ctx);
+        Extracted extracted = new Extracted();
         extracted.statement = true;
         extracted.jump = true;
 
@@ -304,7 +298,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
         Extracted extexpr = visit(ctx.expression());
         markCast(extexpr, Type.BOOLEAN_TYPE, false);;
 
-        Extracted extracted = new Extracted(ctx);
+        Extracted extracted = new Extracted();
         extracted.statement = true;
         extracted.rtn = true;
 
@@ -318,7 +312,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
     @Override
     public Extracted visitMultiple(MultipleContext ctx) {
-        Extracted extracted = new Extracted(ctx);
+        Extracted extracted = new Extracted();
 
         for (StatementContext sctx : ctx.statement()) {
             if (extracted.rtn || extracted.jump) {
@@ -349,7 +343,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
             throw new IllegalStateException();
         }
 
-        Extracted extracted = new Extracted(ctx);
+        Extracted extracted = new Extracted();
         extracted.statement = true;
 
         return extracted;
@@ -357,7 +351,7 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
     @Override
     public Extracted visitEmpty(EmptyContext ctx) {
-        Extracted extracted = new Extracted(ctx);
+        Extracted extracted = new Extracted();
         extracted.statement = true;
 
         return extracted;
@@ -389,14 +383,19 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
             }
         }
 
-        Extracted extracted = new Extracted(ctx);
+        Extracted extracted = new Extracted();
         extracted.statement = true;
 
         return extracted;
     }
 
     @Override
-    public Extracted visitExt(PainlessParser.ExtContext ctx) {
+    public Extracted visitDecltype(DecltypeContext ctx) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Extracted visitExt(ExtContext ctx) {
         return visit(ctx.extstart());
     }
 
@@ -472,47 +471,214 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
     @Override
     public Extracted visitExtstart(ExtstartContext ctx) {
-        return null;
+        Extracted extracted;
+
+        if (ctx.extprec() != null) {
+            extracted = visitExtprec(ctx.extprec());
+        } else if (ctx.extcast() != null) {
+            extracted = visitExtcast(ctx.extcast());
+        } else if (ctx.exttype() != null) {
+            extracted = visitExttype(ctx.exttype());
+        } else if (ctx.extmember() != null) {
+            extracted = visitExtmember(ctx.extmember(), null, false);
+        } else {
+            throw new IllegalStateException();
+        }
+
+        return extracted;
     }
 
     @Override
-    public Extracted visitExtprec(PainlessParser.ExtprecContext ctx) {
-        return null;
+    public Extracted visitExtprec(ExtprecContext ctx) {
+        Extracted extracted;
+
+        if (ctx.extprec() != null) {
+            extracted = visit(ctx.extprec());
+        } else if (ctx.extcast() != null) {
+            extracted = visit(ctx.extcast());
+        } else if (ctx.exttype() != null) {
+            extracted = visit(ctx.exttype());
+        } else if (ctx.extmember() != null) {
+            extracted = visitExtmember(ctx.extmember(), null, false);
+        } else {
+            throw new IllegalStateException();
+        }
+
+        if (ctx.extdot() != null) {
+            extracted = visitExtdot(ctx.extdot(), extracted.atypes.get(0), false);
+        } else if (ctx.extarray() != null) {
+            extracted = visitExtarray(ctx.extarray(), extracted.atypes.get(0));
+        }
+
+        return extracted;
     }
 
     @Override
-    public Extracted visitExtcast(PainlessParser.ExtcastContext ctx) {
-        return null;
+    public Extracted visitExtcast(ExtcastContext ctx) {
+        String ptype = ctx.decltype().getText();
+        Type atype = ptypes.getATypeFromPClass(ptype);
+
+        if (atype == null) {
+            throw new IllegalArgumentException();
+        }
+
+        Extracted cast;
+
+        if (ctx.extprec() != null) {
+            cast = visit(ctx.extprec());
+        } else if (ctx.extcast() != null) {
+            cast = visit(ctx.extcast());
+        } else if (ctx.exttype() != null) {
+            cast = visit(ctx.exttype());
+        } else if (ctx.extmember() != null) {
+            cast = visitExtmember(ctx.extmember(), null, false);
+        } else {
+            throw new IllegalStateException();
+        }
+
+        markCast(cast, atype, true);
+
+        Extracted extracted = new Extracted();
+        extracted.nodes.add(ctx);
+        extracted.atypes.add(atype);
+
+        return extracted;
     }
 
     @Override
-    public Extracted visitExtarray(PainlessParser.ExtarrayContext ctx) {
-        return null;
+    public Extracted visitExtarray(ExtarrayContext ctx) {
+        throw new UnsupportedOperationException();
+    }
+
+    public Extracted visitExtarray(ExtarrayContext ctx, Type parentatype) {
+        if (parentatype.getSort() != Type.ARRAY) {
+            throw new IllegalArgumentException();
+        }
+
+        Extracted extexpr = visit(ctx.expression());
+        markCast(extexpr, Type.INT_TYPE, false);
+
+        final Type atype = Type.getType(parentatype.getDescriptor().substring(1));
+
+        Extracted extracted;
+
+        if (ctx.extdot() != null) {
+            extracted = visitExtdot(ctx.extdot(), atype, false);
+        } else if (ctx.extarray() != null) {
+            extracted = visitExtarray(ctx.extarray(), atype);
+        } else {
+            extracted = new Extracted();
+            extracted.nodes.add(ctx);
+            extracted.atypes.add(atype);
+        }
+
+        return extracted;
     }
 
     @Override
-    public Extracted visitExtdot(PainlessParser.ExtdotContext ctx) {
-        return null;
+    public Extracted visitExtdot(ExtdotContext ctx) {
+        throw new UnsupportedOperationException();
+    }
+
+    public Extracted visitExtdot(ExtdotContext ctx, Type parentatype, final boolean statik) {
+        if (ctx.extcall() != null) {
+            return visitExtcall(ctx.extcall(), parentatype, statik);
+        } else if (ctx.extmember() != null) {
+            return visitExtmember(ctx.extmember(), parentatype, statik);
+        } else {
+            throw new IllegalStateException();
+        }
     }
 
     @Override
-    public Extracted visitExtfunc(PainlessParser.ExtfuncContext ctx) {
-        return null;
+    public Extracted visitExttype(ExttypeContext ctx) {
+        final String ptype = ctx.TYPE().getText();
+        final Type atype = ptypes.getATypeFromPClass(ptype);
+
+        if (atype == null) {
+            throw new IllegalArgumentException();
+        }
+
+        if (atype.getSort() == Type.ARRAY) {
+            throw new IllegalArgumentException();
+        }
+
+        return visitExtdot(ctx.extdot(), atype, true);
     }
 
     @Override
-    public Extracted visitExtstatic(PainlessParser.ExtstaticContext ctx) {
-        return null;
+    public Extracted visitExtcall(ExtcallContext ctx) {
+        throw new UnsupportedOperationException();
+    }
+
+    private Extracted visitExtcall(ExtcallContext ctx, Type parentatype, final boolean statik) {
+        final String pname = ctx.ID().getText();
+        final PClass pclass = ptypes.getPClass(parentatype);
+
+        if (pclass == null) {
+            throw new IllegalArgumentException();
+        }
+
+        Type atype;
+
+        if (statik && "makearray".equals(pname)) {
+            int arguments = ctx.arguments().expression().size();
+            visitArguments(ctx.arguments(), new Type[]{Type.INT_TYPE}, true);
+            String arraytype = "";
+
+            for (int bracket = 0; bracket < arguments; ++bracket) {
+                arraytype += "[";
+            }
+
+            arraytype += parentatype.getDescriptor();
+            atype = Type.getType(arraytype);
+        }else {
+            PMethod pmethod;
+
+            if (statik) {
+                pmethod = pclass.getPConstructor(pname);
+
+                if (pmethod == null) {
+                    pmethod = pclass.getPFunction(pname);
+                }
+
+                if (pmethod == null) {
+                    throw new IllegalArgumentException();
+                }
+            } else {
+                pmethod = pclass.getPMethod(pname);
+
+                if (pmethod == null) {
+                    throw new IllegalArgumentException();
+                }
+            }
+
+            visitArguments(ctx.arguments(), pmethod.amethod.getArgumentTypes(), pmethod.variadic);
+            atype = pmethod.amethod.getReturnType();
+        }
+
+        Extracted extracted;
+
+        if (ctx.extdot() != null) {
+            extracted = visitExtdot(ctx.extdot(), atype, false);
+        } else if (ctx.extarray() != null) {
+            extracted = visitExtarray(ctx.extarray(), atype);
+        } else {
+            extracted = new Extracted();
+            extracted.nodes.add(ctx);
+            extracted.atypes.add(atype);
+            extracted.statement = true;
+        }
+
+        return extracted;
     }
 
     @Override
-    public Extracted visitExtcall(PainlessParser.ExtcallContext ctx) {
-        return null;
+    public Extracted visitExtmember(final ExtmemberContext ctx) {
+        throw new UnsupportedOperationException();
     }
 
-    @Override
-    public Extracted visitExtmember(final PainlessParser.ExtmemberContext ctx) {
-        final Type parentatype = atypes.get(ctx.getParent());
+    private Extracted visitExtmember(final ExtmemberContext ctx, final Type parentatype, final boolean statik) {
         final String vname = ctx.ID().getText();
         Type atype;
 
@@ -525,33 +691,67 @@ class PainlessValidator extends PainlessBaseVisitor<PainlessValidator.Extracted>
 
             atype = variable.atype;
         } else {
-            final PClass pclass = ptypes.getPClass(parentatype);
-            final PMember pmember = pclass.getPMember(vname);
+            if (parentatype.getSort() == Type.ARRAY) {
+                if ("length".equals(vname)) {
+                    atype = Type.INT_TYPE;
+                } else {
+                    throw new IllegalArgumentException();
+                }
+            } else {
+                final PClass pclass = ptypes.getPClass(parentatype);
 
-            if (pmember == null) {
-                throw new IllegalArgumentException();
+                if (pclass == null) {
+                    throw new IllegalArgumentException();
+                }
+
+                final PMember pmember = statik ? pclass.getPStatic(vname) : pclass.getPMember(vname);
+
+                if (pmember == null) {
+                    throw new IllegalArgumentException();
+                }
+
+                atype = pmember.atype;
             }
-
-            atype = pmember.atype;
         }
+
+        Extracted extracted;
 
         if (ctx.extdot() != null) {
-            atypes.put(ctx, atype);
-            visit(ctx.extdot());
+            extracted = visitExtdot(ctx.extdot(), atype, false);
         } else if (ctx.extarray() != null) {
-            atypes.put(ctx, atype);
-            visit(ctx.extarray());
+            extracted = visitExtarray(ctx.extarray(), atype);
+        } else {
+            extracted = new Extracted();
+            extracted.nodes.add(ctx);
+            extracted.atypes.add(atype);
         }
-
-        final Extracted extracted = new Extracted(ctx);
-        extracted.nodes.add(ctx);
-        extracted.atypes.add(atype);
 
         return extracted;
     }
 
     @Override
-    public Extracted visitArguments(PainlessParser.ArgumentsContext ctx) {
-        return null;
+    public Extracted visitArguments(final ArgumentsContext ctx) {
+        throw new UnsupportedOperationException();
+    }
+
+    public void visitArguments(final ArgumentsContext ctx, final Type[] argatypes, final boolean variadic) {
+        final List<ExpressionContext> expressions = ctx.expression();
+        final int length = expressions.size();
+
+        if (argatypes.length != length || variadic && argatypes.length > length) {
+            throw new IllegalArgumentException();
+        }
+
+        for (int expression = 0; expression < length; ++expression) {
+            Extracted extexpr = visit(expressions.get(expression));
+
+            if (expression < argatypes.length) {
+                markCast(extexpr, argatypes[expression], false);
+            } else if (variadic) {
+                markCast(extexpr, argatypes[argatypes.length], false);
+            } else {
+                throw new IllegalArgumentException();
+            }
+        }
     }
 }

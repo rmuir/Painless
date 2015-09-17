@@ -249,17 +249,11 @@ public interface PainlessVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitExtdot(PainlessParser.ExtdotContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link PainlessParser#extfunc}.
+	 * Visit a parse tree produced by {@link PainlessParser#exttype}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitExtfunc(PainlessParser.ExtfuncContext ctx);
-	/**
-	 * Visit a parse tree produced by {@link PainlessParser#extstatic}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitExtstatic(PainlessParser.ExtstaticContext ctx);
+	T visitExttype(PainlessParser.ExttypeContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link PainlessParser#extcall}.
 	 * @param ctx the parse tree
