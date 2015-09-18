@@ -1,6 +1,7 @@
 package painless;
 
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -13,10 +14,13 @@ import org.objectweb.asm.Type;
 
 import static org.objectweb.asm.Type.*;
 
+import static painless.PainlessExternal.*;
+import static painless.PainlessExternal.ARRAY;
+import static painless.PainlessExternal.METHOD;
 import static painless.PainlessParser.*;
 import static painless.PainlessTypes.*;
 
-class PainlessValidator extends PainlessBaseVisitor<Void> {
+class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     static class Argument {
         final String name;
         final Type atype;
@@ -52,10 +56,9 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         ParseTree castnodes[];
         Type castatypes[];
-        Object constant;
 
-        boolean statik;
-        Deque<ParseTree> external;
+        Object constant;
+        PExternal pexternal;
 
         Metadata(final ParseTree node) {
             this.node = node;
@@ -70,15 +73,15 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
             castnodes = null;
             castatypes = null;
-            constant = null;
 
-            statik = false;
-            external = null;
+            constant = null;
+            pexternal = null;
         }
     }
 
-    static void validate(final PainlessTypes ptypes, final ParseTree root, final Deque<Argument> arguments) {
-        new PainlessValidator(ptypes, root, arguments);
+    static Map<ParseTree, Metadata> analyze(
+            final PainlessTypes ptypes, final ParseTree root, final Deque<Argument> arguments) {
+        return new PainlessAnalyzer(ptypes, root, arguments).metadata;
     }
 
     private final PainlessTypes ptypes;
@@ -89,7 +92,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
     private final Map<ParseTree, Metadata> metadata;
 
-    private PainlessValidator(final PainlessTypes ptypes, final ParseTree root, final Deque<Argument> arguments) {
+    private PainlessAnalyzer(final PainlessTypes ptypes, final ParseTree root, final Deque<Argument> arguments) {
         this.ptypes = ptypes;
 
         loop = 0;
@@ -527,6 +530,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         final DecltypeContext dctx = ctx.decltype();
         final Metadata decltypemd = createMetadata(dctx);
+        visit(dctx);
         final Type adecltype = decltypemd.adecltype;
 
         if (adecltype == null) {
@@ -1270,23 +1274,24 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
         Metadata extstartmd = createMetadata(ectx0);
         visit(ectx0);
 
-        if (extstartmd.statik) {
+        if (extstartmd.pexternal == null) {
             throw new IllegalArgumentException();
         }
 
-        if (extstartmd.statement) {
+        if (extstartmd.pexternal.isReadOnly()) {
             throw new IllegalArgumentException();
         }
 
         if (assignmentmd.righthand) {
-            assignmentmd.castnodes = new ParseTree[] {extstartmd.castnodes[0]};
-            assignmentmd.castatypes = new Type[] {extstartmd.castatypes[0]};
+            assignmentmd.castnodes = new ParseTree[] {ctx};
+            assignmentmd.castatypes = new Type[] {extstartmd.pexternal.getAType()};
         }
 
         final ExpressionContext ectx1 = ctx.expression();
         final Metadata expressionmd = createMetadata(ectx1);
         expressionmd.righthand = true;
         visit(ectx1);
+        markCast(expressionmd, extstartmd.pexternal.getAType(), false);
 
         assignmentmd.statement = true;
 
@@ -1294,159 +1299,179 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
     }
 
     @Override
-    public Void visitExtstart(ExtstartContext ctx) {
+    public Void visitExtstart(final ExtstartContext ctx) {
         final Metadata extstartmd = getMetadata(ctx);
-        extstartmd.external = new ArrayDeque<>();
+        extstartmd.pexternal = new PExternal();
 
-        Metadata extmd;
-
-        ExtprecContext ectx0 = ctx.extprec();
-        ExtcastContext ectx1 = ctx.extcast();
-        ExttypeContext ectx2 = ctx.exttype();
-        ExtmemberContext ectx3 = ctx.extmember();
+        final ExtprecContext ectx0 = ctx.extprec();
+        final ExtcastContext ectx1 = ctx.extcast();
+        final ExttypeContext ectx2 = ctx.exttype();
+        final ExtmemberContext ectx3 = ctx.extmember();
 
         if (ectx0 != null) {
-            extmd = createMetadata(ectx0);
+            final Metadata extprecmd = createMetadata(ectx0);
+            extprecmd.pexternal = extstartmd.pexternal;
             visit(ectx0);
         } else if (ectx1 != null) {
-            extmd = createMetadata(ectx1);
+            final Metadata extcastmd = createMetadata(ectx1);
+            extcastmd.pexternal = extstartmd.pexternal;
             visit(ectx1);
         } else if (ectx2 != null) {
-            extmd = createMetadata(ectx2);
+            final Metadata exttypemd = createMetadata(ectx2);
+            exttypemd.pexternal = extstartmd.pexternal;
             visit(ectx2);
         } else if (ectx3 != null) {
-            extmd = createMetadata(ectx3);
+            final Metadata extmembermd = createMetadata(ectx3);
+            extmembermd.pexternal = extstartmd.pexternal;
             visit(ectx3);
         } else {
             throw new IllegalStateException();
         }
 
-        extstartmd.statement = extmd.statement;
-        extstartmd.statik = extmd.statik;
-        extstartmd.castnodes = new ParseTree[] {extmd.castnodes[0]};
-        extstartmd.castatypes = new Type[] {extmd.castatypes[0]};
+        extstartmd.statement = extstartmd.pexternal.isCall();
+        extstartmd.castnodes = new ParseTree[] {ctx};
+        extstartmd.castatypes = new Type[] {extstartmd.pexternal.getAType()};
 
         return null;
     }
 
-    /*@Override
-    public Void visitExtprec(ExtprecContext ctx) {
-        final Metadata extprecmd = getMetadata(ctx);
+    @Override
+    public Void visitExtprec(final ExtprecContext ctx) {
+        final Metadata extprecmd0 = getMetadata(ctx);
 
-        Metadata extmd0;
-
-        ExtprecContext ectx0 = ctx.extprec();
-        ExtcastContext ectx1 = ctx.extcast();
-        ExttypeContext ectx2 = ctx.exttype();
-        ExtmemberContext ectx3 = ctx.extmember();
+        final ExtprecContext ectx0 = ctx.extprec();
+        final ExtcastContext ectx1 = ctx.extcast();
+        final ExttypeContext ectx2 = ctx.exttype();
+        final ExtmemberContext ectx3 = ctx.extmember();
 
         if (ectx0 != null) {
-            extmd0 = createMetadata(ectx0);
+            final Metadata extprecmd1 = createMetadata(ectx0);
+            extprecmd1.pexternal = extprecmd0.pexternal;
             visit(ectx0);
         } else if (ectx1 != null) {
-            extmd0 = createMetadata(ectx1);
+            final Metadata extcastmd = createMetadata(ectx1);
+            extcastmd.pexternal = extprecmd0.pexternal;
             visit(ectx1);
         } else if (ectx2 != null) {
-            extmd0 = createMetadata(ectx2);
+            final Metadata exttypemd = createMetadata(ectx2);
+            exttypemd.pexternal = extprecmd0.pexternal;
             visit(ectx2);
         } else if (ectx3 != null) {
-            extmd0 = createMetadata(ectx3);
+            final Metadata extmembermd = createMetadata(ectx3);
+            extmembermd.pexternal = extprecmd0.pexternal;
             visit(ectx3);
         } else {
             throw new IllegalStateException();
         }
 
-        Metadata extmd1;
+        final ExtdotContext ectx4 = ctx.extdot();
+        final ExtarrayContext ectx5 = ctx.extarray();
 
-        if (ctx.extdot() != null) {
-            extracted = visitExtdot(ctx.extdot(), extracted.atypes.get(0), false);
-        } else if (ctx.extarray() != null) {
-            extracted = visitExtarray(ctx.extarray(), extracted.atypes.get(0));
+        if (ectx4 != null) {
+            final Metadata extdotmd = createMetadata(ectx4);
+            extdotmd.pexternal = extprecmd0.pexternal;
+            visit(ectx4);
+        } else if (ectx5 != null) {
+            final Metadata extarraymd = createMetadata(ectx5);
+            extarraymd.pexternal = extprecmd0.pexternal;
+            visit(ectx5);
         }
 
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitExtcast(ExtcastContext ctx) {
-        String ptype = ctx.decltype().getText();
-        Type atype = ptypes.getATypeFromPClass(ptype);
+    public Void visitExtcast(final ExtcastContext ctx) {
+        final Metadata extcastmd0 = getMetadata(ctx);
 
-        if (atype == null) {
-            throw new IllegalArgumentException();
-        }
+        final ExtprecContext ectx0 = ctx.extprec();
+        final ExtcastContext ectx1 = ctx.extcast();
+        final ExttypeContext ectx2 = ctx.exttype();
+        final ExtmemberContext ectx3 = ctx.extmember();
 
-        Extracted cast;
-
-        if (ctx.extprec() != null) {
-            cast = visit(ctx.extprec());
-        } else if (ctx.extcast() != null) {
-            cast = visit(ctx.extcast());
-        } else if (ctx.exttype() != null) {
-            cast = visit(ctx.exttype());
-        } else if (ctx.extmember() != null) {
-            cast = visitExtmember(ctx.extmember(), null, false);
+        if (ectx0 != null) {
+            final Metadata extprecmd1 = createMetadata(ectx0);
+            extprecmd1.pexternal = extcastmd0.pexternal;
+            visit(ectx0);
+        } else if (ectx1 != null) {
+            final Metadata extcastmd1 = createMetadata(ectx1);
+            extcastmd1.pexternal = extcastmd0.pexternal;
+            visit(ectx1);
+        } else if (ectx2 != null) {
+            final Metadata exttypemd = createMetadata(ectx2);
+            exttypemd.pexternal = extcastmd0.pexternal;
+            visit(ectx2);
+        } else if (ectx3 != null) {
+            final Metadata extmembermd = createMetadata(ectx3);
+            extmembermd.pexternal = extcastmd0.pexternal;
+            visit(ectx3);
         } else {
             throw new IllegalStateException();
         }
 
-        markCast(cast, atype, true);
+        final DecltypeContext dctx = ctx.decltype();
+        final Metadata decltypemd = createMetadata(dctx);
+        visit(dctx);
 
-        Extracted extracted = new Extracted();
-        extracted.nodes.add(ctx);
-        extracted.atypes.add(atype);
+        final Type afrom = extcastmd0.pexternal.getAType();
+        final Type ato = decltypemd.adecltype;
 
-        return extracted;
+        //TODO: check cast legality
+        extcastmd0.pexternal.addSegment(CAST, new PCast(afrom, ato));
+
+        return null;
     }
 
     @Override
-    public Extracted visitExtarray(ExtarrayContext ctx) {
-        throw new UnsupportedOperationException();
-    }
+    public Void visitExtarray(final ExtarrayContext ctx) {
+        final Metadata extarraymd0 = getMetadata(ctx);
 
-    public Extracted visitExtarray(final ExtarrayContext ctx, final Type parentatype) {
-        if (parentatype.getSort() != ARRAY) {
-            throw new IllegalArgumentException();
+        final ExpressionContext ectx0 = ctx.expression();
+        final Metadata expressionmd = createMetadata(ectx0);
+        visit(ectx0);
+        markCast(expressionmd, INT_TYPE, false);
+
+        extarraymd0.pexternal.addSegment(PainlessExternal.ARRAY, ectx0);
+
+        final ExtdotContext ectx1 = ctx.extdot();
+        final ExtarrayContext ectx2 = ctx.extarray();
+
+        if (ectx1 != null) {
+            final Metadata extdotmd = createMetadata(ectx1);
+            extdotmd.pexternal = extarraymd0.pexternal;
+            visit(ectx1);
+        } else if (ectx2 != null) {
+            final Metadata extarraymd1 = createMetadata(ectx2);
+            extarraymd1.pexternal = extarraymd0.pexternal;
+            visit(ectx2);
         }
 
-        Extracted extexpr = visit(ctx.expression());
-        markCast(extexpr, INT_TYPE, false);
-
-        final Type atype = getType(parentatype.getDescriptor().substring(1));
-
-        Extracted extracted;
-
-        if (ctx.extdot() != null) {
-            extracted = visitExtdot(ctx.extdot(), atype, false);
-        } else if (ctx.extarray() != null) {
-            extracted = visitExtarray(ctx.extarray(), atype);
-        } else {
-            extracted = new Extracted();
-            extracted.nodes.add(ctx);
-            extracted.atypes.add(atype);
-            extracted.writeable = true;
-        }
-
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitExtdot(ExtdotContext ctx) {
-        throw new UnsupportedOperationException();
-    }
+    public Void visitExtdot(final ExtdotContext ctx) {
+        final Metadata extdotmd = getMetadata(ctx);
 
-    public Extracted visitExtdot(ExtdotContext ctx, Type parentatype, final boolean statik) {
-        if (ctx.extcall() != null) {
-            return visitExtcall(ctx.extcall(), parentatype, statik);
-        } else if (ctx.extmember() != null) {
-            return visitExtmember(ctx.extmember(), parentatype, statik);
-        } else {
-            throw new IllegalStateException();
+        final ExtcallContext ectx0 = ctx.extcall();
+        final ExtmemberContext ectx1 = ctx.extmember();
+
+        if (ectx0 != null) {
+            final Metadata extcallmd = createMetadata(ectx0);
+            extcallmd.pexternal = extdotmd.pexternal;
+            visit(ectx0);
+        } else if (ectx1 != null) {
+            final Metadata extmembermd = createMetadata(ectx1);
+            extmembermd.pexternal = extdotmd.pexternal;
+            visit(ectx1);
         }
+
+        return null;
     }
 
     @Override
-    public Extracted visitExttype(ExttypeContext ctx) {
+    public Void visitExttype(final ExttypeContext ctx) {
+        final Metadata exttypemd = getMetadata(ctx);
         final String ptype = ctx.TYPE().getText();
         final Type atype = ptypes.getATypeFromPClass(ptype);
 
@@ -1454,165 +1479,159 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
             throw new IllegalArgumentException();
         }
 
-        if (atype.getSort() == ARRAY) {
-            throw new IllegalArgumentException();
-        }
+        exttypemd.pexternal.addSegment(PainlessExternal.TYPE, atype);
 
-        Extracted extracted = visitExtdot(ctx.extdot(), atype, true);
-        extracted.writeable = false;
+        final ExtdotContext ectx = ctx.extdot();
+        final Metadata extdotmd = createMetadata(ectx);
+        extdotmd.pexternal = exttypemd.pexternal;
+        visit(ectx);
 
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitExtcall(ExtcallContext ctx) {
-        throw new UnsupportedOperationException();
-    }
+    public Void visitExtcall(final ExtcallContext ctx) {
+        final Metadata extcallmd = getMetadata(ctx);
 
-    private Extracted visitExtcall(ExtcallContext ctx, Type parentatype, final boolean statik) {
-        final String pname = ctx.ID().getText();
-        final PClass pclass = ptypes.getPClass(parentatype);
+        final Type adecltype = extcallmd.pexternal.getAType();
+        final PClass pclass = ptypes.getPClass(adecltype);
 
         if (pclass == null) {
             throw new IllegalArgumentException();
         }
 
-        Type atype;
+        final String pname = ctx.ID().getText();
+        final boolean statik = extcallmd.pexternal.isStatic();
+
+        final ArgumentsContext actx = ctx.arguments();
+        final Metadata argumentsmd = createMetadata(actx);
+        final List<ExpressionContext> arguments = ctx.arguments().expression();
+        argumentsmd.pexternal = extcallmd.pexternal;
+        argumentsmd.castnodes = new ParseTree[arguments.size()];
+        arguments.toArray(argumentsmd.castnodes);
 
         if (statik && "makearray".equals(pname)) {
-            int arguments = ctx.arguments().expression().size();
-            visitArguments(ctx.arguments(), new Type[]{INT_TYPE}, true);
-            String arraytype = "";
+            extcallmd.pexternal.addSegment(AMAKE, arguments.size());
 
-            for (int bracket = 0; bracket < arguments; ++bracket) {
-                arraytype += "[";
-            }
-
-            arraytype += parentatype.getDescriptor();
-            atype = getType(arraytype);
-        }else {
-            PMethod pmethod;
-
-            if (statik) {
-                pmethod = pclass.getPConstructor(pname);
-
-                if (pmethod == null) {
-                    pmethod = pclass.getPFunction(pname);
-                }
-
-                if (pmethod == null) {
-                    throw new IllegalArgumentException();
-                }
-            } else {
-                pmethod = pclass.getPMethod(pname);
-
-                if (pmethod == null) {
-                    throw new IllegalArgumentException();
-                }
-            }
-
-            visitArguments(ctx.arguments(), pmethod.amethod.getArgumentTypes(), pmethod.variadic);
-            atype = pmethod.amethod.getReturnType();
-        }
-
-        Extracted extracted;
-
-        if (ctx.extdot() != null) {
-            extracted = visitExtdot(ctx.extdot(), atype, false);
-        } else if (ctx.extarray() != null) {
-            extracted = visitExtarray(ctx.extarray(), atype);
+            Type[] atypes = new Type[arguments.size()];
+            Arrays.fill(atypes, Type.INT_TYPE);
+            argumentsmd.castatypes = atypes;
         } else {
-            extracted = new Extracted();
-            extracted.nodes.add(ctx);
-            extracted.atypes.add(atype);
-            extracted.statement = true;
+            final PConstructor pconstructor = statik ? pclass.getPConstructor(pname) : null;
+            final PMethod pmethod = statik ? pclass.getPFunction(pname) : pclass.getPMethod(pname);
+
+            if (pconstructor != null) {
+                extcallmd.pexternal.addSegment(CONSTRUCTOR, pconstructor);
+                argumentsmd.castatypes = pconstructor.amethod.getArgumentTypes();
+            } else if (pmethod != null) {
+                extcallmd.pexternal.addSegment(METHOD, pmethod);
+                argumentsmd.castatypes = pmethod.amethod.getArgumentTypes();
+            }
+            else {
+                throw new IllegalArgumentException();
+            }
+
+            visit(actx);
         }
 
-        return extracted;
+        visit(actx);
+
+        final ExtdotContext ectx0 = ctx.extdot();
+        final ExtarrayContext ectx1 = ctx.extarray();
+
+        if (ectx0 != null) {
+            final Metadata extdotmd = createMetadata(ectx0);
+            extdotmd.pexternal = extcallmd.pexternal;
+            visit(ectx0);
+        } else if (ectx1 != null) {
+            final Metadata extdotmd = createMetadata(ectx1);
+            extdotmd.pexternal = extcallmd.pexternal;
+            visit(ectx1);
+        }
+
+        return null;
     }
 
     @Override
-    public Extracted visitExtmember(final ExtmemberContext ctx) {
-        throw new UnsupportedOperationException();
-    }
+    public Void visitExtmember(final ExtmemberContext ctx) {
+        final Metadata extmembermd = getMetadata(ctx);
+        final Type atype = extmembermd.pexternal.getAType();
+        final String pname = ctx.ID().getText();
 
-    private Extracted visitExtmember(final ExtmemberContext ctx, final Type parentatype, final boolean statik) {
-        final String vname = ctx.ID().getText();
-        boolean writeable = !statik;
-        Type atype;
-
-        if (parentatype == null) {
-            final Variable variable = variables.get(vname);
+        if (atype == null) {
+            final Variable variable = getVariable(pname);
 
             if (variable == null) {
                 throw new IllegalArgumentException();
             }
 
-            atype = variable.atype;
+            extmembermd.pexternal.addSegment(VARIABLE, variable);
         } else {
-            if (parentatype.getSort() == ARRAY) {
-                if ("length".equals(vname)) {
-                    writeable = false;
-                    atype = INT_TYPE;
+            if (atype.getSort() == ARRAY) {
+                if ("length".equals(pname)) {
+                    extmembermd.pexternal.addSegment(ALENGTH, Type.INT_TYPE);
                 } else {
                     throw new IllegalArgumentException();
                 }
             } else {
-                final PClass pclass = ptypes.getPClass(parentatype);
+                final PClass pclass = ptypes.getPClass(atype);
 
                 if (pclass == null) {
                     throw new IllegalArgumentException();
                 }
 
-                final PMember pmember = statik ? pclass.getPStatic(vname) : pclass.getPMember(vname);
+                final boolean statik = extmembermd.pexternal.isStatic();
+                final PField pmember = statik ? pclass.getPStatic(pname) : pclass.getPMember(pname);
 
                 if (pmember == null) {
                     throw new IllegalArgumentException();
                 }
 
-                atype = pmember.atype;
+                extmembermd.pexternal.addSegment(FIELD, pmember);
             }
         }
 
-        Extracted extracted;
+        final ExtdotContext ectx0 = ctx.extdot();
+        final ExtarrayContext ectx1 = ctx.extarray();
 
-        if (ctx.extdot() != null) {
-            extracted = visitExtdot(ctx.extdot(), atype, false);
-        } else if (ctx.extarray() != null) {
-            extracted = visitExtarray(ctx.extarray(), atype);
-        } else {
-            extracted = new Extracted();
-            extracted.nodes.add(ctx);
-            extracted.atypes.add(atype);
-            extracted.writeable = writeable;
+        if (ectx0 != null) {
+            final Metadata extdotmd = createMetadata(ectx0);
+            extdotmd.pexternal = extmembermd.pexternal;
+            visit(ectx0);
+        } else if (ectx1 != null) {
+            final Metadata extdotmd = createMetadata(ectx1);
+            extdotmd.pexternal = extmembermd.pexternal;
+            visit(ectx1);
         }
 
-        return extracted;
+        return null;
     }
 
     @Override
-    public Extracted visitArguments(final ArgumentsContext ctx) {
-        throw new UnsupportedOperationException();
-    }
+    public Void visitArguments(final ArgumentsContext ctx) {
+        final Metadata argumentsmd = getMetadata(ctx);
+        final ParseTree[] nodes = argumentsmd.castnodes;
+        final Type[] atypes = argumentsmd.castatypes;
 
-    public void visitArguments(final ArgumentsContext ctx, final Type[] argatypes, final boolean variadic) {
-        final List<ExpressionContext> expressions = ctx.expression();
-        final int length = expressions.size();
-
-        if (argatypes.length != length || variadic && argatypes.length > length) {
+        if (nodes == null || atypes == null) {
             throw new IllegalArgumentException();
         }
 
-        for (int expression = 0; expression < length; ++expression) {
-            Extracted extexpr = visit(expressions.get(expression));
-
-            if (expression < argatypes.length) {
-                markCast(extexpr, argatypes[expression], false);
-            } else if (variadic) {
-                markCast(extexpr, argatypes[argatypes.length], false);
-            } else {
-                throw new IllegalArgumentException();
-            }
+        if (nodes.length != atypes.length) {
+            throw new IllegalArgumentException();
         }
-    }*/
+
+        final int arguments = nodes.length;
+
+        for (int argument = 0; argument < arguments; ++argument) {
+            final ParseTree ectx = nodes[argument];
+            final Metadata nodemd = createMetadata(ectx);
+            visit(ectx);
+            markCast(nodemd, atypes[argument], false);
+
+            argumentsmd.pexternal.addSegment(ARGUMENT, ectx);
+        }
+
+        return null;
+    }
 }

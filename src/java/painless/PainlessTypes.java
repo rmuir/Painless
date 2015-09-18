@@ -41,13 +41,13 @@ class PainlessTypes {
         }
     }
 
-    static class PMember {
+    static class PField {
         final String pname;
         final PClass powner;
         final Type atype;
         final Field jfield;
 
-        private PMember(final String pname, final PClass powner, final Type atype, final Field jfield) {
+        private PField(final String pname, final PClass powner, final Type atype, final Field jfield) {
             this.pname = pname;
             this.powner = powner;
             this.atype = atype;
@@ -64,8 +64,8 @@ class PainlessTypes {
         private final Map<String, PConstructor> pconstructors;
         private final Map<String, PMethod> pmethods;
 
-        private final Map<String, PMember> pstatics;
-        private final Map<String, PMember> pmembers;
+        private final Map<String, PField> pstatics;
+        private final Map<String, PField> pmembers;
 
         private PClass(final String pname, final Type atype, final Class clazz) {
             this.pname = pname;
@@ -92,11 +92,11 @@ class PainlessTypes {
             return pmethods.get(pmethod);
         }
 
-        PMember getPStatic(String pstatic) {
+        PField getPStatic(String pstatic) {
             return pstatics.get(pstatic);
         }
 
-        PMember getPMember(String pmember) {
+        PField getPMember(String pmember) {
             return pmembers.get(pmember);
         }
     }
@@ -333,6 +333,12 @@ class PainlessTypes {
                     throw new IllegalArgumentException();
                 }
 
+                if (powner.pconstructors.containsKey(pname) ||
+                        powner.pfunctions.containsKey(pname) ||
+                        powner.pmethods.containsKey(pname)) {
+                    throw new IllegalArgumentException();
+                }
+
                 String property = properties.getProperty(key);
 
                 if (property.charAt(0) != '(' || property.charAt(property.length() - 1) != ')') {
@@ -366,6 +372,12 @@ class PainlessTypes {
                 final PClass powner = pclasses.get(ptype);
 
                 if (powner == null) {
+                    throw new IllegalArgumentException();
+                }
+
+                if (powner.pconstructors.containsKey(pname) ||
+                        powner.pfunctions.containsKey(pname) ||
+                        powner.pmethods.containsKey(pname)) {
                     throw new IllegalArgumentException();
                 }
 
@@ -439,6 +451,10 @@ class PainlessTypes {
                     throw new IllegalArgumentException();
                 }
 
+                if (powner.pstatics.containsKey(pname) || powner.pmembers.containsKey(pname)) {
+                    throw new IllegalArgumentException();
+                }
+
                 final String property = properties.getProperty(key);
                 final String[] propsplit = property.split("\\s+");
 
@@ -461,7 +477,7 @@ class PainlessTypes {
                 }
 
                 final int modifiers = jfield.getModifiers();
-                final PMember pmember = new PMember(pname, powner, atype, jfield);
+                final PField pmember = new PField(pname, powner, atype, jfield);
 
                 if ("static".equals(keysplit[0])) {
                     if (!Modifier.isStatic(modifiers)) {
@@ -556,7 +572,7 @@ class PainlessTypes {
 
                     powner.pfunctions.put(keysplit[3], pfunction);
                 } else if ("static".equals(keysplit[1])) {
-                    PMember pstatik = porigin.pstatics.get(propsplit[1]);
+                    PField pstatik = porigin.pstatics.get(propsplit[1]);
 
                     if (pstatik == null) {
                         throw new IllegalArgumentException();

@@ -20,7 +20,7 @@ public final class Painless {
 
         //System.out.println(f + " " + n);
 
-        compile("test", "return 9*8/4.33 > 3;");
+        compile("test", "int[] x = int.makearray(10);");
     }
 
     public static PainlessExecutable compile(String name, String source) {

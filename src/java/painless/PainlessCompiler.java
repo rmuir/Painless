@@ -5,13 +5,13 @@ import java.io.FileOutputStream;
 import java.lang.reflect.Constructor;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Map;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
-import org.objectweb.asm.Type;
 
-import painless.PainlessValidator.*;
+import painless.PainlessAnalyzer.*;
 
 final class PainlessCompiler {
     private static class PainlessClassLoader extends ClassLoader {
@@ -30,7 +30,7 @@ final class PainlessCompiler {
         Deque<Argument> arguments = new ArrayDeque<>();
         arguments.push(new Argument("this", types.getATypeFromPClass("void")));
         arguments.push(new Argument("input", types.getATypeFromPClass("map")));
-        PainlessValidator.validate(types, root, arguments);
+        Map<ParseTree, Metadata> metadata = PainlessAnalyzer.analyze(types, root, arguments);
         //PainlessAdapter adapter = new PainlessAdapter(root);
         //PainlessAnalyzer analyzer = new PainlessAnalyzer(root, adapter);
         //final byte[] bytes = PainlessWriter.write(source, tree);

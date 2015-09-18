@@ -1,6 +1,5 @@
 package painless;
 
-import com.sun.org.apache.xpath.internal.operations.Variable;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
