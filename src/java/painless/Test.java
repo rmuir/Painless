@@ -1,24 +1,12 @@
 package painless;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class Test {
-    public Test(boolean b, double c) {
-        char a = 'b';
-        a = (char)~a;
-        char s = 2*2;
-
-        int i = Integer.MAX_VALUE*Integer.MAX_VALUE;
-        boolean k = null instanceof Object;
-
-        double d = 3.0 % 3.4;
-
-        testd();
-    }
-
-    double testd() {
-        return 1.0;
-    }
-
-    Object testo() {
-        return new Object();
+    public Test(HashMap<Integer, Integer> a) {
+        a.put(2, 2);
+        Integer i = a.get(2);
+        a.put(3, i);
     }
 }

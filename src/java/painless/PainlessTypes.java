@@ -2,6 +2,7 @@ package painless;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
@@ -12,48 +13,64 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.Method;
 
 class PainlessTypes {
+    static class PConstructor {
+        final String pname;
+        final PClass powner;
+        final Method amethod;
+        final Constructor jconstructor;
+
+        private PConstructor(final String pname, final PClass powner, Method amethod, Constructor jconstructor) {
+            this.pname = pname;
+            this.powner = powner;
+            this.amethod = amethod;
+            this.jconstructor = jconstructor;
+        }
+    }
+
     static class PMethod {
         final String pname;
         final PClass powner;
         final Method amethod;
-        final boolean jvariadic;
+        final java.lang.reflect.Method jmethod;
 
-        private PMethod(final String pname, final PClass powner, Method amethod, boolean jvariadic) {
+        private PMethod(final String pname, final PClass powner, Method amethod, java.lang.reflect.Method jmethod) {
             this.pname = pname;
             this.powner = powner;
             this.amethod = amethod;
-            this.jvariadic = jvariadic;
+            this.jmethod = jmethod;
         }
     }
 
     static class PMember {
         final String pname;
         final PClass powner;
-        final String jfield;
         final Type atype;
+        final Field jfield;
 
-        private PMember(final String pname, final PClass powner, final String jfield, final Type atype) {
+        private PMember(final String pname, final PClass powner, final Type atype, final Field jfield) {
             this.pname = pname;
             this.powner = powner;
-            this.jfield = jfield;
             this.atype = atype;
+            this.jfield = jfield;
         }
     }
 
     static class PClass {
         final String pname;
         final Type atype;
+        final Class clazz;
 
         private final Map<String, PMethod> pfunctions;
-        private final Map<String, PMethod> pconstructors;
+        private final Map<String, PConstructor> pconstructors;
         private final Map<String, PMethod> pmethods;
 
         private final Map<String, PMember> pstatics;
         private final Map<String, PMember> pmembers;
 
-        private PClass(final String pname, final Type atype) {
+        private PClass(final String pname, final Type atype, final Class clazz) {
             this.pname = pname;
             this.atype = atype;
+            this.clazz = clazz;
 
             this.pfunctions = new HashMap<>();
             this.pconstructors = new HashMap<>();
@@ -67,7 +84,7 @@ class PainlessTypes {
             return pfunctions.get(pfunction);
         }
 
-        PMethod getPConstructor(String pconstructor) {
+        PConstructor getPConstructor(String pconstructor) {
             return pconstructors.get(pconstructor);
         }
 
@@ -91,6 +108,45 @@ class PainlessTypes {
         PCast(final Type afrom, final Type ato) {
             this.afrom = afrom;
             this.ato = ato;
+        }
+
+        @Override
+        public boolean equals(final Object object) {
+            if (this == object) {
+                return true;
+            }
+
+            if (object == null || getClass() != object.getClass()) {
+                return false;
+            }
+
+            final PCast pCast = (PCast)object;
+
+            if (!afrom.equals(pCast.afrom)) {
+                return false;
+            }
+
+            return ato.equals(pCast.ato);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = afrom.hashCode();
+            result = 31 * result + ato.hashCode();
+
+            return result;
+        }
+    }
+
+    static class PTransform {
+        final PCast pcast;
+        final PMethod pmethod;
+        final int level;
+
+        PTransform(final PCast pcast, final PMethod pmethod, final int level) {
+            this.pcast = pcast;
+            this.pmethod = pmethod;
+            this.level = level;
         }
     }
 
@@ -149,28 +205,68 @@ class PainlessTypes {
         return Type.getType(type);
     }
 
-    static Class getJClass(Type atype) throws ClassNotFoundException {
-        switch (atype.getSort()) {
-            case Type.VOID:
-                return void.class;
-            case Type.BOOLEAN:
-                return boolean.class;
-            case Type.BYTE:
-                return byte.class;
-            case Type.CHAR:
-                return char.class;
-            case Type.SHORT:
-                return short.class;
-            case Type.INT:
-                return int.class;
-            case Type.LONG:
-                return long.class;
-            case Type.FLOAT:
-                return float.class;
-            case Type.DOUBLE:
-                return double.class;
-            default:
-                return Class.forName(atype.getInternalName().replace('/', '.'));
+    static Class getJClass(Type atype) {
+        try {
+            switch (atype.getSort()) {
+                case Type.VOID:
+                    return void.class;
+                case Type.BOOLEAN:
+                    return boolean.class;
+                case Type.BYTE:
+                    return byte.class;
+                case Type.CHAR:
+                    return char.class;
+                case Type.SHORT:
+                    return short.class;
+                case Type.INT:
+                    return int.class;
+                case Type.LONG:
+                    return long.class;
+                case Type.FLOAT:
+                    return float.class;
+                case Type.DOUBLE:
+                    return double.class;
+                default:
+                    return Class.forName(atype.getInternalName().replace('/', '.'));
+            }
+        } catch (ClassNotFoundException exception) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    static java.lang.reflect.Constructor getJConstructor(final PClass pclass, final Type[] aarguments) {
+        final Class[] jarguments = new Class[aarguments.length];
+
+        for (int argument = 0; argument < aarguments.length; ++argument) {
+            jarguments[argument] = getJClass(aarguments[argument]);
+        }
+
+        try {
+            return pclass.clazz.getConstructor(jarguments);
+        } catch (NoSuchMethodException exception) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    static java.lang.reflect.Method getJMethod(final PClass pclass, final String jname, final Type[] aarguments) {
+        final Class[] jarguments = new Class[aarguments.length];
+
+        for (int argument = 0; argument < aarguments.length; ++argument) {
+            jarguments[argument] = getJClass(aarguments[argument]);
+        }
+
+        try {
+            return pclass.clazz.getMethod(jname, jarguments);
+        } catch (NoSuchMethodException exception) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    static Field getJField(final PClass pclass, final String jname) {
+        try {
+            return pclass.clazz.getField(jname);
+        } catch (NoSuchFieldException exception) {
+            throw new IllegalArgumentException();
         }
     }
 
@@ -203,11 +299,12 @@ class PainlessTypes {
                 }
 
                 final String property = properties.getProperty(key);
-                final Type type = getATypeFromJClass(property);
-                final PClass pclass = new PClass(name, type);
+                final Type atype = getATypeFromJClass(property);
+                final Class clazz = getJClass(atype);
+                final PClass pclass = new PClass(name, atype, clazz);
 
                 pclasses.put(name, pclass);
-                aclasses.put(type, pclass);
+                aclasses.put(atype, pclass);
             } else {
                 boolean valid = key.startsWith("constructor") || key.startsWith("function")   ||
                                 key.startsWith("static")      || key.startsWith("method")     ||
@@ -221,7 +318,7 @@ class PainlessTypes {
         }
 
         for (final String key : properties.stringPropertyNames()) {
-            if (key.startsWith("constructor") || key.startsWith("function") || key.startsWith("method")) {
+            if (key.startsWith("constructor")) {
                 final String[] keysplit = key.split("\\.");
 
                 if (keysplit.length != 3) {
@@ -237,15 +334,52 @@ class PainlessTypes {
                 }
 
                 String property = properties.getProperty(key);
+
+                if (property.charAt(0) != '(' || property.charAt(property.length() - 1) != ')') {
+                    throw new IllegalArgumentException();
+                }
+
+                property = property.replace("(", "").replace(")", "").replace(" ", "");
+                final String[] propsplit = property.isEmpty() ? null : property.split(",");
+                final Type[] aarguments = new Type[propsplit == null ? 0 : propsplit.length];
+
+                for (int argument = 0; argument < aarguments.length; ++argument) {
+                    final String pargument = propsplit[argument];
+                    final Type aargument = getATypeFromPClass(pargument);
+                    aarguments[argument] = aargument;
+                }
+
+                final Method amethod = new Method("<init>", Type.VOID_TYPE, aarguments);
+                final Constructor jconstructor = getJConstructor(powner, aarguments);
+                final PConstructor pconstructor = new PConstructor(pname, powner, amethod, jconstructor);
+
+                powner.pconstructors.put(pname, pconstructor);
+            } else if (key.startsWith("function") || key.startsWith("method")) {
+                final String[] keysplit = key.split("\\.");
+
+                if (keysplit.length != 3) {
+                    throw new IllegalArgumentException();
+                }
+
+                final String ptype = keysplit[1];
+                final String pname = keysplit[2];
+                final PClass powner = pclasses.get(ptype);
+
+                if (powner == null) {
+                    throw new IllegalArgumentException();
+                }
+
+                String property = properties.getProperty(key);
+
                 int index = property.indexOf(" ");
                 final Type artn = getATypeFromPClass(property.substring(0, index));
+                final Class jrtn = getJClass(artn);
+
                 property = property.substring(index + 1);
                 index = property.indexOf("(");
-                final String aname = property.substring(0, index);
+                final String jname = property.substring(0, index);
 
-                if ("".equals(aname)) {
-                    throw new IllegalArgumentException();
-                } else if ("constructor".equals(keysplit[0]) && !"<init>".equals(aname)) {
+                if ("".equals(jname)) {
                     throw new IllegalArgumentException();
                 }
 
@@ -258,30 +392,34 @@ class PainlessTypes {
                 property = property.replace("(", "").replace(")", "").replace(" ", "");
                 final String[] propsplit = property.isEmpty() ? null : property.split(",");
                 final Type[] aarguments = new Type[propsplit == null ? 0 : propsplit.length];
-                boolean variadic = false;
 
                 for (int argument = 0; argument < aarguments.length; ++argument) {
-                    String pargument = propsplit[argument];
-
-                    if (argument + 1 == aarguments.length) {
-                        if (pargument.endsWith("...")) {
-                            variadic = true;
-                            pargument = pargument.substring(0, pargument.length() - 3);
-                        }
-                    }
-
+                    final String pargument = propsplit[argument];
                     final Type aargument = getATypeFromPClass(pargument);
                     aarguments[argument] = aargument;
                 }
 
-                final Method amethod = new Method(aname, artn, aarguments);
-                final PMethod pmethod = new PMethod(pname, powner, amethod, variadic);
+                final Method amethod = new Method(jname, artn, aarguments);
+                final java.lang.reflect.Method jmethod = getJMethod(powner, jname, aarguments);
 
-                if ("constructor".equals(keysplit[0])) {
-                    powner.pconstructors.put(pname, pmethod);
-                } else if (key.startsWith("function")) {
+                if (!jrtn.equals(jmethod.getReturnType())) {
+                    throw new IllegalArgumentException();
+                }
+
+                final int jmodifiers = jmethod.getModifiers();
+                final PMethod pmethod = new PMethod(pname, powner, amethod, jmethod);
+
+                if (key.startsWith("function")) {
+                    if (!Modifier.isStatic(jmodifiers)) {
+                        throw new IllegalArgumentException();
+                    }
+
                     powner.pfunctions.put(pname, pmethod);
                 } else if (key.startsWith("method")) {
+                    if (Modifier.isStatic(jmodifiers)) {
+                        throw new IllegalArgumentException();
+                    }
+
                     powner.pmethods.put(pname, pmethod);
                 } else {
                     throw new IllegalStateException();
@@ -309,18 +447,32 @@ class PainlessTypes {
                 }
 
                 final String pmemtype = propsplit[0];
-                final String jfield = propsplit[1];
+                final String jname = propsplit[1];
                 final Type atype = getATypeFromPClass(pmemtype);
 
-                if ("".equals(jfield)) {
+                if ("".equals(jname)) {
                     throw new IllegalArgumentException();
                 }
 
-                final PMember pmember = new PMember(pname, powner, jfield, atype);
+                final Field jfield = getJField(powner, jname);
+
+                if (!getJClass(atype).equals(jfield.getType())) {
+                    throw new IllegalArgumentException();
+                }
+
+                final int modifiers = jfield.getModifiers();
+                final PMember pmember = new PMember(pname, powner, atype, jfield);
 
                 if ("static".equals(keysplit[0])) {
+                    if (!Modifier.isStatic(modifiers)) {
+                        throw new IllegalArgumentException();
+                    }
                     powner.pstatics.put(pname, pmember);
                 } else if ("member".equals(keysplit[0])) {
+                    if (Modifier.isStatic(modifiers)) {
+                        throw new IllegalArgumentException();
+                    }
+
                     powner.pmembers.put(pname, pmember);
                 } else {
                     throw new IllegalStateException();
@@ -344,7 +496,7 @@ class PainlessTypes {
                 final String property = properties.getProperty(key);
                 final String[] propsplit = property.split("\\s+");
 
-                if (propsplit.length != 3) {
+                if (propsplit.length != 4) {
                     throw new IllegalArgumentException();
                 }
 
@@ -412,199 +564,6 @@ class PainlessTypes {
 
                     powner.pstatics.put(keysplit[3], pstatik);
                 } else {
-                    throw new IllegalArgumentException();
-                }
-            }
-        }
-
-        for (final PClass pclass : pclasses.values()) {
-            try {
-                getJClass(pclass.atype);
-            } catch (ClassNotFoundException exception) {
-                throw new IllegalArgumentException();
-            }
-
-            for (final PMethod pfunction : pclass.pfunctions.values()) {
-                final String jname = pfunction.amethod.getName();
-                final Type[] aarguments = pfunction.amethod.getArgumentTypes();
-                final Class[] jarguments = new Class[aarguments.length];
-
-                for (int argument = 0; argument < aarguments.length; ++argument) {
-                    try {
-                        jarguments[argument] = getJClass(aarguments[argument]);
-                    } catch (ClassNotFoundException exception) {
-                        throw new IllegalArgumentException();
-                    }
-                }
-
-                java.lang.reflect.Method validate;
-
-                try {
-                    validate = getJClass(pclass.atype).getMethod(jname, jarguments);
-                } catch (ClassNotFoundException exception) {
-                    throw new IllegalArgumentException();
-                } catch (NoSuchMethodException exception) {
-                    throw new IllegalArgumentException();
-                }
-
-                Class rtn;
-
-                try {
-                    rtn = getJClass(pfunction.amethod.getReturnType());
-                } catch (ClassNotFoundException exception) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (!rtn.equals(validate.getReturnType())) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (!Modifier.isStatic(validate.getModifiers())) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (pfunction.jvariadic != validate.isVarArgs()) {
-                    throw new IllegalArgumentException();
-                }
-            }
-
-            for (final PMethod pconstructor : pclass.pconstructors.values()) {
-                final Type[] aarguments = pconstructor.amethod.getArgumentTypes();
-                final Class[] jarguments = new Class[aarguments.length];
-
-                for (int argument = 0; argument < aarguments.length; ++argument) {
-                    try {
-                        jarguments[argument] = getJClass(aarguments[argument]);
-                    } catch (ClassNotFoundException exception) {
-                        throw new IllegalArgumentException();
-                    }
-                }
-
-                java.lang.reflect.Constructor validate;
-
-                try {
-                    validate = getJClass(pclass.atype).getConstructor(jarguments);
-                } catch (ClassNotFoundException exception) {
-                    throw new IllegalArgumentException();
-                } catch (NoSuchMethodException exception) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (Modifier.isStatic(validate.getModifiers())) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (pconstructor.jvariadic != validate.isVarArgs()) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (!pconstructor.powner.equals(pclass)) {
-                    throw new IllegalArgumentException();
-                }
-            }
-
-            for (final PMethod pmethod : pclass.pmethods.values()) {
-                final String jname = pmethod.amethod.getName();
-                final Type[] aarguments = pmethod.amethod.getArgumentTypes();
-                final Class[] jarguments = new Class[aarguments.length];
-
-                for (int argument = 0; argument < aarguments.length; ++argument) {
-                    try {
-                        jarguments[argument] = getJClass(aarguments[argument]);
-                    } catch (ClassNotFoundException exception) {
-                        throw new IllegalArgumentException();
-                    }
-                }
-
-                java.lang.reflect.Method validate;
-
-                try {
-                    validate = getJClass(pclass.atype).getMethod(jname, jarguments);
-                } catch (ClassNotFoundException exception) {
-                    throw new IllegalArgumentException();
-                } catch (NoSuchMethodException exception) {
-                    throw new IllegalArgumentException();
-                }
-
-                Class rtn;
-
-                try {
-                    rtn = getJClass(pmethod.amethod.getReturnType());
-                } catch (ClassNotFoundException exception) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (!rtn.equals(validate.getReturnType())) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (Modifier.isStatic(validate.getModifiers())) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (pmethod.jvariadic != validate.isVarArgs()) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (!pmethod.powner.equals(pclass)) {
-                    throw new IllegalArgumentException();
-                }
-            }
-
-            for (final PMember pmember : pclass.pmembers.values()) {
-                Field field;
-
-                try {
-                    field = getJClass(pmember.powner.atype).getField(pmember.jfield);
-                } catch (ClassNotFoundException exception) {
-                    throw new IllegalArgumentException();
-                } catch (NoSuchFieldException exception) {
-                    throw new IllegalArgumentException();
-                }
-
-                try {
-                    if (!getJClass(pmember.atype).equals(field.getType())) {
-                        throw new IllegalArgumentException();
-                    }
-                } catch (ClassNotFoundException exception) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (Modifier.isStatic(field.getModifiers())) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (!pmember.powner.equals(pclass)) {
-                    throw new IllegalArgumentException();
-                }
-            }
-
-            for (final PMember pstatic : pclass.pstatics.values()) {
-                Field field;
-
-                try {
-                    field = getJClass(pstatic.powner.atype).getField(pstatic.jfield);
-                } catch (ClassNotFoundException exception) {
-                    throw new IllegalArgumentException();
-                } catch (NoSuchFieldException exception) {
-                    throw new IllegalArgumentException();
-                }
-
-                try {
-                    if (!getJClass(pstatic.atype).equals(field.getType())) {
-                        throw new IllegalArgumentException();
-                    }
-                } catch (ClassNotFoundException exception) {
-                    throw new IllegalArgumentException();
-                }
-
-                final int modifiers = field.getModifiers();
-
-                if (!Modifier.isStatic(modifiers)) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (!Modifier.isFinal(modifiers)) {
                     throw new IllegalArgumentException();
                 }
             }

@@ -14,6 +14,16 @@ import org.objectweb.asm.Type;
 import painless.PainlessValidator.*;
 
 final class PainlessCompiler {
+    private static class PainlessClassLoader extends ClassLoader {
+        PainlessClassLoader(ClassLoader parent) {
+            super(parent);
+        }
+
+        public Class<? extends PainlessExecutable> define(String name, byte[] bytes) {
+            return defineClass(name, bytes, 0, bytes.length).asSubclass(PainlessExecutable.class);
+        }
+    }
+
     static PainlessExecutable compile(String name, String source, ClassLoader parent) {
         final PainlessTypes types = new PainlessTypes();
         final ParseTree root = createParseTree(source);

@@ -47,11 +47,15 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
         boolean statement;
         boolean conditional;
 
+        boolean righthand;
         Type adecltype;
 
         ParseTree castnodes[];
         Type castatypes[];
         Object constant;
+
+        boolean statik;
+        Deque<ParseTree> external;
 
         Metadata(final ParseTree node) {
             this.node = node;
@@ -61,11 +65,15 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
             statement = false;
             conditional = false;
 
+            righthand = false;
             adecltype = null;
 
             castnodes = null;
             castatypes = null;
             constant = null;
+
+            statik = false;
+            external = null;
         }
     }
 
@@ -280,6 +288,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         final ExpressionContext ectx = ctx.expression();
         final Metadata expressionmd = createMetadata(ectx);
+        expressionmd.righthand = true;
         visit(ectx);
         markCast(expressionmd, BOOLEAN_TYPE, false);
 
@@ -310,6 +319,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         final ExpressionContext ectx = ctx.expression();
         final Metadata expressionmd = createMetadata(ectx);
+        expressionmd.righthand = true;
         visit(ectx);
         markCast(expressionmd, BOOLEAN_TYPE, false);
 
@@ -338,6 +348,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         final ExpressionContext ectx = ctx.expression();
         final Metadata expressionmd = createMetadata(ectx);
+        expressionmd.righthand = true;
         visit(ectx);
         markCast(expressionmd, BOOLEAN_TYPE, false);
 
@@ -366,6 +377,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         final ExpressionContext ectx0 = ctx.expression(0);
         final Metadata expressionmd0 = createMetadata(ectx0);
+        expressionmd0.righthand = true;
         visit(ectx0);
         markCast(expressionmd0, BOOLEAN_TYPE, false);
 
@@ -436,6 +448,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         final ExpressionContext ectx = ctx.expression();
         final Metadata expressionmd = createMetadata(ectx);
+        expressionmd.righthand = true;
         visit(ectx);
         markCast(expressionmd, getType("Ljava/lang/Object;"), false);
 
@@ -452,7 +465,6 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
         final ExpressionContext ectx = ctx.expression();
         final Metadata expressionmd = createMetadata(ectx);
         visit(ectx);
-        //TODO: pop return value if necessary?
 
         exprmd.statement = expressionmd.statement;
 
@@ -534,9 +546,9 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
             } else if (cctx instanceof ExpressionContext) {
                 final ExpressionContext ectx = (ExpressionContext)cctx;
                 final Metadata expressiondmd = createMetadata(ectx);
+                expressiondmd.righthand = true;
                 visit(ectx);
                 markCast(expressiondmd, adecltype, false);
-                //TODO: mark write variable?
             }
         }
 
@@ -561,6 +573,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         final ExpressionContext ectx = ctx.expression();
         final Metadata expressionmd = createMetadata(ectx);
+        expressionmd.righthand = precedencemd.righthand;
         visit(ectx);
 
         precedencemd.castnodes = expressionmd.castnodes;
@@ -850,6 +863,7 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
 
         final ExpressionContext ectx = ctx.expression();
         final Metadata expressionmd = createMetadata(ectx);
+        expressionmd.righthand = castmd.righthand;
         visit(ectx);
 
         if (expressionmd.constant instanceof Number) {
@@ -1249,60 +1263,100 @@ class PainlessValidator extends PainlessBaseVisitor<Void> {
     }
 
     @Override
-    public Void visitAssignment(PainlessParser.AssignmentContext ctx) {
-        Metadata assignmentmd = getMetadata(ctx);
+    public Void visitAssignment(final AssignmentContext ctx) {
+        final Metadata assignmentmd = getMetadata(ctx);
 
-        if (!extext.writeable) {
+        final ExtstartContext ectx0 = ctx.extstart();
+        Metadata extstartmd = createMetadata(ectx0);
+        visit(ectx0);
+
+        if (extstartmd.statik) {
             throw new IllegalArgumentException();
         }
 
-        Extracted extexpr = visit(ctx.expression());
-        markCast(extexpr, extext.atypes.get(0), false);
+        if (extstartmd.statement) {
+            throw new IllegalArgumentException();
+        }
 
-        Extracted extracted = new Extracted();
-        extracted.nodes.add(ctx);
-        extracted.atypes.add(extext.atypes.get(0));
-        extracted.statement = true;
+        if (assignmentmd.righthand) {
+            assignmentmd.castnodes = new ParseTree[] {extstartmd.castnodes[0]};
+            assignmentmd.castatypes = new Type[] {extstartmd.castatypes[0]};
+        }
 
-        //TODO: mark read/write?
+        final ExpressionContext ectx1 = ctx.expression();
+        final Metadata expressionmd = createMetadata(ectx1);
+        expressionmd.righthand = true;
+        visit(ectx1);
+
+        assignmentmd.statement = true;
 
         return null;
     }
 
     @Override
-    public Extracted visitExtstart(ExtstartContext ctx) {
-        Extracted extracted;
+    public Void visitExtstart(ExtstartContext ctx) {
+        final Metadata extstartmd = getMetadata(ctx);
+        extstartmd.external = new ArrayDeque<>();
 
-        if (ctx.extprec() != null) {
-            extracted = visitExtprec(ctx.extprec());
-        } else if (ctx.extcast() != null) {
-            extracted = visitExtcast(ctx.extcast());
-        } else if (ctx.exttype() != null) {
-            extracted = visitExttype(ctx.exttype());
-        } else if (ctx.extmember() != null) {
-            extracted = visitExtmember(ctx.extmember(), null, false);
+        Metadata extmd;
+
+        ExtprecContext ectx0 = ctx.extprec();
+        ExtcastContext ectx1 = ctx.extcast();
+        ExttypeContext ectx2 = ctx.exttype();
+        ExtmemberContext ectx3 = ctx.extmember();
+
+        if (ectx0 != null) {
+            extmd = createMetadata(ectx0);
+            visit(ectx0);
+        } else if (ectx1 != null) {
+            extmd = createMetadata(ectx1);
+            visit(ectx1);
+        } else if (ectx2 != null) {
+            extmd = createMetadata(ectx2);
+            visit(ectx2);
+        } else if (ectx3 != null) {
+            extmd = createMetadata(ectx3);
+            visit(ectx3);
         } else {
             throw new IllegalStateException();
         }
 
-        return extracted;
+        extstartmd.statement = extmd.statement;
+        extstartmd.statik = extmd.statik;
+        extstartmd.castnodes = new ParseTree[] {extmd.castnodes[0]};
+        extstartmd.castatypes = new Type[] {extmd.castatypes[0]};
+
+        return null;
     }
 
-    @Override
-    public Extracted visitExtprec(ExtprecContext ctx) {
-        Extracted extracted;
+    /*@Override
+    public Void visitExtprec(ExtprecContext ctx) {
+        final Metadata extprecmd = getMetadata(ctx);
 
-        if (ctx.extprec() != null) {
-            extracted = visit(ctx.extprec());
-        } else if (ctx.extcast() != null) {
-            extracted = visit(ctx.extcast());
-        } else if (ctx.exttype() != null) {
-            extracted = visit(ctx.exttype());
-        } else if (ctx.extmember() != null) {
-            extracted = visitExtmember(ctx.extmember(), null, false);
+        Metadata extmd0;
+
+        ExtprecContext ectx0 = ctx.extprec();
+        ExtcastContext ectx1 = ctx.extcast();
+        ExttypeContext ectx2 = ctx.exttype();
+        ExtmemberContext ectx3 = ctx.extmember();
+
+        if (ectx0 != null) {
+            extmd0 = createMetadata(ectx0);
+            visit(ectx0);
+        } else if (ectx1 != null) {
+            extmd0 = createMetadata(ectx1);
+            visit(ectx1);
+        } else if (ectx2 != null) {
+            extmd0 = createMetadata(ectx2);
+            visit(ectx2);
+        } else if (ectx3 != null) {
+            extmd0 = createMetadata(ectx3);
+            visit(ectx3);
         } else {
             throw new IllegalStateException();
         }
+
+        Metadata extmd1;
 
         if (ctx.extdot() != null) {
             extracted = visitExtdot(ctx.extdot(), extracted.atypes.get(0), false);
