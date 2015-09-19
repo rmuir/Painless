@@ -566,7 +566,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final Metadata decltypemd = getMetadata(ctx);
 
         final String ptype = ctx.getText();
-        decltypemd.adecltype = ptypes.getATypeFromPClass(ptype);
+        decltypemd.adecltype = ptypes.getATypeFromPType(ptype);
 
         return null;
     }
@@ -633,7 +633,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             }
         }
 
-        if (ptypes.getPClass(numericmd.castatypes[0]) == null) {
+        if (ptypes.getPClassFromAType(numericmd.castatypes[0]) == null) {
             throw new IllegalArgumentException();
         }
 
@@ -652,7 +652,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         stringmd.castnodes = new ParseTree[] {ctx};
         stringmd.castatypes = new Type[] {getType("Ljava/lang/String;")};
 
-        if (ptypes.getPClass(stringmd.castatypes[0]) == null) {
+        if (ptypes.getPClassFromAType(stringmd.castatypes[0]) == null) {
             throw new IllegalArgumentException();
         }
 
@@ -675,7 +675,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         charmd.castnodes = new ParseTree[] {ctx};
         charmd.castatypes = new Type[] {CHAR_TYPE};
 
-        if (ptypes.getPClass(charmd.castatypes[0]) == null) {
+        if (ptypes.getPClassFromAType(charmd.castatypes[0]) == null) {
             throw new IllegalArgumentException();
         }
 
@@ -693,7 +693,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         truemd.castnodes = new ParseTree[] {ctx};
         truemd.castatypes = new Type[] {BOOLEAN_TYPE};
 
-        if (ptypes.getPClass(truemd.castatypes[0]) == null) {
+        if (ptypes.getPClassFromAType(truemd.castatypes[0]) == null) {
             throw new IllegalArgumentException();
         }
 
@@ -712,7 +712,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         falsemd.castnodes = new ParseTree[] {ctx};
         falsemd.castatypes = new Type[] {BOOLEAN_TYPE};
 
-        if (ptypes.getPClass(falsemd.castatypes[0]) == null) {
+        if (ptypes.getPClassFromAType(falsemd.castatypes[0]) == null) {
             throw new IllegalArgumentException();
         }
 
@@ -730,7 +730,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         nullmd.castnodes = new ParseTree[] {ctx};
         nullmd.castatypes = new Type[] {getType("Ljava/lang/Object;")};
 
-        if (ptypes.getPClass(nullmd.castatypes[0]) == null) {
+        if (ptypes.getPClassFromAType(nullmd.castatypes[0]) == null) {
             throw new IllegalArgumentException();
         }
 
@@ -1473,7 +1473,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     public Void visitExttype(final ExttypeContext ctx) {
         final Metadata exttypemd = getMetadata(ctx);
         final String ptype = ctx.TYPE().getText();
-        final Type atype = ptypes.getATypeFromPClass(ptype);
+        final Type atype = ptypes.getATypeFromPType(ptype);
 
         if (atype == null) {
             throw new IllegalArgumentException();
@@ -1494,7 +1494,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final Metadata extcallmd = getMetadata(ctx);
 
         final Type adecltype = extcallmd.pexternal.getAType();
-        final PClass pclass = ptypes.getPClass(adecltype);
+        final PClass pclass = ptypes.getPClassFromAType(adecltype);
 
         if (pclass == null) {
             throw new IllegalArgumentException();
@@ -1574,7 +1574,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                     throw new IllegalArgumentException();
                 }
             } else {
-                final PClass pclass = ptypes.getPClass(atype);
+                final PClass pclass = ptypes.getPClassFromAType(atype);
 
                 if (pclass == null) {
                     throw new IllegalArgumentException();

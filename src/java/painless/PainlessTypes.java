@@ -139,6 +139,10 @@ class PainlessTypes {
     }
 
     static class PTransform {
+        final static int DISALLOW = 0;
+        final static int EXPLICIT = 1;
+        final static int IMPLICIT = 2;
+
         final PCast pcast;
         final PMethod pmethod;
         final int level;
@@ -205,7 +209,7 @@ class PainlessTypes {
         return Type.getType(type);
     }
 
-    static Class getJClass(Type atype) {
+    static Class getJClassFromAType(Type atype) {
         try {
             switch (atype.getSort()) {
                 case Type.VOID:
@@ -234,37 +238,37 @@ class PainlessTypes {
         }
     }
 
-    static java.lang.reflect.Constructor getJConstructor(final PClass pclass, final Type[] aarguments) {
+    static java.lang.reflect.Constructor getJConstructor(final Class clazz, final Type[] aarguments) {
         final Class[] jarguments = new Class[aarguments.length];
 
         for (int argument = 0; argument < aarguments.length; ++argument) {
-            jarguments[argument] = getJClass(aarguments[argument]);
+            jarguments[argument] = getJClassFromAType(aarguments[argument]);
         }
 
         try {
-            return pclass.clazz.getConstructor(jarguments);
+            return clazz.getConstructor(jarguments);
         } catch (NoSuchMethodException exception) {
             throw new IllegalArgumentException();
         }
     }
 
-    static java.lang.reflect.Method getJMethod(final PClass pclass, final String jname, final Type[] aarguments) {
+    static java.lang.reflect.Method getJMethod(final Class clazz, final String jname, final Type[] aarguments) {
         final Class[] jarguments = new Class[aarguments.length];
 
         for (int argument = 0; argument < aarguments.length; ++argument) {
-            jarguments[argument] = getJClass(aarguments[argument]);
+            jarguments[argument] = getJClassFromAType(aarguments[argument]);
         }
 
         try {
-            return pclass.clazz.getMethod(jname, jarguments);
+            return clazz.getMethod(jname, jarguments);
         } catch (NoSuchMethodException exception) {
             throw new IllegalArgumentException();
         }
     }
 
-    static Field getJField(final PClass pclass, final String jname) {
+    static Field getJField(final Class clazz, final String jname) {
         try {
-            return pclass.clazz.getField(jname);
+            return clazz.getField(jname);
         } catch (NoSuchFieldException exception) {
             throw new IllegalArgumentException();
         }
@@ -274,7 +278,7 @@ class PainlessTypes {
 
     private final Map<String, PClass> pclasses;
     private final Map<Type, PClass> aclasses;
-    private final Map<PCast, PMethod> ptransforms;
+    private final Map<PCast, PTransform> ptransforms;
 
     PainlessTypes() {
         pclasses = new HashMap<>();
@@ -286,24 +290,28 @@ class PainlessTypes {
         try (final InputStream stream = getClass().getResourceAsStream(PROPERTIES_FILE)) {
             properties.load(stream);
         } catch (IOException exception) {
-            throw new IllegalStateException(exception);
+            throw new IllegalStateException();
         }
 
         for (final String key : properties.stringPropertyNames()) {
             if (key.startsWith("type")) {
                 final String[] keysplit = key.split("\\.");
-                final String name = keysplit[1];
+                final String pname = keysplit[1];
 
-                if (pclasses.containsKey(name)) {
+                if (!pname.matches("^[$a-zA-Z][a-zA-Z0-9]+$")) {
+                    throw new IllegalArgumentException();
+                }
+
+                if (pclasses.containsKey(pname)) {
                     throw new IllegalArgumentException();
                 }
 
                 final String property = properties.getProperty(key);
                 final Type atype = getATypeFromJClass(property);
-                final Class clazz = getJClass(atype);
-                final PClass pclass = new PClass(name, atype, clazz);
+                final Class clazz = getJClassFromAType(atype);
+                final PClass pclass = new PClass(pname, atype, clazz);
 
-                pclasses.put(name, pclass);
+                pclasses.put(pname, pclass);
                 aclasses.put(atype, pclass);
             } else {
                 boolean valid = key.startsWith("constructor") || key.startsWith("function")   ||
@@ -348,15 +356,33 @@ class PainlessTypes {
                 property = property.replace("(", "").replace(")", "").replace(" ", "");
                 final String[] propsplit = property.isEmpty() ? null : property.split(",");
                 final Type[] aarguments = new Type[propsplit == null ? 0 : propsplit.length];
+                final Type[] raarguments = new Type[aarguments.length];
 
                 for (int argument = 0; argument < aarguments.length; ++argument) {
-                    final String pargument = propsplit[argument];
-                    final Type aargument = getATypeFromPClass(pargument);
-                    aarguments[argument] = aargument;
+                    String pargument = propsplit[argument];
+                    final int index = pargument.indexOf("<");
+
+                    if (index != -1) {
+                        if (pargument.endsWith(">")) {
+                            final String rpargument = pargument.substring(index + 1, pargument.length() - 1);
+                            final Type raargument = getATypeFromPType(rpargument);
+                            raarguments[argument] = raargument;
+
+                            pargument = pargument.substring(0, index);
+                            final Type aargument = getATypeFromPType(pargument);
+                            aarguments[argument] = aargument;
+                        } else {
+                            throw new IllegalArgumentException();
+                        }
+                    } else {
+                        final Type aargument = getATypeFromPType(pargument);
+                        raarguments[argument] = aargument;
+                        aarguments[argument] = aargument;
+                    }
                 }
 
-                final Method amethod = new Method("<init>", Type.VOID_TYPE, aarguments);
-                final Constructor jconstructor = getJConstructor(powner, aarguments);
+                final Method amethod = new Method("<init>", Type.VOID_TYPE, raarguments);
+                final Constructor jconstructor = getJConstructor(powner.clazz, aarguments);
                 final PConstructor pconstructor = new PConstructor(pname, powner, amethod, jconstructor);
 
                 powner.pconstructors.put(pname, pconstructor);
@@ -384,8 +410,8 @@ class PainlessTypes {
                 String property = properties.getProperty(key);
 
                 int index = property.indexOf(" ");
-                final Type artn = getATypeFromPClass(property.substring(0, index));
-                final Class jrtn = getJClass(artn);
+                final Type artn = getATypeFromPType(property.substring(0, index));
+                final Class jrtn = getJClassFromAType(artn);
 
                 property = property.substring(index + 1);
                 index = property.indexOf("(");
@@ -404,15 +430,33 @@ class PainlessTypes {
                 property = property.replace("(", "").replace(")", "").replace(" ", "");
                 final String[] propsplit = property.isEmpty() ? null : property.split(",");
                 final Type[] aarguments = new Type[propsplit == null ? 0 : propsplit.length];
+                final Type[] raarguments = new Type[aarguments.length];
 
                 for (int argument = 0; argument < aarguments.length; ++argument) {
-                    final String pargument = propsplit[argument];
-                    final Type aargument = getATypeFromPClass(pargument);
-                    aarguments[argument] = aargument;
+                    String pargument = propsplit[argument];
+                    index = pargument.indexOf("<");
+
+                    if (index != -1) {
+                        if (pargument.endsWith(">")) {
+                            final String rpargument = pargument.substring(index + 1, pargument.length() - 1);
+                            final Type raargument = getATypeFromPType(rpargument);
+                            raarguments[argument] = raargument;
+
+                            pargument = pargument.substring(0, index);
+                            final Type aargument = getATypeFromPType(pargument);
+                            aarguments[argument] = aargument;
+                        } else {
+                            throw new IllegalArgumentException();
+                        }
+                    } else {
+                        final Type aargument = getATypeFromPType(pargument);
+                        raarguments[argument] = aargument;
+                        aarguments[argument] = aargument;
+                    }
                 }
 
                 final Method amethod = new Method(jname, artn, aarguments);
-                final java.lang.reflect.Method jmethod = getJMethod(powner, jname, aarguments);
+                final java.lang.reflect.Method jmethod = getJMethod(powner.clazz, jname, aarguments);
 
                 if (!jrtn.equals(jmethod.getReturnType())) {
                     throw new IllegalArgumentException();
@@ -464,15 +508,15 @@ class PainlessTypes {
 
                 final String pmemtype = propsplit[0];
                 final String jname = propsplit[1];
-                final Type atype = getATypeFromPClass(pmemtype);
+                final Type atype = getATypeFromPType(pmemtype);
 
                 if ("".equals(jname)) {
                     throw new IllegalArgumentException();
                 }
 
-                final Field jfield = getJField(powner, jname);
+                final Field jfield = getJField(powner.clazz, jname);
 
-                if (!getJClass(atype).equals(jfield.getType())) {
+                if (!getJClassFromAType(atype).equals(jfield.getType())) {
                     throw new IllegalArgumentException();
                 }
 
@@ -504,39 +548,62 @@ class PainlessTypes {
                     throw new IllegalArgumentException();
                 }
 
-                final Type afrom = getATypeFromPClass(keysplit[1]);
-                final Type ato = getATypeFromPClass(keysplit[2]);
+                final Type afrom = getATypeFromPType(keysplit[1]);
+                final Type ato = getATypeFromPType(keysplit[2]);
+
+                if (afrom.getSort() != Type.OBJECT && afrom.getSort() != Type.ARRAY &&
+                        ato.getSort() != Type.OBJECT && ato.getSort() != Type.ARRAY) {
+                    throw new IllegalArgumentException();
+                }
 
                 final PCast pcast = new PCast(afrom, ato);
+
+                if (ptransforms.containsKey(pcast)) {
+                    throw new IllegalArgumentException();
+                }
 
                 final String property = properties.getProperty(key);
                 final String[] propsplit = property.split("\\s+");
 
-                if (propsplit.length != 4) {
-                    throw new IllegalArgumentException();
-                }
+                if (propsplit.length == 1 && "disallow".equals(propsplit[0])) {
+                    final PTransform ptransform = new PTransform(pcast, null, PTransform.DISALLOW);
+                    ptransforms.put(pcast, ptransform);
+                } else if (propsplit.length == 4) {
+                    final PClass powner = pclasses.get(propsplit[1]);
 
-                final PClass powner = pclasses.get(propsplit[1]);
+                    if (powner == null) {
+                        throw new IllegalArgumentException();
+                    }
 
-                if (powner == null) {
-                    throw new IllegalArgumentException();
-                }
+                    PMethod pmethod;
 
-                PMethod pmethod;
+                    if ("function".equals(propsplit[2])) {
+                        pmethod = powner.pfunctions.get(propsplit[3]);
+                    } else if ("method".equals(propsplit[2])) {
+                        pmethod = powner.pmethods.get(propsplit[3]);
+                    } else {
+                        throw new IllegalArgumentException();
+                    }
 
-                if ("function".equals(propsplit[0])) {
-                    pmethod = powner.pfunctions.get(propsplit[2]);
-                } else if ("method".equals(propsplit[0])) {
-                    pmethod = powner.pmethods.get(propsplit[2]);
+                    if (pmethod == null) {
+                        throw new IllegalArgumentException();
+                    }
+
+                    int level;
+
+                    if ("explicit".equals(propsplit[0])) {
+                        level = PTransform.EXPLICIT;
+                    } else if ("implicit".equals(propsplit[0])) {
+                        level = PTransform.IMPLICIT;
+                    } else {
+                        throw new IllegalArgumentException();
+                    }
+
+                    final PTransform ptransform = new PTransform(pcast, pmethod, level);
+                    ptransforms.put(pcast, ptransform);
                 } else {
                     throw new IllegalArgumentException();
                 }
-
-                if (pmethod == null) {
-                    throw new IllegalArgumentException();
-                }
-
-                ptransforms.put(pcast, pmethod);
             } else if (key.startsWith("cross")) {
                 final String[] keysplit = key.split("\\.");
 
@@ -586,7 +653,7 @@ class PainlessTypes {
         }
     }
 
-    final Type getATypeFromPClass(final String ptype) {
+    final Type getATypeFromPType(final String ptype) {
         int index = ptype.indexOf('[');
         String type = ptype;
         String dimensions = "";
@@ -614,11 +681,11 @@ class PainlessTypes {
         return Type.getType(descriptor);
     }
 
-    final PClass getPClass(final Type atype) {
+    final PClass getPClassFromAType(final Type atype) {
         return aclasses.get(atype);
     }
 
-    final PMethod getPTransform(final PCast pcast) {
+    final PTransform getPTransform(final PCast pcast) {
         return ptransforms.get(pcast);
     }
 }

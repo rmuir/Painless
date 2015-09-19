@@ -28,8 +28,8 @@ final class PainlessCompiler {
         final PainlessTypes types = new PainlessTypes();
         final ParseTree root = createParseTree(source);
         Deque<Argument> arguments = new ArrayDeque<>();
-        arguments.push(new Argument("this", types.getATypeFromPClass("void")));
-        arguments.push(new Argument("input", types.getATypeFromPClass("map")));
+        arguments.push(new Argument("this", types.getATypeFromPType("void")));
+        arguments.push(new Argument("input", types.getATypeFromPType("map")));
         Map<ParseTree, Metadata> metadata = PainlessAnalyzer.analyze(types, root, arguments);
         //PainlessAdapter adapter = new PainlessAdapter(root);
         //PainlessAnalyzer analyzer = new PainlessAnalyzer(root, adapter);

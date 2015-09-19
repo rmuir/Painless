@@ -154,7 +154,7 @@ public class PainlessExternal {
                         throw new IllegalArgumentException();
                     }
 
-                    if (atype.getSort() != ARRAY) {
+                    if (atype.getSort() != Type.ARRAY) {
                         throw new IllegalArgumentException();
                     }
 
