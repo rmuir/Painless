@@ -20,6 +20,8 @@ public final class Painless {
 
         //System.out.println(f + " " + n);
 
+        //Object.class.asSubclass(Integer.class);
+
         compile("test", "int[] x = int.makearray(10); x[0] = 5; return x[0];");
     }
 

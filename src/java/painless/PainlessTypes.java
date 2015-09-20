@@ -71,13 +71,16 @@ class PainlessTypes {
         private final String pname;
         private final PClass powner;
         private final List<PType> parguments;
+        private final List<PType> poriginals;
         private final Constructor jconstructor;
 
         private PConstructor(final String pname, final PClass powner,
-                             final List<PType> parguments, final Constructor jconstructor) {
+                             final List<PType> parguments, final List<PType> poriginals,
+                             final Constructor jconstructor) {
             this.pname = pname;
             this.powner = powner;
             this.parguments = Collections.unmodifiableList(parguments);
+            this.poriginals = Collections.unmodifiableList(poriginals);
             this.jconstructor = jconstructor;
         }
 
@@ -93,6 +96,10 @@ class PainlessTypes {
             return parguments;
         }
 
+        List<PType> getPOriginals() {
+            return poriginals;
+        }
+
         Constructor getJConstructor() {
             return jconstructor;
         }
@@ -102,15 +109,19 @@ class PainlessTypes {
         private final String pname;
         private final PClass powner;
         private final PType preturn;
+        private final PType poreturn;
         private final List<PType> parguments;
+        private final List<PType> poriginals;
         private final Method jmethod;
 
-        private PMethod(final String pname, final PClass powner,
-                        final PType preturn, final List<PType> parguments, final Method jmethod) {
+        private PMethod(final String pname, final PClass powner, final PType preturn, final PType poreturn,
+                        final List<PType> parguments, final List<PType> poriginals, final Method jmethod) {
             this.pname = pname;
             this.powner = powner;
             this.preturn = preturn;
+            this.poreturn = poreturn;
             this.parguments = Collections.unmodifiableList(parguments);
+            this.poriginals = Collections.unmodifiableList(poriginals);
             this.jmethod = jmethod;
         }
 
@@ -126,8 +137,16 @@ class PainlessTypes {
             return preturn;
         }
 
+        PType getPOReturn() {
+            return poreturn;
+        }
+
         List<PType> getPArguments() {
             return parguments;
+        }
+
+        List<PType> getPOriginals() {
+            return poriginals;
         }
 
         Method getJmethod() {
@@ -262,12 +281,42 @@ class PainlessTypes {
         }
     }
 
+    static class PTransform {
+        private final PCast pcast;
+        private final PMethod pmethod;
+        private final boolean pcastfrom;
+        private final boolean pcastto;
+
+        private PTransform(final PCast pcast, PMethod pmethod, final boolean pcastfrom, final boolean pcastto) {
+            this.pcast = pcast;
+            this.pmethod = pmethod;
+            this.pcastfrom = pcastfrom;
+            this.pcastto = pcastto;
+        }
+
+        PCast getPCast() {
+            return pcast;
+        }
+
+        PMethod getPmethod() {
+            return pmethod;
+        }
+
+        boolean getPCastFrom() {
+            return pcastfrom;
+        }
+
+        boolean getPCastTo() {
+            return pcastto;
+        }
+    }
+
     static class PTypes {
         private final Map<String, PClass> pclasses;
 
         private final Set<PCast> pdisalloweds;
-        private final Map<PCast, PMethod> pexplicits;
-        private final Map<PCast, PMethod> pimplicits;
+        private final Map<PCast, PTransform> pexplicits;
+        private final Map<PCast, PTransform> pimplicits;
 
         private PTypes() {
             pclasses = new HashMap<>();
@@ -285,11 +334,11 @@ class PainlessTypes {
             return pdisalloweds.contains(pcast);
         }
 
-        PMethod getPExplicit(final PCast pcast) {
+        PTransform getPExplicit(final PCast pcast) {
             return pexplicits.get(pcast);
         }
 
-        PMethod getPImplicit(final PCast pcast) {
+        PTransform getPImplicit(final PCast pcast) {
             return pimplicits.get(pcast);
         }
     }
@@ -350,11 +399,13 @@ class PainlessTypes {
             if (key.startsWith("cross")) {
                 loadPCrossFromProperty(ptypes, property);
             } else if (key.startsWith("transform")) {
-
+                loadPTransformFromProperty(ptypes, property);
             } else if (key.startsWith("disallow")) {
-
+                loadPDisallowFromProperty(ptypes, property);
             }
         }
+
+
 
         return ptypes;
     }
@@ -467,25 +518,38 @@ class PainlessTypes {
         loadPCross(ptypes, ptypestr, pcrossstr, pnamestr, pownerstr, pstaticstr);
     }
 
-    private static void loadPTransformFromProperty(final PTypes ptypes, final String property, boolean implicit) {
+    private static void loadPTransformFromProperty(final PTypes ptypes, final String property) {
         final String[] split = property.split("\\s+");
 
-        if (split.length != 4) {
+        if (split.length != 6) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
         final String ptypestr = split[0];
-        final String pfromstr = split[0];
-        final String ptostr = split[1];
-        final String pownerstr = split[2];
-        final String pstaticstr = split[3];
-        final String pmethodstr = split[4];
+        final String pfromstr = split[1];
+        final String ptostr = split[2];
+        final String pownerstr = split[3];
+        final String pstaticstr = split[4];
+        final String pmethodstr = split[5];
 
         loadPTransform(ptypes, ptypestr, pfromstr, ptostr, pownerstr, pstaticstr, pmethodstr);
     }
 
+    private static void loadPDisallowFromProperty(final PTypes ptypes, final String property) {
+        final String[] split = property.split("\\s+");
+
+        if (split.length != 2) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String pfromstr = split[0];
+        final String ptostr = split[1];
+
+        loadPDisallow(ptypes, pfromstr, ptostr);
+    }
+
     private static void loadPClass(final PTypes ptypes, final String pnamestr, final String jclassstr) {
-        if (!pnamestr.matches("^[$a-zA-Z][a-zA-Z0-9]+$")) {
+        if (!pnamestr.matches("^[$_a-zA-Z][_a-zA-Z0-9]+$")) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
@@ -525,6 +589,7 @@ class PainlessTypes {
 
         final int length = pargumentsstrs.length;
         final PType[] parguments = new PType[length];
+        final PType[] poriginals = new PType[length];
         final Class[] jarguments = new Class[length];
 
         for (int pargumentindex = 0; pargumentindex < length; ++ pargumentindex) {
@@ -532,17 +597,20 @@ class PainlessTypes {
 
             if (pargumentstrs.length == 1) {
                 parguments[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[0]);
+                poriginals[pargumentindex] = parguments[pargumentindex];
                 jarguments[pargumentindex] = parguments[pargumentindex].jclass;
             } else if (pargumentstrs.length == 2) {
                 parguments[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[1]);
-                jarguments[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[0]).jclass;
+                poriginals[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[0]);
+                jarguments[pargumentindex] = poriginals[pargumentindex].jclass;
             } else {
                 throw new IllegalArgumentException(); // TODO: message
             }
         }
 
         final Constructor jconstructor = getJConstructorFromJClass(powner.jclass, jarguments);
-        final PConstructor pconstructor = new PConstructor(pnamestr, powner, Arrays.asList(parguments), jconstructor);
+        final PConstructor pconstructor = new PConstructor(pnamestr, powner,
+                Arrays.asList(parguments), Arrays.asList(poriginals), jconstructor);
 
         powner.pconstructors.put(pnamestr, pconstructor);
     }
@@ -556,7 +624,7 @@ class PainlessTypes {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (!pnamestr.matches("^[a-zA-Z][a-zA-Z0-9]+$")) {
+        if (!pnamestr.matches("^[_a-zA-Z][_a-zA-Z0-9]+$")) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
@@ -574,20 +642,24 @@ class PainlessTypes {
 
         final String[] preturnstrs = parsePArgumentStr(preturnstr);
         PType preturn;
+        PType poreturn;
         Class jreturn;
 
         if (preturnstrs.length == 1) {
             preturn = getPTypeFromCanonicalPName(ptypes, preturnstrs[0]);
+            poreturn = preturn;
             jreturn = preturn.jclass;
         } else if (preturnstrs.length == 2) {
             preturn = getPTypeFromCanonicalPName(ptypes, preturnstrs[1]);
-            jreturn = getPTypeFromCanonicalPName(ptypes, preturnstrs[0]).jclass;
+            poreturn = getPTypeFromCanonicalPName(ptypes, preturnstrs[0]);
+            jreturn = poreturn.jclass;
         } else {
             throw new IllegalArgumentException(); // TODO: message
         }
 
         final int length = pargumentsstrs.length;
         final PType[] parguments = new PType[length];
+        final PType[] poriginals = new PType[length];
         final Class[] jarguments = new Class[length];
 
         for (int pargumentindex = 0; pargumentindex < length; ++ pargumentindex) {
@@ -595,10 +667,12 @@ class PainlessTypes {
 
             if (pargumentstrs.length == 1) {
                 parguments[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[0]);
+                poriginals[pargumentindex] = parguments[pargumentindex];
                 jarguments[pargumentindex] = parguments[pargumentindex].jclass;
             } else if (pargumentstrs.length == 2) {
                 parguments[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[1]);
-                jarguments[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[0]).jclass;
+                poriginals[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[0]);
+                jarguments[pargumentindex] = poriginals[pargumentindex].jclass;
             } else {
                 throw new IllegalArgumentException(); // TODO: message
             }
@@ -610,7 +684,8 @@ class PainlessTypes {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        final PMethod pmethod = new PMethod(pnamestr, powner, preturn, Arrays.asList(parguments), jmethod);
+        final PMethod pmethod = new PMethod(pnamestr, powner, preturn, poreturn,
+                Arrays.asList(parguments), Arrays.asList(poriginals), jmethod);
         final int modifiers = jmethod.getModifiers();
 
         if (statik) {
@@ -710,11 +785,145 @@ class PainlessTypes {
     private static void loadPTransform(final PTypes ptypes, final String ptypestr,
                                        final String pfromstr, final String ptostr, final String pownerstr,
                                        final String pstaticstr, final String pmethodstr) {
-        PClass powner = ptypes.pclasses.get(pownerstr);
+        final PClass powner = ptypes.pclasses.get(pownerstr);
 
         if (powner == null) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException(); // TODO: message
         }
+
+        final PType pfrom = getPTypeFromCanonicalPName(ptypes, pfromstr);
+        final PType pto = getPTypeFromCanonicalPName(ptypes, ptostr);
+
+        if (pfrom.jclass.equals(pto.jclass)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final PCast pcast = new PCast(pfrom, pto);
+
+        if (ptypes.pdisalloweds.contains(pcast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (ptypes.pexplicits.containsKey(pcast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (ptypes.pimplicits.containsKey(pcast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        PMethod pmethod;
+        boolean pcastfrom = false;
+        boolean pcastto = false;
+
+        if ("function".equals(pstaticstr)) {
+            pmethod = powner.pfunctions.get(pmethodstr);
+
+            if (pmethod == null) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            if (pmethod.parguments.size() != 1) {
+                throw new IllegalArgumentException();
+            }
+
+            PType pargument = pmethod.getPArguments().get(0);
+
+            try {
+                pfrom.jclass.asSubclass(pargument.jclass);
+            } catch (ClassCastException cce0) {
+                try {
+                    pargument.jclass.asSubclass(pfrom.jclass);
+                    pcastfrom = true;
+                } catch (ClassCastException cce1) {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+            }
+
+            final PType preturn = pmethod.preturn;
+
+            try {
+                pto.jclass.asSubclass(preturn.jclass);
+            } catch (ClassCastException cce0) {
+                try {
+                    preturn.jclass.asSubclass(pto.jclass);
+                    pcastto = true;
+                } catch (ClassCastException cce1) {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+            }
+        } else if ("method".equals(pstaticstr)) {
+            pmethod = powner.pmethods.get(pmethodstr);
+
+            if (pmethod == null) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            if (!pmethod.parguments.isEmpty()) {
+                throw new IllegalArgumentException();
+            }
+
+            try {
+                pfrom.jclass.asSubclass(powner.jclass);
+            } catch (ClassCastException cce0) {
+                try {
+                    powner.jclass.asSubclass(pfrom.jclass);
+                    pcastfrom = true;
+                } catch (ClassCastException cce1) {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+            }
+
+            final PType preturn = pmethod.preturn;
+
+            try {
+                pto.jclass.asSubclass(preturn.jclass);
+            } catch (ClassCastException cce0) {
+                try {
+                    preturn.jclass.asSubclass(pto.jclass);
+                    pcastto = true;
+                } catch (ClassCastException cce1) {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+            }
+        } else {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final PTransform ptransform = new PTransform(pcast, pmethod, pcastfrom, pcastto);
+
+        if ("explicit".equals(ptypestr)) {
+            ptypes.pexplicits.put(pcast, ptransform);
+        } else if ("implicit".equals(ptypestr)) {
+            ptypes.pimplicits.put(pcast, ptransform);
+        } else {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+    }
+
+    private static void loadPDisallow(final PTypes ptypes, final String pfromstr, final String ptostr) {
+        final PType pfrom = getPTypeFromCanonicalPName(ptypes, pfromstr);
+        final PType pto = getPTypeFromCanonicalPName(ptypes, ptostr);
+
+        if (pfrom.equals(pto)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final PCast pcast = new PCast(pfrom, pto);
+
+        if (ptypes.pdisalloweds.contains(pcast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (ptypes.pexplicits.containsKey(pcast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (ptypes.pimplicits.containsKey(pcast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        ptypes.pdisalloweds.add(pcast);
     }
 
     private static String[][] parsePArgumentsStr(final String pargumentstr) {
@@ -880,7 +1089,7 @@ class PainlessTypes {
         }
     }
 
-    static Method getJMethodFromJClass(final Class jclass, final String jname, final Class[] jarguments) {
+    private static Method getJMethodFromJClass(final Class jclass, final String jname, final Class[] jarguments) {
         try {
             return jclass.getMethod(jname, jarguments);
         } catch (NoSuchMethodException exception) {
@@ -888,11 +1097,65 @@ class PainlessTypes {
         }
     }
 
-    static Field getJFieldFromJClass(final Class jclass, final String jname) {
+    private static Field getJFieldFromJClass(final Class jclass, final String jname) {
         try {
             return jclass.getField(jname);
         } catch (NoSuchFieldException exception) {
             throw new IllegalArgumentException(); // TODO: message
+        }
+    }
+
+    private static void validatePMethods(PTypes ptypes) {
+        for (final PClass pclass : ptypes.pclasses.values()) {
+            for (final PConstructor pconstructor : pclass.pconstructors.values()) {
+                final int length = pconstructor.parguments.size();
+                final List<PType> parguments = pconstructor.parguments;
+                final List<PType> poriginals = pconstructor.poriginals;
+
+                for (int argument = 0; argument < length; ++argument) {
+                    validateArgument(ptypes, parguments.get(argument), poriginals.get(argument));
+                }
+            }
+
+            for (final PMethod pfunction : pclass.pfunctions.values()) {
+                final int length = pfunction.parguments.size();
+                final List<PType> parguments = pfunction.parguments;
+                final List<PType> poriginals = pfunction.poriginals;
+
+                for (int argument = 0; argument < length; ++argument) {
+                    validateArgument(ptypes, parguments.get(argument), poriginals.get(argument));
+                }
+
+                validateArgument(ptypes, pfunction.preturn, pfunction.poreturn);
+            }
+
+            for (final PMethod pmethod : pclass.pmethods.values()) {
+                final int length = pmethod.parguments.size();
+                final List<PType> parguments = pmethod.parguments;
+                final List<PType> poriginals = pmethod.poriginals;
+
+                for (int argument = 0; argument < length; ++argument) {
+                    validateArgument(ptypes, parguments.get(argument), poriginals.get(argument));
+                }
+
+                validateArgument(ptypes, pmethod.preturn, pmethod.poreturn);
+            }
+        }
+    }
+
+    private static void validateArgument(PTypes ptypes, PType pargument, PType poriginal) {
+        PCast pcast = new PCast(pargument, poriginal);
+
+        if (ptypes.pdisalloweds.contains(pcast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (!ptypes.pimplicits.containsKey(pcast)) {
+            try {
+                pargument.jclass.asSubclass(poriginal.jclass);
+            } catch (ClassCastException exception) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
         }
     }
 

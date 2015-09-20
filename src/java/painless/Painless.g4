@@ -147,7 +147,7 @@ TYPE
     | 'object'
     | 'list'
     | 'map'
-    | '$' [a-z]*
+    | '$' [_a-zA-Z] [_a-zA-Z0-9]*;
     ;
 
 ID: [_a-zA-Z] [_a-zA-Z0-9]*;
