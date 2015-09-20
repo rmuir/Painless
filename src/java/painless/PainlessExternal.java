@@ -5,9 +5,6 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 
 import org.antlr.v4.runtime.tree.ParseTree;
-import org.objectweb.asm.Type;
-
-import static org.objectweb.asm.Type.*;
 
 import static painless.PainlessAnalyzer.*;
 import static painless.PainlessTypes.*;
@@ -43,7 +40,7 @@ public class PainlessExternal {
         private boolean member;
         private boolean readonly;
 
-        private Type atype;
+        private PType ptype;
 
         PExternal() {
             psegments = new ArrayDeque<>();
@@ -53,34 +50,34 @@ public class PainlessExternal {
             member = false;
             readonly = false;
 
-            atype = null;
+            ptype = null;
         }
 
-        /*void addSegment(final int stype, final Object svalue) {
+        void addSegment(final int stype, final Object svalue) {
             switch (stype) {
                 case TYPE:
-                    if (!(svalue instanceof Type)) {
-                        throw new IllegalArgumentException();
+                    if (!(svalue instanceof PType)) {
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     if (!psegments.isEmpty()) {
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     statik = true;
 
-                    atype = (Type)svalue;
+                    ptype = (PType)svalue;
 
                     psegments.push(new PSegment(stype, svalue));
 
                     break;
                 case VARIABLE:
-                    if (!(svalue instanceof Variable)) {
-                        throw new IllegalArgumentException();
+                    if (!(svalue instanceof PVariable)) {
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     if (!psegments.isEmpty()) {
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     statik = false;
@@ -88,18 +85,18 @@ public class PainlessExternal {
                     member = true;
                     readonly = false;
 
-                    atype = ((Variable)svalue).atype;
+                    ptype = ((PVariable)svalue).getPType();
 
                     psegments.add(new PSegment(stype, svalue));
 
                     break;
                 case CONSTRUCTOR:
                     if (!(svalue instanceof PConstructor)) {
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     if (psegments.isEmpty()) {
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     call = true;
@@ -111,73 +108,74 @@ public class PainlessExternal {
                     break;
                 case METHOD:
                     if (!(svalue instanceof PMethod)) {
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     if (psegments.isEmpty()) {
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     call = true;
                     member = false;
                     readonly = true;
 
-                    atype = ((PMethod)svalue).amethod.getReturnType();
+                    ptype = ((PMethod)svalue).getPReturn();
 
                     psegments.add(new PSegment(stype, svalue));
 
                     break;
                 case FIELD:
                     if (!(svalue instanceof PField)) {
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     if (psegments.isEmpty()) {
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     call = false;
                     member = true;
-                    readonly = Modifier.isFinal(((PField)svalue).jfield.getModifiers());
+                    readonly = Modifier.isFinal(((PField) svalue).getJField().getModifiers());
 
-                    atype = ((PField)svalue).atype;
+                    ptype = ((PField)svalue).getPType();
 
                     psegments.add(new PSegment(stype, svalue));
 
                     break;
                 case ARRAY:
                     if (!(svalue instanceof ParseTree)) {
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     if (psegments.isEmpty()) {
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
-                    if (atype.getSort() != Type.ARRAY) {
-                        throw new IllegalArgumentException();
+                    if (ptype.getPDimensions() == 0) {
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     call = false;
                     member = true;
                     readonly = false;
 
-                    atype = getType(atype.getDescriptor().substring(1));
+                    final int dimensions = ptype.getPDimensions() - 1;
+                    ptype = new PType(ptype.getPClass(), ptype.getJClass(), dimensions, ptype.getPSort());
 
                     psegments.add(new PSegment(stype, svalue));
 
                     break;
                 case ARGUMENT:
                     if (!(svalue instanceof ParseTree)) {
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     if (psegments.isEmpty()) {
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     if (!call) {
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     psegments.add(new PSegment(stype, svalue));
@@ -185,59 +183,52 @@ public class PainlessExternal {
                     break;
                 case CAST:
                     if (!(svalue instanceof PCast)) {
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     if (psegments.isEmpty()) {
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     readonly = true;
 
-                    atype = ((PCast)svalue).ato;
+                    ptype = ((PCast)svalue).getPTo();
 
                     psegments.add(new PSegment(stype, svalue));
 
                     break;
                 case AMAKE:
                     if (!(svalue instanceof Integer)) {
-                        throw new IllegalArgumentException();
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
-                    if (atype.getSort() == Type.ARRAY) {
-                        throw new IllegalArgumentException();
+                    if (ptype.getPDimensions() > 0) {
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     call = true;
                     member = false;
                     readonly = true;
 
-                    String descriptor = atype.getDescriptor();
-                    final int length = (int)svalue;
-
-                    for (int brace = 0; brace < length; ++brace) {
-                        descriptor = "[" + descriptor;
-                    }
-
-                    atype = getType(descriptor);
+                    ptype = new PType(ptype.getPClass(), ptype.getJClass(), (Integer)svalue, ptype.getPSort());
 
                     psegments.add(new PSegment(stype, svalue));
 
                     break;
                 case ALENGTH:
-                    if (!(svalue instanceof Type)) {
-                        throw new IllegalArgumentException();
+                    if (!(svalue instanceof PType)) {
+                        throw new IllegalArgumentException(); // TODO: message
                     }
 
                     call = false;
                     member = true;
                     readonly = true;
 
-                    atype = (Type)svalue;
+                    ptype = (PType)svalue;
 
                     psegments.add(new PSegment(stype, svalue));
             }
-        }*/
+        }
 
         boolean isStatic() {
             return statik;
@@ -255,8 +246,8 @@ public class PainlessExternal {
             return readonly;
         }
 
-        Type getAType() {
-            return atype;
+        PType getPType() {
+            return ptype;
         }
     }
 }

@@ -145,8 +145,8 @@ TYPE
     | 'char'
     | 'string'
     | 'object'
-    | 'list'
-    | 'map'
+    | 'smap'
+    | 'exec'
     | '$' [_a-zA-Z] [_a-zA-Z0-9]*;
     ;
 
