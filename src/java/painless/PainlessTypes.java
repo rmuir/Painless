@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -318,8 +319,8 @@ class PainlessTypes {
             } else {
                 boolean valid = key.startsWith("constructor") || key.startsWith("function")   ||
                                 key.startsWith("method")      || key.startsWith("cross")      ||
-                                key.startsWith("static")      || key.startsWith("transform")  ||
-                                key.startsWith("transform");
+                                key.startsWith("static")      || key.startsWith("member")     ||
+                                key.startsWith("transform")   || key.startsWith("disallow");
 
                 if (!valid) {
                     throw new IllegalArgumentException(); // TODO: message
@@ -346,15 +347,11 @@ class PainlessTypes {
         for (String key : properties.stringPropertyNames()) {
             final String property = properties.getProperty(key);
 
-            if (key.startsWith("cross.function")) {
+            if (key.startsWith("cross")) {
+                loadPCrossFromProperty(ptypes, property);
+            } else if (key.startsWith("transform")) {
 
-            } else if (key.startsWith("cross.static")) {
-
-            } else if (key.startsWith("transform.explicit")) {
-
-            } else if (key.startsWith("transform.implicit")) {
-
-            } else if (key.startsWith("transfrom.disallow")) {
+            } else if (key.startsWith("disallow")) {
 
             }
         }
@@ -454,6 +451,39 @@ class PainlessTypes {
         loadPField(ptypes, pownerstr, pnamestr, ptypestr, jnamestr, statik);
     }
 
+    private static void loadPCrossFromProperty(final PTypes ptypes, final String property) {
+        final String[] split = property.split("\\s+");
+
+        if (split.length != 5) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String ptypestr = split[0];
+        final String pcrossstr = split[1];
+        final String pnamestr = split[2];
+        final String pownerstr = split[3];
+        final String pstaticstr = split[4];
+
+        loadPCross(ptypes, ptypestr, pcrossstr, pnamestr, pownerstr, pstaticstr);
+    }
+
+    private static void loadPTransformFromProperty(final PTypes ptypes, final String property, boolean implicit) {
+        final String[] split = property.split("\\s+");
+
+        if (split.length != 4) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String ptypestr = split[0];
+        final String pfromstr = split[0];
+        final String ptostr = split[1];
+        final String pownerstr = split[2];
+        final String pstaticstr = split[3];
+        final String pmethodstr = split[4];
+
+        loadPTransform(ptypes, ptypestr, pfromstr, ptostr, pownerstr, pstaticstr, pmethodstr);
+    }
+
     private static void loadPClass(final PTypes ptypes, final String pnamestr, final String jclassstr) {
         if (!pnamestr.matches("^[$a-zA-Z][a-zA-Z0-9]+$")) {
             throw new IllegalArgumentException(); // TODO: message
@@ -471,7 +501,7 @@ class PainlessTypes {
 
     private static void loadPConstructor(final PTypes ptypes, final String pownerstr,
                                          final String pnamestr, final String[][] pargumentsstrs) {
-        final PClass powner = ptypes.getPClass(pownerstr);
+        final PClass powner = ptypes.pclasses.get(pownerstr);
 
         if (powner == null) {
             throw new IllegalArgumentException(); // TODO: message
@@ -520,7 +550,7 @@ class PainlessTypes {
     private static void loadPMethod(final PTypes ptypes, final String pownerstr, final String pnamestr,
                                     final String preturnstr, final String jnamestr,
                                     final String[][] pargumentsstrs, boolean statik) {
-        final PClass powner = ptypes.getPClass(pownerstr);
+        final PClass powner = ptypes.pclasses.get(pownerstr);
 
         if (powner == null) {
             throw new IllegalArgumentException(); // TODO: message
@@ -581,17 +611,26 @@ class PainlessTypes {
         }
 
         final PMethod pmethod = new PMethod(pnamestr, powner, preturn, Arrays.asList(parguments), jmethod);
+        final int modifiers = jmethod.getModifiers();
 
         if (statik) {
+            if (!Modifier.isStatic(modifiers)) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
             powner.pfunctions.put(pnamestr, pmethod);
         } else {
+            if (Modifier.isStatic(modifiers)) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
             powner.pmethods.put(pnamestr, pmethod);
         }
     }
 
     private static void loadPField(final PTypes ptypes, final String pownerstr, final String pnamestr,
                                    final String ptypestr, final String jnamestr, final boolean statik) {
-        final PClass powner = ptypes.getPClass(pownerstr);
+        final PClass powner = ptypes.pclasses.get(pownerstr);
 
         if (powner == null) {
             throw new IllegalArgumentException(); // TODO: message
@@ -612,11 +651,69 @@ class PainlessTypes {
         final PType ptype = getPTypeFromCanonicalPName(ptypes, ptypestr);
         final Field jfield = getJFieldFromJClass(powner.jclass, jnamestr);
         final PField pfield = new PField(pnamestr, powner, ptype, jfield);
+        final int modifiers = jfield.getModifiers();
 
         if (statik) {
+            if (!Modifier.isStatic(modifiers)) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            if (!Modifier.isFinal(modifiers)) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
             powner.pstatics.put(pnamestr, pfield);
         } else {
+            if (Modifier.isStatic(modifiers)) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
             powner.pmembers.put(pnamestr, pfield);
+        }
+    }
+
+    private static void loadPCross(final PTypes ptypes, final String ptypestr, final String pcrossstr,
+                                   final String pnamestr, final String pownerstr, final String pstaticstr) {
+        final PClass powner = ptypes.pclasses.get(pownerstr);
+
+        if (powner == null) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final PClass pcross = ptypes.pclasses.get(pcrossstr);
+
+        if (pcross == null) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if ("function".equals(ptypestr)) {
+            final PMethod pfunction = powner.pfunctions.get(pstaticstr);
+
+            if (pfunction == null) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            pcross.pfunctions.put(pnamestr, pfunction);
+        } else if ("static".equals(ptypestr)) {
+            final PField pstatic = powner.pstatics.get(pstaticstr);
+
+            if (pstatic == null) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            pcross.pstatics.put(pnamestr, pstatic);
+        } else {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+    }
+
+    private static void loadPTransform(final PTypes ptypes, final String ptypestr,
+                                       final String pfromstr, final String ptostr, final String pownerstr,
+                                       final String pstaticstr, final String pmethodstr) {
+        PClass powner = ptypes.pclasses.get(pownerstr);
+
+        if (powner == null) {
+            throw new IllegalArgumentException();
         }
     }
 
@@ -657,7 +754,7 @@ class PainlessTypes {
         final int dimensions = getArrayDimensionsFromCanonicalName(pnamestr);
 
         if (dimensions == 0) {
-            final PClass pclass = ptypes.getPClass(pnamestr);
+            final PClass pclass = ptypes.pclasses.get(pnamestr);
 
             if (pclass == null) {
                 throw new IllegalArgumentException(); // TODO: message
@@ -668,7 +765,7 @@ class PainlessTypes {
             final int index = pnamestr.indexOf('[');
             final int length = pnamestr.length();
             final String pclassstr = pnamestr.substring(0, index);
-            final PClass pclass = ptypes.getPClass(pclassstr);
+            final PClass pclass = ptypes.pclasses.get(pclassstr);
 
             if (pclass == null) {
                 throw new IllegalArgumentException(); // TODO: message
