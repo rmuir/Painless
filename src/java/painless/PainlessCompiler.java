@@ -25,12 +25,12 @@ final class PainlessCompiler {
     }
 
     static PainlessExecutable compile(String name, String source, ClassLoader parent) {
-        final PainlessTypes types = new PainlessTypes();
+        final PainlessTypes.PTypes ptypes = PainlessTypes.loadFromProperties();
         final ParseTree root = createParseTree(source);
         Deque<Argument> arguments = new ArrayDeque<>();
-        arguments.push(new Argument("this", types.getATypeFromPType("void")));
-        arguments.push(new Argument("input", types.getATypeFromPType("map")));
-        Map<ParseTree, Metadata> metadata = PainlessAnalyzer.analyze(types, root, arguments);
+        //arguments.push(new Argument("this", types.getATypeFromPType("void")));
+        //arguments.push(new Argument("input", types.getATypeFromPType("map")));
+        //Map<ParseTree, Metadata> metadata = PainlessAnalyzer.analyze(types, root, arguments);
         //PainlessAdapter adapter = new PainlessAdapter(root);
         //PainlessAnalyzer analyzer = new PainlessAnalyzer(root, adapter);
         //final byte[] bytes = PainlessWriter.write(source, tree);

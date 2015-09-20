@@ -4,110 +4,233 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-
-import org.objectweb.asm.Type;
-import org.objectweb.asm.commons.Method;
+import java.util.Set;
 
 class PainlessTypes {
-    static class PConstructor {
-        final String pname;
-        final PClass powner;
-        final Method amethod;
-        final Constructor jconstructor;
+    static class PType {
+        private final PClass pclass;
+        private final Class jclass;
+        private final int pdimensions;
 
-        private PConstructor(final String pname, final PClass powner, Method amethod, Constructor jconstructor) {
+        private PType(final PClass pclass, final Class jclass, final int pdimensions) {
+            this.pclass = pclass;
+            this.jclass = jclass;
+            this.pdimensions = pdimensions;
+        }
+
+        PClass getPClass() {
+            return pclass;
+        }
+
+        Class getJClass() {
+            return jclass;
+        }
+
+        int getPDimensions() {
+            return pdimensions;
+        }
+
+        @Override
+        public boolean equals(final Object object) {
+            if (this == object) {
+                return true;
+            }
+
+            if (object == null || getClass() != object.getClass()) {
+                return false;
+            }
+
+            final PType ptype = (PType)object;
+
+            if (pdimensions != ptype.pdimensions) {
+                return false;
+            }
+
+            return pclass.pname.equals(ptype.pclass.pname);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = pclass.pname.hashCode();
+            result = 31 * result + pdimensions;
+
+            return result;
+        }
+    }
+
+    static class PConstructor {
+        private final String pname;
+        private final PClass powner;
+        private final List<PType> parguments;
+        private final Constructor jconstructor;
+
+        private PConstructor(final String pname, final PClass powner,
+                             final List<PType> parguments, final Constructor jconstructor) {
             this.pname = pname;
             this.powner = powner;
-            this.amethod = amethod;
+            this.parguments = Collections.unmodifiableList(parguments);
             this.jconstructor = jconstructor;
+        }
+
+        String getPName() {
+            return pname;
+        }
+
+        PClass getPOwner() {
+            return powner;
+        }
+
+        List<PType> getPArguments() {
+            return parguments;
+        }
+
+        Constructor getJConstructor() {
+            return jconstructor;
         }
     }
 
     static class PMethod {
-        final String pname;
-        final PClass powner;
-        final Method amethod;
-        final java.lang.reflect.Method jmethod;
+        private final String pname;
+        private final PClass powner;
+        private final PType preturn;
+        private final List<PType> parguments;
+        private final Method jmethod;
 
-        private PMethod(final String pname, final PClass powner, Method amethod, java.lang.reflect.Method jmethod) {
+        private PMethod(final String pname, final PClass powner,
+                        final PType preturn, final List<PType> parguments, final Method jmethod) {
             this.pname = pname;
             this.powner = powner;
-            this.amethod = amethod;
+            this.preturn = preturn;
+            this.parguments = Collections.unmodifiableList(parguments);
             this.jmethod = jmethod;
+        }
+
+        String getPName() {
+            return pname;
+        }
+
+        PClass getPOwner() {
+            return powner;
+        }
+
+        PType getPReturn() {
+            return preturn;
+        }
+
+        List<PType> getPArguments() {
+            return parguments;
+        }
+
+        Method getJmethod() {
+            return jmethod;
         }
     }
 
     static class PField {
-        final String pname;
-        final PClass powner;
-        final Type atype;
-        final Field jfield;
+        private final String pname;
+        private final PClass powner;
+        private final PType ptype;
+        private final Field jfield;
 
-        private PField(final String pname, final PClass powner, final Type atype, final Field jfield) {
+        private PField(final String pname, final PClass powner, final PType ptype, final Field jfield) {
             this.pname = pname;
             this.powner = powner;
-            this.atype = atype;
+            this.ptype = ptype;
             this.jfield = jfield;
+        }
+
+        String getPName() {
+            return pname;
+        }
+
+        PClass getPOwner() {
+            return powner;
+        }
+
+        PType getPType() {
+            return ptype;
+        }
+
+        Field getJField() {
+            return jfield;
         }
     }
 
     static class PClass {
-        final String pname;
-        final Type atype;
-        final Class clazz;
+        private final String pname;
+        private final Class jclass;
 
-        private final Map<String, PMethod> pfunctions;
         private final Map<String, PConstructor> pconstructors;
+        private final Map<String, PMethod> pfunctions;
         private final Map<String, PMethod> pmethods;
 
         private final Map<String, PField> pstatics;
         private final Map<String, PField> pmembers;
 
-        private PClass(final String pname, final Type atype, final Class clazz) {
+        private PClass(final String pname, final Class jclass) {
             this.pname = pname;
-            this.atype = atype;
-            this.clazz = clazz;
+            this.jclass = jclass;
 
-            this.pfunctions = new HashMap<>();
             this.pconstructors = new HashMap<>();
+            this.pfunctions = new HashMap<>();
             this.pmethods = new HashMap<>();
 
             this.pstatics = new HashMap<>();
             this.pmembers = new HashMap<>();
         }
 
-        PMethod getPFunction(String pfunction) {
-            return pfunctions.get(pfunction);
+        String getPName() {
+            return pname;
         }
 
-        PConstructor getPConstructor(String pconstructor) {
-            return pconstructors.get(pconstructor);
+        Class getJClass() {
+            return jclass;
         }
 
-        PMethod getPMethod(String pmethod) {
-            return pmethods.get(pmethod);
+        PConstructor getPConstructor(final String pname) {
+            return pconstructors.get(pname);
         }
 
-        PField getPStatic(String pstatic) {
-            return pstatics.get(pstatic);
+        PMethod getPFunction(final String pname) {
+            return pfunctions.get(pname);
         }
 
-        PField getPMember(String pmember) {
-            return pmembers.get(pmember);
+        PMethod getPMethod(final String pname) {
+            return pmethods.get(pname);
+        }
+
+        PField getPStatic(final String pname) {
+            return pstatics.get(pname);
+        }
+
+        PField getPMember(final String pname) {
+            return pmembers.get(pname);
         }
     }
 
     static class PCast {
-        final Type afrom;
-        final Type ato;
+        private final PType pfrom;
+        private final PType pto;
 
-        PCast(final Type afrom, final Type ato) {
-            this.afrom = afrom;
-            this.ato = ato;
+        PCast(final PType afrom, final PType ato) {
+            this.pfrom = afrom;
+            this.pto = ato;
+        }
+
+        PType getPFrom() {
+            return pfrom;
+        }
+
+        PType getPTo() {
+            return pto;
         }
 
         @Override
@@ -122,570 +245,559 @@ class PainlessTypes {
 
             final PCast pCast = (PCast)object;
 
-            if (!afrom.equals(pCast.afrom)) {
+            if (!pfrom.equals(pCast.pfrom)) {
                 return false;
             }
 
-            return ato.equals(pCast.ato);
+            return pto.equals(pCast.pto);
         }
 
         @Override
         public int hashCode() {
-            int result = afrom.hashCode();
-            result = 31 * result + ato.hashCode();
+            int result = pfrom.hashCode();
+            result = 31 * result + pto.hashCode();
 
             return result;
         }
     }
 
-    static class PTransform {
-        final static int DISALLOW = 0;
-        final static int EXPLICIT = 1;
-        final static int IMPLICIT = 2;
+    static class PTypes {
+        private final Map<String, PClass> pclasses;
 
-        final PCast pcast;
-        final PMethod pmethod;
-        final int level;
+        private final Set<PCast> pdisalloweds;
+        private final Map<PCast, PMethod> pexplicits;
+        private final Map<PCast, PMethod> pimplicits;
 
-        PTransform(final PCast pcast, final PMethod pmethod, final int level) {
-            this.pcast = pcast;
-            this.pmethod = pmethod;
-            this.level = level;
+        private PTypes() {
+            pclasses = new HashMap<>();
+
+            pdisalloweds = new HashSet<>();
+            pexplicits = new HashMap<>();
+            pimplicits = new HashMap<>();
+        }
+
+        PClass getPClass(final String pname) {
+            return pclasses.get(pname);
+        }
+
+        boolean isPDisallowed(final PCast pcast) {
+            return pdisalloweds.contains(pcast);
+        }
+
+        PMethod getPExplicit(final PCast pcast) {
+            return pexplicits.get(pcast);
+        }
+
+        PMethod getPImplicit(final PCast pcast) {
+            return pimplicits.get(pcast);
         }
     }
 
-    static Type getATypeFromJClass(final String jtype) {
-        int index = jtype.indexOf('[');
-        String type = jtype;
-        String dimensions = "";
+    private static final String PROPERTIES_FILE = PainlessTypes.class.getSimpleName() + ".properties";
 
-        if (index != -1) {
-            type = jtype.substring(0, index);
-            final int length = jtype.length();
-
-            while (index < length) {
-                if (jtype.charAt(index) == '[' && ++index < length && jtype.charAt(index++) == ']') {
-                    dimensions += "[";
-                } else {
-                    throw new IllegalArgumentException();
-                }
-            }
-        }
-
-        switch (type) {
-            case "void":
-                type = "V";
-                break;
-            case "boolean":
-                type = "Z";
-                break;
-            case "byte":
-                type = "B";
-                break;
-            case "short":
-                type = "S";
-                break;
-            case "char":
-                type = "C";
-                break;
-            case "int":
-                type = "I";
-                break;
-            case "long":
-                type = "J";
-                break;
-            case "float":
-                type = "F";
-                break;
-            case "double":
-                type = "D";
-                break;
-            default:
-                type = "L" + type.replace(".", "/") + ";";
-        }
-
-        type = dimensions + type;
-
-        return Type.getType(type);
-    }
-
-    static Class getJClassFromAType(Type atype) {
-        try {
-            switch (atype.getSort()) {
-                case Type.VOID:
-                    return void.class;
-                case Type.BOOLEAN:
-                    return boolean.class;
-                case Type.BYTE:
-                    return byte.class;
-                case Type.CHAR:
-                    return char.class;
-                case Type.SHORT:
-                    return short.class;
-                case Type.INT:
-                    return int.class;
-                case Type.LONG:
-                    return long.class;
-                case Type.FLOAT:
-                    return float.class;
-                case Type.DOUBLE:
-                    return double.class;
-                default:
-                    return Class.forName(atype.getInternalName().replace('/', '.'));
-            }
-        } catch (ClassNotFoundException exception) {
-            throw new IllegalArgumentException();
-        }
-    }
-
-    static java.lang.reflect.Constructor getJConstructor(final Class clazz, final Type[] aarguments) {
-        final Class[] jarguments = new Class[aarguments.length];
-
-        for (int argument = 0; argument < aarguments.length; ++argument) {
-            jarguments[argument] = getJClassFromAType(aarguments[argument]);
-        }
-
-        try {
-            return clazz.getConstructor(jarguments);
-        } catch (NoSuchMethodException exception) {
-            throw new IllegalArgumentException();
-        }
-    }
-
-    static java.lang.reflect.Method getJMethod(final Class clazz, final String jname, final Type[] aarguments) {
-        final Class[] jarguments = new Class[aarguments.length];
-
-        for (int argument = 0; argument < aarguments.length; ++argument) {
-            jarguments[argument] = getJClassFromAType(aarguments[argument]);
-        }
-
-        try {
-            return clazz.getMethod(jname, jarguments);
-        } catch (NoSuchMethodException exception) {
-            throw new IllegalArgumentException();
-        }
-    }
-
-    static Field getJField(final Class clazz, final String jname) {
-        try {
-            return clazz.getField(jname);
-        } catch (NoSuchFieldException exception) {
-            throw new IllegalArgumentException();
-        }
-    }
-
-    static final String PROPERTIES_FILE = PainlessTypes.class.getSimpleName() + ".properties";
-
-    private final Map<String, PClass> pclasses;
-    private final Map<Type, PClass> aclasses;
-    private final Map<PCast, PTransform> ptransforms;
-
-    PainlessTypes() {
-        pclasses = new HashMap<>();
-        aclasses = new HashMap<>();
-        ptransforms = new HashMap<>();
-
+    static PTypes loadFromProperties() {
         final Properties properties = new Properties();
 
-        try (final InputStream stream = getClass().getResourceAsStream(PROPERTIES_FILE)) {
+        try (final InputStream stream = PainlessTypes.class.getResourceAsStream(PROPERTIES_FILE)) {
             properties.load(stream);
         } catch (IOException exception) {
-            throw new IllegalStateException();
+            throw new IllegalStateException(); // TODO: message
         }
 
-        for (final String key : properties.stringPropertyNames()) {
-            if (key.startsWith("type")) {
-                final String[] keysplit = key.split("\\.");
-                final String pname = keysplit[1];
+        return loadFromProperties(properties);
+    }
 
-                if (!pname.matches("^[$a-zA-Z][a-zA-Z0-9]+$")) {
-                    throw new IllegalArgumentException();
-                }
+    static PTypes loadFromProperties(final Properties properties) {
+        final PTypes ptypes = new PTypes();
 
-                if (pclasses.containsKey(pname)) {
-                    throw new IllegalArgumentException();
-                }
+        for (String key : properties.stringPropertyNames()) {
+            final String property = properties.getProperty(key);
 
-                final String property = properties.getProperty(key);
-                final Type atype = getATypeFromJClass(property);
-                final Class clazz = getJClassFromAType(atype);
-                final PClass pclass = new PClass(pname, atype, clazz);
-
-                pclasses.put(pname, pclass);
-                aclasses.put(atype, pclass);
+            if (key.startsWith("class")) {
+                loadPClassFromProperty(ptypes, property);
             } else {
                 boolean valid = key.startsWith("constructor") || key.startsWith("function")   ||
-                                key.startsWith("static")      || key.startsWith("method")     ||
-                                key.startsWith("member")      || key.startsWith("transform")  ||
-                                key.startsWith("cross");
+                                key.startsWith("method")      || key.startsWith("cross")      ||
+                                key.startsWith("static")      || key.startsWith("transform")  ||
+                                key.startsWith("transform");
 
                 if (!valid) {
-                    throw new IllegalArgumentException();
+                    throw new IllegalArgumentException(); // TODO: message
                 }
             }
         }
 
-        for (final String key : properties.stringPropertyNames()) {
+        for (String key : properties.stringPropertyNames()) {
+            final String property = properties.getProperty(key);
+
             if (key.startsWith("constructor")) {
-                final String[] keysplit = key.split("\\.");
-
-                if (keysplit.length != 3) {
-                    throw new IllegalArgumentException();
-                }
-
-                final String ptype = keysplit[1];
-                final String pname = keysplit[2];
-                final PClass powner = pclasses.get(ptype);
-
-                if (powner == null) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (powner.pconstructors.containsKey(pname) ||
-                        powner.pfunctions.containsKey(pname) ||
-                        powner.pmethods.containsKey(pname)) {
-                    throw new IllegalArgumentException();
-                }
-
-                String property = properties.getProperty(key);
-
-                if (property.charAt(0) != '(' || property.charAt(property.length() - 1) != ')') {
-                    throw new IllegalArgumentException();
-                }
-
-                property = property.replace("(", "").replace(")", "").replace(" ", "");
-                final String[] propsplit = property.isEmpty() ? null : property.split(",");
-                final Type[] aarguments = new Type[propsplit == null ? 0 : propsplit.length];
-                final Type[] raarguments = new Type[aarguments.length];
-
-                for (int argument = 0; argument < aarguments.length; ++argument) {
-                    String pargument = propsplit[argument];
-                    final int index = pargument.indexOf("<");
-
-                    if (index != -1) {
-                        if (pargument.endsWith(">")) {
-                            final String rpargument = pargument.substring(index + 1, pargument.length() - 1);
-                            final Type raargument = getATypeFromPType(rpargument);
-                            raarguments[argument] = raargument;
-
-                            pargument = pargument.substring(0, index);
-                            final Type aargument = getATypeFromPType(pargument);
-                            aarguments[argument] = aargument;
-                        } else {
-                            throw new IllegalArgumentException();
-                        }
-                    } else {
-                        final Type aargument = getATypeFromPType(pargument);
-                        raarguments[argument] = aargument;
-                        aarguments[argument] = aargument;
-                    }
-                }
-
-                final Method amethod = new Method("<init>", Type.VOID_TYPE, raarguments);
-                final Constructor jconstructor = getJConstructor(powner.clazz, aarguments);
-                final PConstructor pconstructor = new PConstructor(pname, powner, amethod, jconstructor);
-
-                powner.pconstructors.put(pname, pconstructor);
-            } else if (key.startsWith("function") || key.startsWith("method")) {
-                final String[] keysplit = key.split("\\.");
-
-                if (keysplit.length != 3) {
-                    throw new IllegalArgumentException();
-                }
-
-                final String ptype = keysplit[1];
-                final String pname = keysplit[2];
-                final PClass powner = pclasses.get(ptype);
-
-                if (powner == null) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (powner.pconstructors.containsKey(pname) ||
-                        powner.pfunctions.containsKey(pname) ||
-                        powner.pmethods.containsKey(pname)) {
-                    throw new IllegalArgumentException();
-                }
-
-                String property = properties.getProperty(key);
-
-                int index = property.indexOf(" ");
-                final Type artn = getATypeFromPType(property.substring(0, index));
-                final Class jrtn = getJClassFromAType(artn);
-
-                property = property.substring(index + 1);
-                index = property.indexOf("(");
-                final String jname = property.substring(0, index);
-
-                if ("".equals(jname)) {
-                    throw new IllegalArgumentException();
-                }
-
-                property = property.substring(index);
-
-                if (property.charAt(0) != '(' || property.charAt(property.length() - 1) != ')') {
-                    throw new IllegalArgumentException();
-                }
-
-                property = property.replace("(", "").replace(")", "").replace(" ", "");
-                final String[] propsplit = property.isEmpty() ? null : property.split(",");
-                final Type[] aarguments = new Type[propsplit == null ? 0 : propsplit.length];
-                final Type[] raarguments = new Type[aarguments.length];
-
-                for (int argument = 0; argument < aarguments.length; ++argument) {
-                    String pargument = propsplit[argument];
-                    index = pargument.indexOf("<");
-
-                    if (index != -1) {
-                        if (pargument.endsWith(">")) {
-                            final String rpargument = pargument.substring(index + 1, pargument.length() - 1);
-                            final Type raargument = getATypeFromPType(rpargument);
-                            raarguments[argument] = raargument;
-
-                            pargument = pargument.substring(0, index);
-                            final Type aargument = getATypeFromPType(pargument);
-                            aarguments[argument] = aargument;
-                        } else {
-                            throw new IllegalArgumentException();
-                        }
-                    } else {
-                        final Type aargument = getATypeFromPType(pargument);
-                        raarguments[argument] = aargument;
-                        aarguments[argument] = aargument;
-                    }
-                }
-
-                final Method amethod = new Method(jname, artn, aarguments);
-                final java.lang.reflect.Method jmethod = getJMethod(powner.clazz, jname, aarguments);
-
-                if (!jrtn.equals(jmethod.getReturnType())) {
-                    throw new IllegalArgumentException();
-                }
-
-                final int jmodifiers = jmethod.getModifiers();
-                final PMethod pmethod = new PMethod(pname, powner, amethod, jmethod);
-
-                if (key.startsWith("function")) {
-                    if (!Modifier.isStatic(jmodifiers)) {
-                        throw new IllegalArgumentException();
-                    }
-
-                    powner.pfunctions.put(pname, pmethod);
-                } else if (key.startsWith("method")) {
-                    if (Modifier.isStatic(jmodifiers)) {
-                        throw new IllegalArgumentException();
-                    }
-
-                    powner.pmethods.put(pname, pmethod);
-                } else {
-                    throw new IllegalStateException();
-                }
-            } else if (key.startsWith("static") || key.startsWith("member")) {
-                final String[] keysplit = key.split("\\.");
-
-                if (keysplit.length != 3) {
-                    throw new IllegalArgumentException();
-                }
-
-                final String ptype = keysplit[1];
-                final String pname = keysplit[2];
-                final PClass powner = pclasses.get(ptype);
-
-                if (powner == null) {
-                    throw new IllegalArgumentException();
-                }
-
-                if (powner.pstatics.containsKey(pname) || powner.pmembers.containsKey(pname)) {
-                    throw new IllegalArgumentException();
-                }
-
-                final String property = properties.getProperty(key);
-                final String[] propsplit = property.split("\\s+");
-
-                if (propsplit.length != 2) {
-                    throw new IllegalArgumentException();
-                }
-
-                final String pmemtype = propsplit[0];
-                final String jname = propsplit[1];
-                final Type atype = getATypeFromPType(pmemtype);
-
-                if ("".equals(jname)) {
-                    throw new IllegalArgumentException();
-                }
-
-                final Field jfield = getJField(powner.clazz, jname);
-
-                if (!getJClassFromAType(atype).equals(jfield.getType())) {
-                    throw new IllegalArgumentException();
-                }
-
-                final int modifiers = jfield.getModifiers();
-                final PField pmember = new PField(pname, powner, atype, jfield);
-
-                if ("static".equals(keysplit[0])) {
-                    if (!Modifier.isStatic(modifiers)) {
-                        throw new IllegalArgumentException();
-                    }
-                    powner.pstatics.put(pname, pmember);
-                } else if ("member".equals(keysplit[0])) {
-                    if (Modifier.isStatic(modifiers)) {
-                        throw new IllegalArgumentException();
-                    }
-
-                    powner.pmembers.put(pname, pmember);
-                } else {
-                    throw new IllegalStateException();
-                }
+                loadPConstructorFromProperty(ptypes, property);
+            } else if (key.startsWith("function")) {
+                loadPMethodFromProperty(ptypes, property, true);
+            } else if (key.startsWith("method")) {
+                loadPMethodFromProperty(ptypes, property, false);
+            } else if (key.startsWith("static")) {
+                loadPFieldFromProperty(ptypes, property, true);
+            } else if (key.startsWith("member")) {
+                loadPFieldFromProperty(ptypes, property, false);
             }
         }
 
-        for (final String key : properties.stringPropertyNames()) {
-            if (key.startsWith("transform")) {
-                final String[] keysplit = key.split("\\.");
+        for (String key : properties.stringPropertyNames()) {
+            final String property = properties.getProperty(key);
 
-                if (keysplit.length != 3) {
-                    throw new IllegalArgumentException();
-                }
+            if (key.startsWith("cross.function")) {
 
-                final Type afrom = getATypeFromPType(keysplit[1]);
-                final Type ato = getATypeFromPType(keysplit[2]);
+            } else if (key.startsWith("cross.static")) {
 
-                if (afrom.getSort() != Type.OBJECT && afrom.getSort() != Type.ARRAY &&
-                        ato.getSort() != Type.OBJECT && ato.getSort() != Type.ARRAY) {
-                    throw new IllegalArgumentException();
-                }
+            } else if (key.startsWith("transform.explicit")) {
 
-                final PCast pcast = new PCast(afrom, ato);
+            } else if (key.startsWith("transform.implicit")) {
 
-                if (ptransforms.containsKey(pcast)) {
-                    throw new IllegalArgumentException();
-                }
+            } else if (key.startsWith("transfrom.disallow")) {
 
-                final String property = properties.getProperty(key);
-                final String[] propsplit = property.split("\\s+");
-
-                if (propsplit.length == 1 && "disallow".equals(propsplit[0])) {
-                    final PTransform ptransform = new PTransform(pcast, null, PTransform.DISALLOW);
-                    ptransforms.put(pcast, ptransform);
-                } else if (propsplit.length == 4) {
-                    final PClass powner = pclasses.get(propsplit[1]);
-
-                    if (powner == null) {
-                        throw new IllegalArgumentException();
-                    }
-
-                    PMethod pmethod;
-
-                    if ("function".equals(propsplit[2])) {
-                        pmethod = powner.pfunctions.get(propsplit[3]);
-                    } else if ("method".equals(propsplit[2])) {
-                        pmethod = powner.pmethods.get(propsplit[3]);
-                    } else {
-                        throw new IllegalArgumentException();
-                    }
-
-                    if (pmethod == null) {
-                        throw new IllegalArgumentException();
-                    }
-
-                    int level;
-
-                    if ("explicit".equals(propsplit[0])) {
-                        level = PTransform.EXPLICIT;
-                    } else if ("implicit".equals(propsplit[0])) {
-                        level = PTransform.IMPLICIT;
-                    } else {
-                        throw new IllegalArgumentException();
-                    }
-
-                    final PTransform ptransform = new PTransform(pcast, pmethod, level);
-                    ptransforms.put(pcast, ptransform);
-                } else {
-                    throw new IllegalArgumentException();
-                }
-            } else if (key.startsWith("cross")) {
-                final String[] keysplit = key.split("\\.");
-
-                if (keysplit.length != 4) {
-                    throw new IllegalArgumentException();
-                }
-
-                final PClass powner = pclasses.get(keysplit[2]);
-
-                if (powner == null) {
-                    throw new IllegalArgumentException();
-                }
-
-                final String property = properties.getProperty(key);
-                final String[] propsplit = property.split("\\s+");
-
-                if (propsplit.length != 2) {
-                    throw new IllegalArgumentException();
-                }
-
-                final PClass porigin = pclasses.get(propsplit[0]);
-
-                if (porigin == null) {
-                    throw new IllegalArgumentException();
-                }
-
-                if ("function".equals(keysplit[1])) {
-                    PMethod pfunction = porigin.pfunctions.get(propsplit[1]);
-
-                    if (pfunction == null) {
-                        throw new IllegalArgumentException();
-                    }
-
-                    powner.pfunctions.put(keysplit[3], pfunction);
-                } else if ("static".equals(keysplit[1])) {
-                    PField pstatik = porigin.pstatics.get(propsplit[1]);
-
-                    if (pstatik == null) {
-                        throw new IllegalArgumentException();
-                    }
-
-                    powner.pstatics.put(keysplit[3], pstatik);
-                } else {
-                    throw new IllegalArgumentException();
-                }
             }
+        }
+
+        return ptypes;
+    }
+
+    private static void loadPClassFromProperty(final PTypes ptypes, final String property) {
+        final String[] split = property.split("\\s+");
+
+        if (split.length != 2) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String pnamestr = split[0];
+        final String jclassstr = split[1];
+
+        loadPClass(ptypes, pnamestr, jclassstr);
+    }
+
+    private static void loadPConstructorFromProperty(final PTypes ptypes, final String property) {
+        String parsed = property;
+        int index = parsed.indexOf(' ');
+
+        if (index == -1) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String pownerstr = parsed.substring(0, index);
+        parsed = parsed.substring(index).trim();
+        index = parsed.indexOf(' ');
+
+        if (index == -1) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String pnamestr = parsed.substring(0, index);
+        parsed = parsed.substring(index).trim();
+
+        final String[][] pargumentsstrs = parsePArgumentsStr(parsed);
+
+        loadPConstructor(ptypes, pownerstr, pnamestr, pargumentsstrs);
+    }
+
+    private static void loadPMethodFromProperty(final PTypes ptypes, final String property, boolean statik) {
+        String parsed = property;
+        int index = parsed.indexOf(' ');
+
+        if (index == -1) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String pownerstr = parsed.substring(0, index);
+        parsed = parsed.substring(index).trim();
+        index = parsed.indexOf(' ');
+
+        if (index == -1) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String pnamestr = parsed.substring(0, index);
+        parsed = parsed.substring(index).trim();
+        index = parsed.indexOf(' ');
+
+        if (index == -1) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String preturnstr = parsed.substring(0, index);
+        parsed = parsed.substring(index).trim();
+        index = parsed.indexOf('(');
+
+        if (index == -1) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String jnamestr = parsed.substring(0, index);
+        parsed = parsed.substring(index).trim();
+
+        final String[][] pargumentsstrs = parsePArgumentsStr(parsed);
+
+        loadPMethod(ptypes, pownerstr, pnamestr, preturnstr, jnamestr, pargumentsstrs, statik);
+    }
+
+    private static void loadPFieldFromProperty(final PTypes ptypes, final String property, final boolean statik) {
+        final String[] split = property.split("\\s+");
+
+        if (split.length != 4) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String pownerstr = split[0];
+        final String pnamestr = split[1];
+        final String ptypestr = split[2];
+        final String jnamestr = split[3];
+
+        loadPField(ptypes, pownerstr, pnamestr, ptypestr, jnamestr, statik);
+    }
+
+    private static void loadPClass(final PTypes ptypes, final String pnamestr, final String jclassstr) {
+        if (!pnamestr.matches("^[$a-zA-Z][a-zA-Z0-9]+$")) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (ptypes.pclasses.containsKey(pnamestr)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final Class jclass = getJClassFromCanonicalJName(jclassstr);
+        final PClass pclass = new PClass(pnamestr, jclass);
+
+        ptypes.pclasses.put(pnamestr, pclass);
+    }
+
+    private static void loadPConstructor(final PTypes ptypes, final String pownerstr,
+                                         final String pnamestr, final String[][] pargumentsstrs) {
+        final PClass powner = ptypes.getPClass(pownerstr);
+
+        if (powner == null) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (!pnamestr.matches("^[a-zA-Z][a-zA-Z0-9]+$")) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (powner.pconstructors.containsKey(pnamestr)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (powner.pstatics.containsKey(pnamestr)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (powner.pmethods.containsKey(pnamestr)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final int length = pargumentsstrs.length;
+        final PType[] parguments = new PType[length];
+        final Class[] jarguments = new Class[length];
+
+        for (int pargumentindex = 0; pargumentindex < length; ++ pargumentindex) {
+            final String[] pargumentstrs = pargumentsstrs[pargumentindex];
+
+            if (pargumentstrs.length == 1) {
+                parguments[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[0]);
+                jarguments[pargumentindex] = parguments[pargumentindex].jclass;
+            } else if (pargumentstrs.length == 2) {
+                parguments[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[1]);
+                jarguments[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[0]).jclass;
+            } else {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+        }
+
+        final Constructor jconstructor = getJConstructorFromJClass(powner.jclass, jarguments);
+        final PConstructor pconstructor = new PConstructor(pnamestr, powner, Arrays.asList(parguments), jconstructor);
+
+        powner.pconstructors.put(pnamestr, pconstructor);
+    }
+
+    private static void loadPMethod(final PTypes ptypes, final String pownerstr, final String pnamestr,
+                                    final String preturnstr, final String jnamestr,
+                                    final String[][] pargumentsstrs, boolean statik) {
+        final PClass powner = ptypes.getPClass(pownerstr);
+
+        if (powner == null) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (!pnamestr.matches("^[a-zA-Z][a-zA-Z0-9]+$")) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (powner.pconstructors.containsKey(pnamestr)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (powner.pstatics.containsKey(pnamestr)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (powner.pmethods.containsKey(pnamestr)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String[] preturnstrs = parsePArgumentStr(preturnstr);
+        PType preturn;
+        Class jreturn;
+
+        if (preturnstrs.length == 1) {
+            preturn = getPTypeFromCanonicalPName(ptypes, preturnstrs[0]);
+            jreturn = preturn.jclass;
+        } else if (preturnstrs.length == 2) {
+            preturn = getPTypeFromCanonicalPName(ptypes, preturnstrs[1]);
+            jreturn = getPTypeFromCanonicalPName(ptypes, preturnstrs[0]).jclass;
+        } else {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final int length = pargumentsstrs.length;
+        final PType[] parguments = new PType[length];
+        final Class[] jarguments = new Class[length];
+
+        for (int pargumentindex = 0; pargumentindex < length; ++ pargumentindex) {
+            final String[] pargumentstrs = pargumentsstrs[pargumentindex];
+
+            if (pargumentstrs.length == 1) {
+                parguments[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[0]);
+                jarguments[pargumentindex] = parguments[pargumentindex].jclass;
+            } else if (pargumentstrs.length == 2) {
+                parguments[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[1]);
+                jarguments[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[0]).jclass;
+            } else {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+        }
+
+        final Method jmethod = getJMethodFromJClass(powner.jclass, jnamestr, jarguments);
+
+        if (!jreturn.equals(jmethod.getReturnType())) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final PMethod pmethod = new PMethod(pnamestr, powner, preturn, Arrays.asList(parguments), jmethod);
+
+        if (statik) {
+            powner.pfunctions.put(pnamestr, pmethod);
+        } else {
+            powner.pmethods.put(pnamestr, pmethod);
         }
     }
 
-    final Type getATypeFromPType(final String ptype) {
-        int index = ptype.indexOf('[');
-        String type = ptype;
-        String dimensions = "";
+    private static void loadPField(final PTypes ptypes, final String pownerstr, final String pnamestr,
+                                   final String ptypestr, final String jnamestr, final boolean statik) {
+        final PClass powner = ptypes.getPClass(pownerstr);
+
+        if (powner == null) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (!pnamestr.matches("^[a-zA-Z][a-zA-Z0-9]+$")) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (powner.pstatics.containsKey(pnamestr)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (powner.pmembers.containsKey(pnamestr)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final PType ptype = getPTypeFromCanonicalPName(ptypes, ptypestr);
+        final Field jfield = getJFieldFromJClass(powner.jclass, jnamestr);
+        final PField pfield = new PField(pnamestr, powner, ptype, jfield);
+
+        if (statik) {
+            powner.pstatics.put(pnamestr, pfield);
+        } else {
+            powner.pmembers.put(pnamestr, pfield);
+        }
+    }
+
+    private static String[][] parsePArgumentsStr(final String pargumentstr) {
+        if (!pargumentstr.startsWith("(") || !pargumentstr.endsWith(")")) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String tidy = pargumentstr.substring(1, pargumentstr.length() - 1).replace(" ", "");
+
+        if ("".equals(tidy)) {
+            return new String[0][];
+        }
+
+        final String[] pargumentsstr = tidy.split(",");
+        final String[][] pargumentsstrs = new String[pargumentsstr.length][];
+
+        for (int pargumentindex = 0; pargumentindex < pargumentsstr.length; ++pargumentindex) {
+            pargumentsstrs[pargumentindex] = parsePArgumentStr(pargumentsstr[pargumentindex]);
+        }
+
+        return pargumentsstrs;
+    }
+
+    private static String[] parsePArgumentStr(final String pargumentstr) {
+        final String[] pargumentstrs = pargumentstr.split("\\^");
+
+        if (pargumentstrs.length == 1) {
+            return new String[] {pargumentstrs[0]};
+        } else if (pargumentstrs.length == 2) {
+            return new String[] {pargumentstrs[0], pargumentstrs[1]};
+        } else {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+    }
+
+    private static PType getPTypeFromCanonicalPName(final PTypes ptypes, final String pnamestr) {
+        final int dimensions = getArrayDimensionsFromCanonicalName(pnamestr);
+
+        if (dimensions == 0) {
+            final PClass pclass = ptypes.getPClass(pnamestr);
+
+            if (pclass == null) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            return new PType(pclass, pclass.jclass, 0);
+        } else {
+            final int index = pnamestr.indexOf('[');
+            final int length = pnamestr.length();
+            final String pclassstr = pnamestr.substring(0, index);
+            final PClass pclass = ptypes.getPClass(pclassstr);
+
+            if (pclass == null) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            final String brackets = pnamestr.substring(index, length);
+            final String jnamestr = pclass.jclass.getCanonicalName() + brackets;
+            final Class jclass = getJClassFromCanonicalJName(jnamestr);
+
+            return new PType(pclass, jclass, dimensions);
+        }
+    }
+
+    private static Class getJClassFromCanonicalJName(final String jnamestr) {
+        try {
+            final int dimensions = getArrayDimensionsFromCanonicalName(jnamestr);
+
+            if (dimensions == 0) {
+                switch (jnamestr) {
+                    case "void":
+                        return void.class;
+                    case "boolean":
+                        return boolean.class;
+                    case "byte":
+                        return byte.class;
+                    case "char":
+                        return char.class;
+                    case "short":
+                        return short.class;
+                    case "int":
+                        return int.class;
+                    case "long":
+                        return long.class;
+                    case "float":
+                        return float.class;
+                    case "double":
+                        return double.class;
+                    default:
+                        return Class.forName(jnamestr);
+                }
+            } else {
+                String jclassstr = jnamestr.substring(jnamestr.indexOf('['));
+
+                char[] brackets = new char[dimensions];
+                Arrays.fill(brackets, '[');
+                String descriptor = new String(brackets);
+
+                switch (jclassstr) {
+                    case "void":
+                        descriptor += "V";
+                        break;
+                    case "boolean":
+                        descriptor += "Z";
+                        break;
+                    case "byte":
+                        descriptor += "B";
+                        break;
+                    case "char":
+                        descriptor += "C";
+                        break;
+                    case "short":
+                        descriptor += "S";
+                        break;
+                    case "int":
+                        descriptor += "I";
+                        break;
+                    case "long":
+                        descriptor += "J";
+                        break;
+                    case "float":
+                        descriptor += "F";
+                        break;
+                    case "double":
+                        descriptor += "D";
+                        break;
+                    default:
+                        descriptor += "L" + jclassstr + ";";
+                }
+
+                return Class.forName(descriptor);
+            }
+        } catch (ClassNotFoundException exception) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+    }
+
+    private static int getArrayDimensionsFromCanonicalName(final String name) {
+        int dimensions = 0;
+        int index = name.indexOf('[');
 
         if (index != -1) {
-            type = ptype.substring(0, index);
-            final int length = ptype.length();
+            String brackets = name.substring(index);
+            final int length = name.length();
 
             while (index < length) {
-                if (ptype.charAt(index) == '[' && ++index < length && ptype.charAt(index++) == ']') {
-                    dimensions += "[";
+                if (brackets.charAt(index) == '[' && ++index < length && brackets.charAt(index++) == ']') {
+                    ++dimensions;
                 } else {
-                    throw new IllegalArgumentException();
+                    throw new IllegalArgumentException(); // TODO: message
                 }
             }
         }
 
-        PClass pclass = pclasses.get(type);
+        return dimensions;
+    }
 
-        if (pclass == null) {
-            throw new IllegalArgumentException();
+    private static Constructor getJConstructorFromJClass(final Class jclass, final Class[] jarguments) {
+        try {
+            return jclass.getConstructor(jarguments);
+        } catch (NoSuchMethodException exception) {
+            throw new IllegalArgumentException(); // TODO: message
         }
-
-        final String descriptor = dimensions + pclass.atype.getDescriptor();
-        return Type.getType(descriptor);
     }
 
-    final PClass getPClassFromAType(final Type atype) {
-        return aclasses.get(atype);
+    static Method getJMethodFromJClass(final Class jclass, final String jname, final Class[] jarguments) {
+        try {
+            return jclass.getMethod(jname, jarguments);
+        } catch (NoSuchMethodException exception) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
     }
 
-    final PTransform getPTransform(final PCast pcast) {
-        return ptransforms.get(pcast);
+    static Field getJFieldFromJClass(final Class jclass, final String jname) {
+        try {
+            return jclass.getField(jname);
+        } catch (NoSuchFieldException exception) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
     }
+
+    private PainlessTypes() {}
 }

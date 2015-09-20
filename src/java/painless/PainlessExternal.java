@@ -56,7 +56,7 @@ public class PainlessExternal {
             atype = null;
         }
 
-        void addSegment(final int stype, final Object svalue) {
+        /*void addSegment(final int stype, final Object svalue) {
             switch (stype) {
                 case TYPE:
                     if (!(svalue instanceof Type)) {
@@ -237,7 +237,7 @@ public class PainlessExternal {
 
                     psegments.add(new PSegment(stype, svalue));
             }
-        }
+        }*/
 
         boolean isStatic() {
             return statik;

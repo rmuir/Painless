@@ -566,7 +566,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final Metadata decltypemd = getMetadata(ctx);
 
         final String ptype = ctx.getText();
-        decltypemd.adecltype = ptypes.getATypeFromPType(ptype);
+        //decltypemd.adecltype = ptypes.getATypeFromPType(ptype);
 
         return null;
     }
@@ -587,7 +587,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         return null;
     }
 
-    @Override
+    /*@Override
     public Void visitNumeric(final NumericContext ctx) {
         final Metadata numericmd = getMetadata(ctx);
 
@@ -1417,7 +1417,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final Type ato = decltypemd.adecltype;
 
         //TODO: check cast legality
-        extcastmd0.pexternal.addSegment(CAST, new PCast(afrom, ato));
+        //extcastmd0.pexternal.addSegment(CAST, new PCast(afrom, ato));
 
         return null;
     }
@@ -1489,7 +1489,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         return null;
     }
 
-    @Override
+    /*@Override
     public Void visitExtcall(final ExtcallContext ctx) {
         final Metadata extcallmd = getMetadata(ctx);
 
@@ -1633,5 +1633,5 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         }
 
         return null;
-    }
+    }*/
 }
