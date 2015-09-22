@@ -221,29 +221,137 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         return nodemd;
     }
 
-    private boolean isPType(final PType ptypes[], final PType ptype) {
-        for (PType plocal : ptypes) {
-           if (!ptype.equals(plocal)) {
-                return false;
-           }
-        }
-
-        return true;
-    }
-
-    private boolean isPType(final PType ptypes[], final PSort psort) {
-        for (PType ptype : ptypes) {
-            if (!ptype.getPSort().equals(psort)) {
-                return false;
+    private boolean isAnyPType(final PMetadata pmetadata, final PType ptype) {
+        for (PType plocal : pmetadata.castptypes) {
+            if (plocal.equals(ptype)) {
+                return true;
             }
         }
 
-        return true;
+        return false;
     }
 
-    private boolean isLegalCast(final PMetadata metadata, final PType pto, final boolean explicit) {
-        //TODO: check legality of cast
+    private boolean isAnyPNumeric(final PMetadata pmetadata) {
+        for (PType ptype : pmetadata.castptypes) {
+            if (ptype.getPSort().isPNumeric()) {
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    private void checkLegalCast(final PType pfrom, final PType pto, final boolean explicit) {
+        final PCast pcast = new PCast(pfrom, pto);
+
+        if (ptypes.isPDisallowed(pcast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (explicit && ptypes.getPImplicit(pcast) != null) {
+            return;
+        }
+
+        if (ptypes.getPImplicit(pcast) != null) {
+            return;
+        }
+
+        if (pfrom.equals(pto)) {
+            return;
+        }
+
+        final PSort fpsort = pfrom.getPSort();
+        final PSort tpsort = pto.getPSort();
+
+        if (fpsort.isPNumeric() && tpsort.isPNumeric()) {
+            if (explicit) {
+                return;
+            }
+
+            if (fpsort == PSort.BYTE) {
+                if (tpsort == PSort.SHORT || tpsort == PSort.INT || tpsort == PSort.LONG ||
+                        tpsort == PSort.FLOAT || tpsort == PSort.DOUBLE) {
+                    return;
+                } else {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+            } else if (fpsort == PSort.SHORT) {
+                if (tpsort == PSort.INT || tpsort == PSort.LONG ||
+                        tpsort == PSort.FLOAT || tpsort == PSort.DOUBLE) {
+                    return;
+                } else {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+            } else if (fpsort == PSort.CHAR) {
+                if (tpsort == PSort.INT || tpsort == PSort.LONG ||
+                        tpsort == PSort.FLOAT || tpsort == PSort.DOUBLE) {
+                    return;
+                } else {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+            } else if (fpsort == PSort.INT) {
+                if (tpsort == PSort.LONG || tpsort == PSort.FLOAT || tpsort == PSort.DOUBLE) {
+                    return;
+                } else {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+            } else if (fpsort == PSort.LONG) {
+                if (tpsort == PSort.FLOAT || tpsort == PSort.DOUBLE) {
+                    return;
+                } else {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+            } else if (fpsort == PSort.FLOAT) {
+                if (tpsort == PSort.DOUBLE) {
+                    return;
+                } else {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+            } else if (fpsort == PSort.DOUBLE) {
+                    throw new IllegalArgumentException(); // TODO: message
+            }else {
+                throw new IllegalStateException(); // TODO: message
+            }
+        }
+
+        try {
+            pfrom.getJClass().asSubclass(pto.getJClass());
+        } catch (ClassCastException cce0) {
+            try {
+                if (explicit) {
+                    pto.getJClass().asSubclass(pfrom.getJClass());
+                } else {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+            } catch (ClassCastException cce1) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+        }
+    }
+
+    private void markCast(final PMetadata pmetadata, final PType pto, final boolean explicit) {
+        final int length = pmetadata.castnodes.length;
+
+        if (length != pmetadata.castptypes.length) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        for (int cast = 0; cast < length; ++cast) {
+            final ParseTree node = pmetadata.castnodes[cast];
+            final PType pfrom = pmetadata.castptypes[cast];
+
+            checkLegalCast(pfrom, pto, explicit);
+
+            final PCast pcast = new PCast(pfrom, pto);
+
+            PMetadata castmd = getPMetadata(node);
+
+            if (castmd == null) {
+                throw new IllegalStateException(); // TODO: message
+            }
+
+            castmd.pcast = pcast;
+        }
     }
 
     private PType getPromotion(final PMetadata[] metadatas, final boolean decimal) {
@@ -300,7 +408,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 break;
             }
 
-            if (promote && psorts.isEmpty()) {
+            if (psorts.isEmpty()) {
                 throw new IllegalArgumentException(); // TODO: message
             }
 
@@ -424,7 +532,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         for (final StatementContext sctx : ctx.statement()) {
             if (sourcemd.rtn) {
-                throw new IllegalStateException();
+                throw new IllegalStateException(); // TODO: message
             }
 
             final PMetadata statementmd = createPMetadata(sctx);
@@ -454,7 +562,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata expressionmd = createPMetadata(ectx);
         expressionmd.righthand = true;
         visit(ectx);
-        // TODO: cast
+        markCast(expressionmd, boolptype, false);
 
         final BlockContext bctx0 = ctx.block(0);
         final PMetadata blockmd0 = createPMetadata(bctx0);
@@ -485,7 +593,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata expressionmd = createPMetadata(ectx);
         expressionmd.righthand = true;
         visit(ectx);
-        // TODO: cast
+        markCast(expressionmd, boolptype, false);
 
         final BlockContext bctx = ctx.block();
         createPMetadata(bctx);
@@ -514,7 +622,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata expressionmd = createPMetadata(ectx);
         expressionmd.righthand = true;
         visit(ectx);
-        // TODO: cast
+        markCast(expressionmd, boolptype, false);
 
         domd.statement = true;
 
@@ -543,7 +651,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata expressionmd0 = createPMetadata(ectx0);
         expressionmd0.righthand = true;
         visit(ectx0);
-        // TODO: cast
+        markCast(expressionmd0, boolptype, false);
 
         final ExpressionContext ectx1 = ctx.expression(0);
         final PMetadata expressionmd1 = createPMetadata(ectx1);
@@ -597,7 +705,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata breakmd = getPMetadata(ctx);
 
         if (loop == 0) {
-            throw new IllegalStateException();
+            throw new IllegalStateException();  // TODO: message
         }
 
         breakmd.jump = true;
@@ -614,7 +722,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata expressionmd = createPMetadata(ectx);
         expressionmd.righthand = true;
         visit(ectx);
-        // TODO: cast
+        markCast(expressionmd, objectptype, false);
 
         returnmd.rtn = true;
         returnmd.statement = true;
@@ -641,7 +749,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         for (StatementContext sctx : ctx.statement()) {
             if (multiplemd.rtn || multiplemd.jump) {
-                throw new IllegalStateException();
+                throw new IllegalStateException();  // TODO: message
             }
 
             final PMetadata statementmd = new PMetadata(sctx);
@@ -692,9 +800,9 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final DecltypeContext dctx = ctx.decltype();
         final PMetadata decltypemd = createPMetadata(dctx);
         visit(dctx);
-        final PType pdecltype = decltypemd.declptype;
+        final PType declptype = decltypemd.declptype;
 
-        if (pdecltype == null) {
+        if (declptype == null) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
@@ -706,14 +814,14 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
                 if (tctx.getSymbol().getType() == PainlessLexer.ID) {
                     final String name = tctx.getText();
-                    addPVariable(name, pdecltype);
+                    addPVariable(name, declptype);
                 }
             } else if (cctx instanceof ExpressionContext) {
                 final ExpressionContext ectx = (ExpressionContext)cctx;
-                final PMetadata expressiondmd = createPMetadata(ectx);
-                expressiondmd.righthand = true;
+                final PMetadata expressionmd = createPMetadata(ectx);
+                expressionmd.righthand = true;
                 visit(ectx);
-                // TODO: cast
+                markCast(expressionmd, declptype, false);
             }
         }
 
@@ -911,13 +1019,13 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata expressionmd = createPMetadata(ectx);
         visit(ectx);
 
-        if (expressionmd.constant != null) {
-            final PType ptype = expressionmd.castptypes[0];
+        final PType pfrom = expressionmd.castptypes[0];
 
-            if (ctx.BOOLNOT() != null) {
-                unarymd.castptypes = new PType[] {boolptype};
+        if (ctx.BOOLNOT() != null) {
+            unarymd.castptypes = new PType[] {boolptype};
 
-                final Object constant = invokeTransform(ptype, boolptype, expressionmd.constant, false);
+            if (expressionmd.constant != null) {
+                final Object constant = invokeTransform(pfrom, boolptype, expressionmd.constant, false);
 
                 if (constant != null) {
                     unarymd.constant = !((Boolean)constant);
@@ -927,67 +1035,67 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                     throw new IllegalArgumentException(); // TODO: message
                 }
             } else {
-                final boolean decimal = ctx.ADD() != null || ctx.SUB() != null;
-                final PType ppromote = getPromotion(new PMetadata[] {expressionmd}, decimal);
-                final PSort psort = ppromote.getPSort();
-                unarymd.castptypes = new PType[] {ppromote};
+                markCast(expressionmd, boolptype, false);
+            }
+        } else if (ctx.BWNOT() != null || ctx.ADD() != null || ctx.SUB() != null) {
+            final boolean decimal = ctx.ADD() != null || ctx.SUB() != null;
+            final PType promoteptype = getPromotion(new PMetadata[] {expressionmd}, decimal);
+            unarymd.castptypes = new PType[] {promoteptype};
 
-                Number number = null;
+            if (expressionmd.constant != null) {
+                final Object object = invokeTransform(pfrom, promoteptype, expressionmd.constant, false);
+                Number number;
 
-                if (expressionmd.constant instanceof Byte) {
-                    Object object = invokeTransform(byteptype, ppromote, expressionmd.constant, false);
-                    number = object == null ? (Number)expressionmd.constant : (Number)object;
-                } else if (expressionmd.constant instanceof Short) {
-                    Object object = invokeTransform(shortptype, ppromote, expressionmd.constant, false);
-                    number = object == null ? (Number)expressionmd.constant : (Number)object;
-                } else if (expressionmd.constant instanceof Character) {
-                    number = getNumericFromChar((char)expressionmd.constant, ppromote);
-                } else if (expressionmd.constant instanceof Integer) {
-                    Object object = invokeTransform(intptype, ppromote, expressionmd.constant, false);
-                    number = object == null ? (Number)expressionmd.constant : (Number)object;
-                } else if (expressionmd.constant instanceof Long) {
-                    Object object = invokeTransform(longptype, ppromote, expressionmd.constant, false);
-                    number = object == null ? (Number)expressionmd.constant : (Number)object;
-                } else if (expressionmd.constant instanceof Float) {
-                    Object object = invokeTransform(floatptype, ppromote, expressionmd.constant, false);
-                    number = object == null ? (Number)expressionmd.constant : (Number)object;
-                } else if (expressionmd.constant instanceof Double) {
-                    Object object = invokeTransform(doubleptype, ppromote, expressionmd.constant, false);
-                    number = object == null ? (Number)expressionmd.constant : (Number)object;
+                if (object != null) {
+                    if (object instanceof Number) {
+                        number = (Number)object;
+                    } else {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+                } else {
+                    if (expressionmd.constant instanceof Number) {
+                        number = (Number)expressionmd.constant;
+                    } else if (expressionmd.constant instanceof Character) {
+                        number = getNumericFromChar((char)object, promoteptype);
+                    } else {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
                 }
 
                 if (number == null) {
                     throw new IllegalStateException(); // TODO: message
                 }
 
+                final PSort promotepsort = promoteptype.getPSort();
+
                 if (ctx.BWNOT() != null) {
-                    if (psort == PSort.INT) {
+                    if (promotepsort == PSort.INT) {
                         unarymd.constant = ~number.intValue();
-                    } else if (psort == PSort.LONG) {
+                    } else if (promotepsort == PSort.LONG) {
                         unarymd.constant = ~number.longValue();
                     } else {
                         throw new IllegalStateException(); // TODO: message
                     }
                 } else if (ctx.SUB() != null) {
-                    if (psort == PSort.INT) {
+                    if (promotepsort == PSort.INT) {
                         unarymd.constant = -number.intValue();
-                    } else if (psort == PSort.LONG) {
+                    } else if (promotepsort == PSort.LONG) {
                         unarymd.constant = -number.longValue();
-                    } else if (psort == PSort.FLOAT) {
+                    } else if (promotepsort == PSort.FLOAT) {
                         unarymd.constant = -number.floatValue();
-                    } else if (psort == PSort.DOUBLE) {
+                    } else if (promotepsort == PSort.DOUBLE) {
                         unarymd.constant = -number.doubleValue();
                     } else {
                         throw new IllegalStateException(); // TODO: message
                     }
                 } else if (ctx.ADD() != null) {
-                    if (psort == PSort.INT) {
+                    if (promotepsort == PSort.INT) {
                         unarymd.constant = -number.intValue();
-                    } else if (psort == PSort.LONG) {
+                    } else if (promotepsort == PSort.LONG) {
                         unarymd.constant = -number.longValue();
-                    } else if (psort == PSort.FLOAT) {
+                    } else if (promotepsort == PSort.FLOAT) {
                         unarymd.constant = -number.floatValue();
-                    } else if (psort == PSort.DOUBLE) {
+                    } else if (promotepsort == PSort.DOUBLE) {
                         unarymd.constant = -number.doubleValue();
                     } else {
                         throw new IllegalStateException(); // TODO: message
@@ -995,9 +1103,11 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
+            } else {
+                markCast(expressionmd, promoteptype, false);
             }
         } else {
-            // TODO: cast
+            throw new IllegalStateException(); // TODO: message
         }
 
         return null;
@@ -1020,97 +1130,101 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         visit(ectx);
 
         if (expressionmd.constant != null) {
-            if (expressionmd.constant instanceof Boolean) {
-                castmd.constant = invokeTransform(boolptype, declptype, expressionmd.constant, true);
+            PType pfrom = expressionmd.castptypes[0];
+            PSort fpsort = pfrom.getPSort();
+            castmd.constant = invokeTransform(pfrom, declptype, expressionmd.constant, true);
 
-                if (castmd.constant == null && declpsort == PSort.BOOL) {
-                    castmd.constant = expressionmd.constant;
-                }
-            } else if (expressionmd.constant instanceof Number) {
-                if (declpsort == PSort.BYTE) {
-                    castmd.constant = invokeTransform(byteptype, declptype, expressionmd.constant, true);
-
-                    if (castmd.constant == null) {
-                        castmd.constant = ((Number)expressionmd.constant).byteValue();
+            if (castmd.constant == null) {
+                if (fpsort == PSort.BOOL) {
+                    if (declpsort == PSort.BOOL) {
+                        castmd.constant = expressionmd.constant;
                     }
-                } else if (declpsort == PSort.SHORT) {
-                    castmd.constant = invokeTransform(shortptype, declptype, expressionmd.constant, true);
+                } else if (expressionmd.constant instanceof Number) {
+                    if (declpsort == PSort.BYTE) {
+                        castmd.constant = invokeTransform(byteptype, declptype, expressionmd.constant, true);
 
-                    if (castmd.constant == null) {
-                        castmd.constant = ((Number)expressionmd.constant).shortValue();
+                        if (castmd.constant == null) {
+                            castmd.constant = ((Number)expressionmd.constant).byteValue();
+                        }
+                    } else if (declpsort == PSort.SHORT) {
+                        castmd.constant = invokeTransform(shortptype, declptype, expressionmd.constant, true);
+
+                        if (castmd.constant == null) {
+                            castmd.constant = ((Number)expressionmd.constant).shortValue();
+                        }
+                    } else if (declpsort == PSort.CHAR) {
+                        castmd.constant = invokeTransform(charptype, declptype, expressionmd.constant, true);
+
+                        if (castmd.constant == null) {
+                            final PType promote = getPromotion(new PMetadata[] {expressionmd}, true);
+
+                            if (promote.equals(intptype)) {
+                                castmd.constant = (char)((Number)expressionmd.constant).intValue();
+                            } else if (promote.equals(longptype)) {
+                                castmd.constant = (char)((Number)expressionmd.constant).longValue();
+                            } else if (promote.equals(floatptype)) {
+                                castmd.constant = (char)((Number)expressionmd.constant).floatValue();
+                            } else if (promote.equals(doubleptype)) {
+                                castmd.constant = (char)((Number)expressionmd.constant).doubleValue();
+                            }
+                        }
+                    } else if (declpsort == PSort.INT) {
+                        castmd.constant = invokeTransform(intptype, declptype, expressionmd.constant, true);
+
+                        if (castmd.constant == null) {
+                            castmd.constant = ((Number)expressionmd.constant).intValue();
+                        }
+                    } else if (declpsort == PSort.LONG) {
+                        castmd.constant = invokeTransform(longptype, declptype, expressionmd.constant, true);
+
+                        if (castmd.constant == null) {
+                            castmd.constant = ((Number)expressionmd.constant).longValue();
+                        }
+                    } else if (declpsort == PSort.FLOAT) {
+                        castmd.constant = invokeTransform(floatptype, declptype, expressionmd.constant, true);
+
+                        if (castmd.constant == null) {
+                            castmd.constant = ((Number)expressionmd.constant).floatValue();
+                        }
+                    } else if (declpsort == PSort.DOUBLE) {
+                        castmd.constant = invokeTransform(doubleptype, declptype, expressionmd.constant, true);
+
+                        if (castmd.constant == null) {
+                            castmd.constant = ((Number)expressionmd.constant).doubleValue();
+                        }
                     }
-                } else if (declpsort == PSort.CHAR) {
+                } else if (expressionmd.constant instanceof Character) {
                     castmd.constant = invokeTransform(charptype, declptype, expressionmd.constant, true);
 
                     if (castmd.constant == null) {
-                        final PType promote = getPromotion(new PMetadata[]{expressionmd}, true);
-
-                        if (promote.equals(intptype)) {
-                            castmd.constant = (char)((Number)expressionmd.constant).intValue();
-                        } else if (promote.equals(longptype)) {
-                            castmd.constant = (char)((Number)expressionmd.constant).longValue();
-                        } else if (promote.equals(floatptype)) {
-                            castmd.constant = (char)((Number)expressionmd.constant).floatValue();
-                        } else if (promote.equals(doubleptype)) {
-                            castmd.constant = (char)((Number)expressionmd.constant).doubleValue();
+                        if (declpsort == PSort.BYTE) {
+                            castmd.constant = (byte)(char)expressionmd.constant;
+                        } else if (declpsort == PSort.SHORT) {
+                            castmd.constant = (short)(char)expressionmd.constant;
+                        } else if (declpsort == PSort.CHAR) {
+                            castmd.constant = expressionmd.constant;
+                        } else if (declpsort == PSort.INT) {
+                            castmd.constant = (int)(char)expressionmd.constant;
+                        } else if (declpsort == PSort.LONG) {
+                            castmd.constant = (long)(char)expressionmd.constant;
+                        } else if (declpsort == PSort.FLOAT) {
+                            castmd.constant = (float)(char)expressionmd.constant;
+                        } else if (declpsort == PSort.DOUBLE) {
+                            castmd.constant = (double)(char)expressionmd.constant;
                         }
                     }
-                } else if (declpsort == PSort.INT) {
-                    castmd.constant = invokeTransform(intptype, declptype, expressionmd.constant, true);
+                } else if (expressionmd.constant instanceof String) {
+                    castmd.constant = invokeTransform(boolptype, declptype, expressionmd.constant, true);
 
-                    if (castmd.constant == null) {
-                        castmd.constant = ((Number)expressionmd.constant).intValue();
-                    }
-                } else if (declpsort == PSort.LONG) {
-                    castmd.constant = invokeTransform(longptype, declptype, expressionmd.constant, true);
-
-                    if (castmd.constant == null) {
-                        castmd.constant = ((Number)expressionmd.constant).longValue();
-                    }
-                } else if (declpsort == PSort.FLOAT) {
-                    castmd.constant = invokeTransform(floatptype, declptype, expressionmd.constant, true);
-
-                    if (castmd.constant == null) {
-                        castmd.constant = ((Number)expressionmd.constant).floatValue();
-                    }
-                } else if (declpsort == PSort.DOUBLE) {
-                    castmd.constant = invokeTransform(doubleptype, declptype, expressionmd.constant, true);
-
-                    if (castmd.constant == null) {
-                        castmd.constant = ((Number)expressionmd.constant).doubleValue();
-                    }
-                }
-            } else if (expressionmd.constant instanceof Character) {
-                castmd.constant = invokeTransform(charptype, declptype, expressionmd.constant, true);
-
-                if (castmd.constant == null) {
-                    if (declpsort == PSort.BYTE) {
-                        castmd.constant = (byte)(char)expressionmd.constant;
-                    } else if (declpsort == PSort.SHORT) {
-                        castmd.constant = (short)(char)expressionmd.constant;
-                    } else if (declpsort == PSort.CHAR) {
+                    if (castmd.constant == null && declpsort == PSort.STRING) {
                         castmd.constant = expressionmd.constant;
-                    } else if (declpsort == PSort.INT) {
-                        castmd.constant = (int)(char)expressionmd.constant;
-                    } else if (declpsort == PSort.LONG) {
-                        castmd.constant = (long)(char)expressionmd.constant;
-                    } else if (declpsort == PSort.FLOAT) {
-                        castmd.constant = (float)(char)expressionmd.constant;
-                    } else if (declpsort == PSort.DOUBLE) {
-                        castmd.constant = (double)(char)expressionmd.constant;
                     }
-                }
-            } else if (expressionmd.constant instanceof String) {
-                castmd.constant = invokeTransform(boolptype, declptype, expressionmd.constant, true);
-
-                if (castmd.constant == null && declpsort == PSort.BOOL) {
-                    castmd.constant = expressionmd.constant;
                 }
             }
         }
 
         if (castmd.constant == null) {
-            //TODO : cast
+            markCast(expressionmd, declptype, true);
         }
 
         return null;
@@ -1131,56 +1245,48 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         final boolean decimal = ctx.ADD() != null || ctx.SUB() != null ||
                 ctx.DIV() != null || ctx.MUL() != null || ctx.REM() != null;
-        final PType ppromote = getPromotion(new PMetadata[] {expressionmd0, expressionmd1}, decimal);
-        final PSort psort = ppromote.getPSort();
-        binarymd.castptypes = new PType[] {ppromote};
+        final PType promoteptype = getPromotion(new PMetadata[] {expressionmd0, expressionmd1}, decimal);
+        final PSort psort = promoteptype.getPSort();
+        binarymd.castptypes = new PType[] {promoteptype};
 
         if (expressionmd0.constant != null && expressionmd1.constant != null) {
-            Number number0 = null;
-            Number number1 = null;
+            PType ptype0 = expressionmd0.castptypes[0];
+            PType ptype1 = expressionmd0.castptypes[0];
+            final Object object0 = invokeTransform(ptype0, promoteptype, expressionmd0.constant, false);
+            final Object object1 = invokeTransform(ptype1, promoteptype, expressionmd0.constant, false);
+            Number number0;
+            Number number1;
 
-            if (expressionmd0.constant instanceof Byte) {
-                Object number = invokeTransform(byteptype, ppromote, expressionmd0.constant, false);
-                number0 = number == null ? (Number)expressionmd0.constant : (Number)number;
-            } else if (expressionmd0.constant instanceof Short) {
-                Object number = invokeTransform(shortptype, ppromote, expressionmd0.constant, false);
-                number0 = number == null ? (Number)expressionmd0.constant : (Number)number;
-            } else if (expressionmd0.constant instanceof Character) {
-                number0 = getNumericFromChar((char)expressionmd0.constant, ppromote);
-            } else if (expressionmd0.constant instanceof Integer) {
-                Object number = invokeTransform(intptype, ppromote, expressionmd0.constant, false);
-                number0 = number == null ? (Number)expressionmd0.constant : (Number)number;
-            } else if (expressionmd0.constant instanceof Long) {
-                Object number = invokeTransform(longptype, ppromote, expressionmd0.constant, false);
-                number0 = number == null ? (Number)expressionmd0.constant : (Number)number;
-            } else if (expressionmd0.constant instanceof Float) {
-                Object number = invokeTransform(floatptype, ppromote, expressionmd0.constant, false);
-                number0 = number == null ? (Number)expressionmd0.constant : (Number)number;
-            } else if (expressionmd0.constant instanceof Double) {
-                Object number = invokeTransform(doubleptype, ppromote, expressionmd0.constant, false);
-                number0 = number == null ? (Number)expressionmd0.constant : (Number)number;
+            if (object0 != null) {
+                if (object0 instanceof Number) {
+                    number0 = (Number)object0;
+                } else {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+            } else {
+                if (expressionmd0.constant instanceof Number) {
+                    number0 = (Number)expressionmd0.constant;
+                } else if (expressionmd0.constant instanceof Character) {
+                    number0 = getNumericFromChar((char)object0, promoteptype);
+                } else {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
             }
 
-            if (expressionmd1.constant instanceof Byte) {
-                Object number = invokeTransform(byteptype, ppromote, expressionmd1.constant, false);
-                number1 = number == null ? (Number)expressionmd1.constant : (Number)number;
-            } else if (expressionmd1.constant instanceof Short) {
-                Object number = invokeTransform(shortptype, ppromote, expressionmd1.constant, false);
-                number1 = number == null ? (Number)expressionmd1.constant : (Number)number;
-            } else if (expressionmd1.constant instanceof Character) {
-                number1 = getNumericFromChar((char)expressionmd1.constant, ppromote);
-            } else if (expressionmd1.constant instanceof Integer) {
-                Object number = invokeTransform(intptype, ppromote, expressionmd1.constant, false);
-                number1 = number == null ? (Number)expressionmd1.constant : (Number)number;
-            } else if (expressionmd1.constant instanceof Long) {
-                Object number = invokeTransform(longptype, ppromote, expressionmd1.constant, false);
-                number1 = number == null ? (Number)expressionmd1.constant : (Number)number;
-            } else if (expressionmd1.constant instanceof Float) {
-                Object number = invokeTransform(floatptype, ppromote, expressionmd1.constant, false);
-                number1 = number == null ? (Number)expressionmd1.constant : (Number)number;
-            } else if (expressionmd1.constant instanceof Double) {
-                Object number = invokeTransform(doubleptype, ppromote, expressionmd1.constant, false);
-                number1 = number == null ? (Number)expressionmd1.constant : (Number)number;
+            if (object1 != null) {
+                if (object1 instanceof Number) {
+                    number1 = (Number)object1;
+                } else {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+            } else {
+                if (expressionmd1.constant instanceof Number) {
+                    number1 = (Number)expressionmd1.constant;
+                } else if (expressionmd1.constant instanceof Character) {
+                    number1 = getNumericFromChar((char)object1, promoteptype);
+                } else {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
             }
 
             if (number0 == null || number1 == null) {
@@ -1299,7 +1405,8 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 throw new IllegalStateException(); // TODO: message
             }
         } else {
-            // TODO: cast
+            markCast(expressionmd0, promoteptype, false);
+            markCast(expressionmd1, promoteptype, false);
         }
 
         return null;
@@ -1319,20 +1426,27 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata expressionmd1 = createPMetadata(ectx1);
         visit(ectx1);
 
+        boolean anybool = isAnyPType(expressionmd0, boolptype) || isAnyPType(expressionmd1, boolptype);
+        boolean anynumeric = isAnyPNumeric(expressionmd0) && isAnyPNumeric(expressionmd1);
+
         if (expressionmd0.constant != null && expressionmd1.constant != null) {
-            PSort psort0 = expressionmd0.castptypes[0].getPSort();
-            PSort psort1 = expressionmd1.castptypes[0].getPSort();
+            final PType pfrom0 = expressionmd0.castptypes[0];
+            final PType pfrom1 = expressionmd0.castptypes[0];
 
-            if (psort0 == PSort.BOOL && psort1 == PSort.BOOL) {
-                Object constant0 = invokeTransform(boolptype, boolptype, expressionmd0.constant, false);
-                Object constant1 = invokeTransform(boolptype, boolptype, expressionmd1.constant, false);
+            if (anybool) {
+                Object constant0 = invokeTransform(pfrom0, boolptype, expressionmd0.constant, false);
+                Object constant1 = invokeTransform(pfrom1, boolptype, expressionmd1.constant, false);
 
-                if (constant0 == null) {
+                if (constant0 == null && expressionmd0.constant instanceof Boolean) {
                     constant0 = expressionmd0.constant;
                 }
 
-                if (constant1 == null) {
+                if (constant1 == null && expressionmd1.constant instanceof Boolean) {
                     constant1 = expressionmd1.constant;
+                }
+
+                if (constant0 == null || constant1 == null) {
+                    throw new IllegalArgumentException(); // TODO: message
                 }
 
                 if (ctx.EQ() != null) {
@@ -1340,56 +1454,47 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 } else if (ctx.NE() != null) {
                     compmd.constant = (boolean)constant0 != (boolean)constant1;
                 } else {
-                    throw new IllegalStateException();
+                    throw new IllegalArgumentException(); // TODO: message
                 }
-            } else if (psort0.isPNumeric() && psort1.isPNumeric()) {
-                final PType ppromote = getPromotion(new PMetadata[]{expressionmd0, expressionmd1}, true);
-                final PSort psort = ppromote.getPSort();
-                Number number0 = null;
-                Number number1 = null;
+            } else if (anynumeric) {
+                final PType promoteptype = getPromotion(new PMetadata[]{expressionmd0, expressionmd1}, true);
+                final PSort psort = promoteptype.getPSort();
 
-                if (expressionmd0.constant instanceof Byte) {
-                    Object number = invokeTransform(byteptype, ppromote, expressionmd0.constant, false);
-                    number0 = number == null ? (Number)expressionmd0.constant : (Number)number;
-                } else if (expressionmd0.constant instanceof Short) {
-                    Object number = invokeTransform(shortptype, ppromote, expressionmd0.constant, false);
-                    number0 = number == null ? (Number)expressionmd0.constant : (Number)number;
-                } else if (expressionmd0.constant instanceof Character) {
-                    number0 = getNumericFromChar((char)expressionmd0.constant, ppromote);
-                } else if (expressionmd0.constant instanceof Integer) {
-                    Object number = invokeTransform(intptype, ppromote, expressionmd0.constant, false);
-                    number0 = number == null ? (Number)expressionmd0.constant : (Number)number;
-                } else if (expressionmd0.constant instanceof Long) {
-                    Object number = invokeTransform(longptype, ppromote, expressionmd0.constant, false);
-                    number0 = number == null ? (Number)expressionmd0.constant : (Number)number;
-                } else if (expressionmd0.constant instanceof Float) {
-                    Object number = invokeTransform(floatptype, ppromote, expressionmd0.constant, false);
-                    number0 = number == null ? (Number)expressionmd0.constant : (Number)number;
-                } else if (expressionmd0.constant instanceof Double) {
-                    Object number = invokeTransform(doubleptype, ppromote, expressionmd0.constant, false);
-                    number0 = number == null ? (Number)expressionmd0.constant : (Number)number;
+                final Object object0 = invokeTransform(pfrom0, promoteptype, expressionmd0.constant, false);
+                final Object object1 = invokeTransform(pfrom1, promoteptype, expressionmd0.constant, false);
+                Number number0;
+                Number number1;
+
+                if (object0 != null) {
+                    if (object0 instanceof Number) {
+                        number0 = (Number)object0;
+                    } else {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+                } else {
+                    if (expressionmd0.constant instanceof Number) {
+                        number0 = (Number)expressionmd0.constant;
+                    } else if (expressionmd0.constant instanceof Character) {
+                        number0 = getNumericFromChar((char)object0, promoteptype);
+                    } else {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
                 }
 
-                if (expressionmd1.constant instanceof Byte) {
-                    Object number = invokeTransform(byteptype, ppromote, expressionmd1.constant, false);
-                    number1 = number == null ? (Number)expressionmd1.constant : (Number)number;
-                } else if (expressionmd1.constant instanceof Short) {
-                    Object number = invokeTransform(shortptype, ppromote, expressionmd1.constant, false);
-                    number1 = number == null ? (Number)expressionmd1.constant : (Number)number;
-                } else if (expressionmd1.constant instanceof Character) {
-                    number1 = getNumericFromChar((char)expressionmd1.constant, ppromote);
-                } else if (expressionmd1.constant instanceof Integer) {
-                    Object number = invokeTransform(intptype, ppromote, expressionmd1.constant, false);
-                    number1 = number == null ? (Number)expressionmd1.constant : (Number)number;
-                } else if (expressionmd1.constant instanceof Long) {
-                    Object number = invokeTransform(longptype, ppromote, expressionmd1.constant, false);
-                    number1 = number == null ? (Number)expressionmd1.constant : (Number)number;
-                } else if (expressionmd1.constant instanceof Float) {
-                    Object number = invokeTransform(floatptype, ppromote, expressionmd1.constant, false);
-                    number1 = number == null ? (Number)expressionmd1.constant : (Number)number;
-                } else if (expressionmd1.constant instanceof Double) {
-                    Object number = invokeTransform(doubleptype, ppromote, expressionmd1.constant, false);
-                    number1 = number == null ? (Number)expressionmd1.constant : (Number)number;
+                if (object1 != null) {
+                    if (object1 instanceof Number) {
+                        number1 = (Number)object1;
+                    } else {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+                } else {
+                    if (expressionmd1.constant instanceof Number) {
+                        number1 = (Number)expressionmd0.constant;
+                    } else if (expressionmd1.constant instanceof Character) {
+                        number1 = getNumericFromChar((char)object1, promoteptype);
+                    } else {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
                 }
 
                 if (number0 == null || number1 == null) {
@@ -1469,7 +1574,19 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 }
             }
         } else {
-            // TODO: cast
+            if (anybool && (ctx.EQ() != null || ctx.NE() != null)) {
+                markCast(expressionmd0, boolptype, false);
+                markCast(expressionmd1, boolptype, false);
+            } else if (!anynumeric && (ctx.EQ() != null || ctx.NE() != null)) {
+                markCast(expressionmd0, objectptype, false);
+                markCast(expressionmd1, objectptype, false);
+            } else if (anynumeric) {
+                final PType promoteptype = getPromotion(new PMetadata[] {expressionmd0, expressionmd1}, true);
+                markCast(expressionmd0, promoteptype, false);
+                markCast(expressionmd1, promoteptype, false);
+            } else {
+                throw new IllegalArgumentException(); // TODO: message
+            }
         }
 
         return null;
@@ -1506,10 +1623,11 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             } else if (ctx.BOOLOR() != null) {
                 boolmd.constant = (boolean)constant0 || (boolean)constant1;
             } else {
-                throw new IllegalStateException();
+                throw new IllegalStateException(); // TODO: message
             }
         } else {
-            // TODO: cast
+            markCast(expressionmd0, boolptype, false);
+            markCast(expressionmd1, boolptype, false);
         }
 
         return null;
@@ -1586,11 +1704,11 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         visit(ectx0);
 
         if (extstartmd.pexternal == null) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException(); // TODO: message
         }
 
         if (extstartmd.pexternal.isReadOnly()) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException(); // TODO: message
         }
 
         if (assignmentmd.righthand) {
@@ -1602,7 +1720,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata expressionmd = createPMetadata(ectx1);
         expressionmd.righthand = true;
         visit(ectx1);
-        // TODO: cast
+        markCast(expressionmd, extstartmd.pexternal.getPType(), false);
 
         assignmentmd.statement = true;
 
@@ -1636,7 +1754,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             extmembermd.pexternal = extstartmd.pexternal;
             visit(ectx3);
         } else {
-            throw new IllegalStateException();
+            throw new IllegalStateException(); // TODO: message
         }
 
         extstartmd.statement = extstartmd.pexternal.isCall();
@@ -1672,7 +1790,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             extmembermd.pexternal = extprecmd0.pexternal;
             visit(ectx3);
         } else {
-            throw new IllegalStateException();
+            throw new IllegalStateException(); // TODO: message
         }
 
         final ExtdotContext ectx4 = ctx.extdot();
@@ -1717,7 +1835,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             extmembermd.pexternal = extcastmd0.pexternal;
             visit(ectx3);
         } else {
-            throw new IllegalStateException();
+            throw new IllegalStateException(); // TODO: message
         }
 
         final DecltypeContext dctx = ctx.decltype();
@@ -1727,7 +1845,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PType pfrom = extcastmd0.pexternal.getPType();
         final PType pto = decltypemd.declptype;
 
-        //TODO: check cast legality
+        checkLegalCast(pfrom, pto, true);
         extcastmd0.pexternal.addSegment(CAST, new PCast(pfrom, pto));
 
         return null;
@@ -1740,7 +1858,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final ExpressionContext ectx0 = ctx.expression();
         final PMetadata expressionmd = createPMetadata(ectx0);
         visit(ectx0);
-        // TODO: cast
+        markCast(expressionmd, intptype, false);
 
         extarraymd0.pexternal.addSegment(PainlessExternal.ARRAY, ectx0);
 
@@ -1787,7 +1905,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PType ptype = getPTypeFromCanonicalPName(ptypes, ptypestr);
 
         if (ptype == null) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException(); // TODO: message
         }
 
         exttypemd.pexternal.addSegment(PainlessExternal.TYPE, ptype);
@@ -1808,7 +1926,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PClass pclass = declptype.getPClass();
 
         if (pclass == null) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException(); // TODO: message
         }
 
         final String pname = ctx.ID().getText();
@@ -1840,7 +1958,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 argumentsmd.castptypes = new PType[arguments.size()];
                 pmethod.getPArguments().toArray(argumentsmd.castptypes);
             } else {
-                throw new IllegalArgumentException();
+                throw new IllegalArgumentException(); // TODO: message
             }
 
             visit(actx);
@@ -1874,7 +1992,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             final PVariable pvariable = getPVariable(pname);
 
             if (pvariable == null) {
-                throw new IllegalArgumentException();
+                throw new IllegalArgumentException(); // TODO: message
             }
 
             extmembermd.pexternal.addSegment(VARIABLE, pvariable);
@@ -1883,20 +2001,20 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 if ("length".equals(pname)) {
                     extmembermd.pexternal.addSegment(ALENGTH, intptype);
                 } else {
-                    throw new IllegalArgumentException();
+                    throw new IllegalArgumentException(); // TODO: message
                 }
             } else {
                 final PClass pclass = ptype.getPClass();
 
                 if (pclass == null) {
-                    throw new IllegalArgumentException();
+                    throw new IllegalArgumentException(); // TODO: message
                 }
 
                 final boolean statik = extmembermd.pexternal.isStatic();
                 final PField pmember = statik ? pclass.getPStatic(pname) : pclass.getPMember(pname);
 
                 if (pmember == null) {
-                    throw new IllegalArgumentException();
+                    throw new IllegalArgumentException(); // TODO: message
                 }
 
                 extmembermd.pexternal.addSegment(FIELD, pmember);
@@ -1923,14 +2041,14 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     public Void visitArguments(final ArgumentsContext ctx) {
         final PMetadata argumentsmd = getPMetadata(ctx);
         final ParseTree[] nodes = argumentsmd.castnodes;
-        final PType[] atypes = argumentsmd.castptypes;
+        final PType[] ptypes = argumentsmd.castptypes;
 
-        if (nodes == null || atypes == null) {
-            throw new IllegalArgumentException();
+        if (nodes == null || ptypes == null) {
+            throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (nodes.length != atypes.length) {
-            throw new IllegalArgumentException();
+        if (nodes.length != ptypes.length) {
+            throw new IllegalArgumentException(); // TODO: message
         }
 
         final int arguments = nodes.length;
@@ -1939,7 +2057,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             final ParseTree ectx = nodes[argument];
             final PMetadata nodemd = createPMetadata(ectx);
             visit(ectx);
-            // TODO: cast
+            markCast(nodemd, ptypes[argument], false);
 
             argumentsmd.pexternal.addSegment(ARGUMENT, ectx);
         }
