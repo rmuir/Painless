@@ -8,10 +8,8 @@ public class Test {
     int j;
 
     public Test() {
-        i = 1;
-        j = 2;
-
-        stest();
+        Object b = 5;
+        Integer integer = Integer.valueOf((int)b);
     }
 
     public static void stest() {

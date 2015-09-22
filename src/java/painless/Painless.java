@@ -40,7 +40,7 @@ public final class Painless {
 
         //int i = l*5;
 
-        compile("test", "return 5*5;");
+        compile("test", "return (string)(object)this;");
     }
 
     public static PainlessExecutable compile(String name, String source) {

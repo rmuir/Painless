@@ -1,6 +1,5 @@
 package painless;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -80,6 +79,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         PExternal pexternal;
 
         PCast pcast;
+        PTransform ptransform;
 
         PMetadata(final ParseTree node) {
             this.node = node;
@@ -99,6 +99,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             pexternal = null;
 
             pcast = null;
+            ptransform = null;
         }
     }
 
@@ -241,23 +242,27 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         return false;
     }
 
-    private void checkLegalCast(final PType pfrom, final PType pto, final boolean explicit) {
+    private PTransform checkLegalCast(final PType pfrom, final PType pto, final boolean explicit) {
         final PCast pcast = new PCast(pfrom, pto);
 
         if (ptypes.isPDisallowed(pcast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (explicit && ptypes.getPImplicit(pcast) != null) {
-            return;
+        final PTransform pexplicit = ptypes.getPExplicit(pcast);
+
+        if (explicit && pexplicit != null) {
+            return pexplicit;
         }
 
+        final PTransform pimplicit = ptypes.getPExplicit(pcast);
+
         if (ptypes.getPImplicit(pcast) != null) {
-            return;
+            return pimplicit;
         }
 
         if (pfrom.equals(pto)) {
-            return;
+            return null;
         }
 
         final PSort fpsort = pfrom.getPSort();
@@ -265,51 +270,51 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         if (fpsort.isPNumeric() && tpsort.isPNumeric()) {
             if (explicit) {
-                return;
+                return null;
             }
 
             if (fpsort == PSort.BYTE) {
                 if (tpsort == PSort.SHORT || tpsort == PSort.INT || tpsort == PSort.LONG ||
                         tpsort == PSort.FLOAT || tpsort == PSort.DOUBLE) {
-                    return;
+                    return null;
                 } else {
                     throw new IllegalArgumentException(); // TODO: message
                 }
             } else if (fpsort == PSort.SHORT) {
                 if (tpsort == PSort.INT || tpsort == PSort.LONG ||
                         tpsort == PSort.FLOAT || tpsort == PSort.DOUBLE) {
-                    return;
+                    return null;
                 } else {
                     throw new IllegalArgumentException(); // TODO: message
                 }
             } else if (fpsort == PSort.CHAR) {
                 if (tpsort == PSort.INT || tpsort == PSort.LONG ||
                         tpsort == PSort.FLOAT || tpsort == PSort.DOUBLE) {
-                    return;
+                    return null;
                 } else {
                     throw new IllegalArgumentException(); // TODO: message
                 }
             } else if (fpsort == PSort.INT) {
                 if (tpsort == PSort.LONG || tpsort == PSort.FLOAT || tpsort == PSort.DOUBLE) {
-                    return;
+                    return null;
                 } else {
                     throw new IllegalArgumentException(); // TODO: message
                 }
             } else if (fpsort == PSort.LONG) {
                 if (tpsort == PSort.FLOAT || tpsort == PSort.DOUBLE) {
-                    return;
+                    return null;
                 } else {
                     throw new IllegalArgumentException(); // TODO: message
                 }
             } else if (fpsort == PSort.FLOAT) {
                 if (tpsort == PSort.DOUBLE) {
-                    return;
+                    return null;
                 } else {
                     throw new IllegalArgumentException(); // TODO: message
                 }
             } else if (fpsort == PSort.DOUBLE) {
                     throw new IllegalArgumentException(); // TODO: message
-            }else {
+            } else {
                 throw new IllegalStateException(); // TODO: message
             }
         }
@@ -327,6 +332,8 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 throw new IllegalArgumentException(); // TODO: message
             }
         }
+
+        return null;
     }
 
     private void markCast(final PMetadata pmetadata, final PType pto, final boolean explicit) {
@@ -340,17 +347,17 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             final ParseTree node = pmetadata.castnodes[cast];
             final PType pfrom = pmetadata.castptypes[cast];
 
-            checkLegalCast(pfrom, pto, explicit);
-
-            final PCast pcast = new PCast(pfrom, pto);
-
-            PMetadata castmd = getPMetadata(node);
+            final PMetadata castmd = getPMetadata(node);
 
             if (castmd == null) {
                 throw new IllegalStateException(); // TODO: message
             }
 
-            castmd.pcast = pcast;
+            castmd.ptransform = checkLegalCast(pfrom, pto, explicit);
+
+            if (castmd.ptransform == null) {
+                castmd.pcast = new PCast(pfrom, pto);
+            }
         }
     }
 
@@ -454,14 +461,9 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             if (Modifier.isStatic(modifiers)) {
                 return jmethod.invoke(null, object);
             } else {
-                final Class jclass = pmethod.getPOwner().getJClass();
-                final Constructor constructor = jclass.getConstructor(object.getClass());
-                final Object instance = constructor.newInstance(object);
-
-                return jmethod.invoke(instance);
+                return jmethod.invoke(object);
             }
-        } catch (NoSuchMethodException | InstantiationException |
-                IllegalAccessException | IllegalArgumentException |
+        } catch (IllegalAccessException | IllegalArgumentException |
                 InvocationTargetException | NullPointerException |
                 ExceptionInInitializerError exception) {
             throw new IllegalArgumentException(); // TODO: message
@@ -1120,6 +1122,8 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         final DecltypeContext dctx = ctx.decltype();
         final PMetadata decltypemd = createPMetadata(dctx);
+        visit(dctx);
+
         final PType declptype = decltypemd.declptype;
         final PSort declpsort = declptype.getPSort();
         castmd.castptypes = new PType[] {declptype};
@@ -1214,7 +1218,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                         }
                     }
                 } else if (expressionmd.constant instanceof String) {
-                    castmd.constant = invokeTransform(boolptype, declptype, expressionmd.constant, true);
+                    castmd.constant = invokeTransform(stringptype, declptype, expressionmd.constant, true);
 
                     if (castmd.constant == null && declpsort == PSort.STRING) {
                         castmd.constant = expressionmd.constant;
@@ -1845,8 +1849,13 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PType pfrom = extcastmd0.pexternal.getPType();
         final PType pto = decltypemd.declptype;
 
-        checkLegalCast(pfrom, pto, true);
-        extcastmd0.pexternal.addSegment(CAST, new PCast(pfrom, pto));
+        final PTransform ptransform = checkLegalCast(pfrom, pto, true);
+
+        if (ptransform == null) {
+            extcastmd0.pexternal.addSegment(CAST, new PCast(pfrom, pto));
+        } else {
+            extcastmd0.pexternal.addSegment(TRANSFORM, ptransform);
+        }
 
         return null;
     }

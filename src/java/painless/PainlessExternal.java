@@ -18,9 +18,10 @@ public class PainlessExternal {
     final static int ARRAY = 5;
     final static int ARGUMENT = 6;
     final static int CAST = 7;
+    final static int TRANSFORM = 8;
 
-    final static int AMAKE = 8;
-    final static int ALENGTH = 9;
+    final static int AMAKE = 9;
+    final static int ALENGTH = 10;
 
     static class PSegment {
         final int stype;
@@ -193,6 +194,22 @@ public class PainlessExternal {
                     readonly = true;
 
                     ptype = ((PCast)svalue).getPTo();
+
+                    psegments.add(new PSegment(stype, svalue));
+
+                    break;
+                case TRANSFORM:
+                    if (!(svalue instanceof PTransform)) {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+
+                    if (psegments.isEmpty()) {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+
+                    readonly = true;
+
+                    ptype = ((PTransform)svalue).getPCast().getPTo();
 
                     psegments.add(new PSegment(stype, svalue));
 
