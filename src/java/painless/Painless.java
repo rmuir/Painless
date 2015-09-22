@@ -2,6 +2,8 @@ package painless;
 
 import org.objectweb.asm.Type;
 
+import java.lang.reflect.Method;
+
 public final class Painless {
     public static void main(String args[]) throws Exception {
         //double d = 1/3;
@@ -22,7 +24,23 @@ public final class Painless {
 
         //Object.class.asSubclass(Integer.class);
 
-        compile("test", "int[] x = int.makearray(10); x[0] = 5; return x[0];");
+        //Object o = 5;
+        //int a = (int)o;
+        //System.out.println(a);
+
+        //Method method0 = Integer.class.getMethod("intValue");
+        //int value0 = (int)method0.invoke(5);
+        //System.out.println(value0);
+
+        //Method method1 = Integer.class.getMethod("parseInt", String.class);
+        //int value1 = (int)method1.invoke(null, "5");
+        //System.out.println(value1);
+
+        //Byte l = new Byte((byte)5);
+
+        //int i = l*5;
+
+        compile("test", "return 5*5;");
     }
 
     public static PainlessExecutable compile(String name, String source) {

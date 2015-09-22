@@ -33,13 +33,13 @@ class PainlessTypes {
         ARRAY  ( 1 , false , null     , null                     );
 
         private final int asize;
-        private final boolean jnumeric;
+        private final boolean pnumeric;
         private final String pname;
         private final Class jclass;
 
-        PSort(final int asize, final boolean numeric, final String pname, final Class jclass) {
+        PSort(final int asize, final boolean pnumeric, final String pname, final Class jclass) {
             this.asize = asize;
-            this.jnumeric = numeric;
+            this.pnumeric = pnumeric;
             this.pname = pname;
             this.jclass = jclass;
         }
@@ -48,8 +48,8 @@ class PainlessTypes {
             return asize;
         }
 
-        boolean isJNumeric() {
-            return jnumeric;
+        boolean isPNumeric() {
+            return pnumeric;
         }
 
         String getPName() {
@@ -200,7 +200,7 @@ class PainlessTypes {
             return poriginals;
         }
 
-        Method getJmethod() {
+        Method getJMethod() {
             return jmethod;
         }
     }
@@ -369,7 +369,7 @@ class PainlessTypes {
             return pcast;
         }
 
-        PMethod getPmethod() {
+        PMethod getPMethod() {
             return pmethod;
         }
 
@@ -384,7 +384,6 @@ class PainlessTypes {
 
     static class PTypes {
         private final Map<String, PClass> pclasses;
-        private final Map<PSort, PType> psortptypes;
 
         private final Set<PCast> pdisalloweds;
         private final Map<PCast, PTransform> pexplicits;
@@ -392,7 +391,6 @@ class PainlessTypes {
 
         private PTypes() {
             pclasses = new HashMap<>();
-            psortptypes = new HashMap<>();
 
             pdisalloweds = new HashSet<>();
             pexplicits = new HashMap<>();
@@ -401,10 +399,6 @@ class PainlessTypes {
 
         PClass getPClass(final String pname) {
             return pclasses.get(pname);
-        }
-
-        PType getPSortPType(final PSort psort) {
-            return psortptypes.get(psort);
         }
 
         boolean isPDisallowed(final PCast pcast) {
@@ -882,14 +876,6 @@ class PainlessTypes {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (ptypes.pexplicits.containsKey(pcast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        if (ptypes.pimplicits.containsKey(pcast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
         PMethod pmethod;
         boolean pcastfrom = false;
         boolean pcastto = false;
@@ -971,8 +957,16 @@ class PainlessTypes {
         final PTransform ptransform = new PTransform(pcast, pmethod, pcastfrom, pcastto);
 
         if ("explicit".equals(ptypestr)) {
+            if (ptypes.pexplicits.containsKey(pcast)) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
             ptypes.pexplicits.put(pcast, ptransform);
         } else if ("implicit".equals(ptypestr)) {
+            if (ptypes.pimplicits.containsKey(pcast)) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
             ptypes.pimplicits.put(pcast, ptransform);
         } else {
             throw new IllegalArgumentException(); // TODO: message
@@ -1102,7 +1096,7 @@ class PainlessTypes {
                         return Class.forName(jnamestr);
                 }
             } else {
-                String jclassstr = jnamestr.substring(jnamestr.indexOf('['));
+                String jclassstr = jnamestr.substring(0, jnamestr.indexOf('['));
 
                 char[] brackets = new char[dimensions];
                 Arrays.fill(brackets, '[');
@@ -1152,11 +1146,10 @@ class PainlessTypes {
         int index = name.indexOf('[');
 
         if (index != -1) {
-            String brackets = name.substring(index);
             final int length = name.length();
 
             while (index < length) {
-                if (brackets.charAt(index) == '[' && ++index < length && brackets.charAt(index++) == ']') {
+                if (name.charAt(index) == '[' && ++index < length && name.charAt(index++) == ']') {
                     ++dimensions;
                 } else {
                     throw new IllegalArgumentException(); // TODO: message
@@ -1196,10 +1189,14 @@ class PainlessTypes {
             if (psort != PSort.ARRAY) {
                 final PClass pclass = ptypes.pclasses.get(psort.pname);
 
-                if (pclass == null || !pclass.jclass.equals(psort.jclass)) {
+                if (pclass == null) {
                     throw new IllegalArgumentException();  // TODO: message
-                } else {
-                    ptypes.psortptypes.put(psort, new PType(pclass, pclass.jclass, 0, psort));
+                }
+
+                try {
+                    pclass.jclass.asSubclass(psort.jclass);
+                } catch (ClassCastException exception) {
+                    throw new IllegalArgumentException(); // TODO: message
                 }
             }
         }
