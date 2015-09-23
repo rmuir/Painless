@@ -1076,7 +1076,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                     if (expressionmd.constant instanceof Number) {
                         number = (Number)expressionmd.constant;
                     } else if (expressionmd.constant instanceof Character) {
-                        number = getNumericFromChar((char)object, promoteptype);
+                        number = getNumericFromChar((char)expressionmd.constant, promoteptype);
                     } else {
                         throw new IllegalArgumentException(); // TODO: message
                     }
@@ -1289,7 +1289,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 if (expressionmd0.constant instanceof Number) {
                     number0 = (Number)expressionmd0.constant;
                 } else if (expressionmd0.constant instanceof Character) {
-                    number0 = getNumericFromChar((char)object0, promoteptype);
+                    number0 = getNumericFromChar((char)expressionmd0.constant, promoteptype);
                 } else {
                     throw new IllegalArgumentException(); // TODO: message
                 }
@@ -1305,7 +1305,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 if (expressionmd1.constant instanceof Number) {
                     number1 = (Number)expressionmd1.constant;
                 } else if (expressionmd1.constant instanceof Character) {
-                    number1 = getNumericFromChar((char)object1, promoteptype);
+                    number1 = getNumericFromChar((char)expressionmd1.constant, promoteptype);
                 } else {
                     throw new IllegalArgumentException(); // TODO: message
                 }
@@ -1497,7 +1497,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                     if (expressionmd0.constant instanceof Number) {
                         number0 = (Number)expressionmd0.constant;
                     } else if (expressionmd0.constant instanceof Character) {
-                        number0 = getNumericFromChar((char)object0, promoteptype);
+                        number0 = getNumericFromChar((char)expressionmd0.constant, promoteptype);
                     } else {
                         throw new IllegalArgumentException(); // TODO: message
                     }
@@ -1513,7 +1513,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                     if (expressionmd1.constant instanceof Number) {
                         number1 = (Number)expressionmd0.constant;
                     } else if (expressionmd1.constant instanceof Character) {
-                        number1 = getNumericFromChar((char)object1, promoteptype);
+                        number1 = getNumericFromChar((char)expressionmd1.constant, promoteptype);
                     } else {
                         throw new IllegalArgumentException(); // TODO: message
                     }
