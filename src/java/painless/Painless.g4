@@ -1,3 +1,5 @@
+# java -cp lib/antlr4-4.5.jar:. org.antlr.v4.Tool -no-listener -visitor -package painless src/java/painless/Painless.g4
+
 grammar Painless;
 
 source
@@ -5,21 +7,24 @@ source
     ;
 
 statement
-    : IF LP expression RP block (ELSE block)?                                  # if
-    | WHILE LP expression RP block                                             # while
-    | DO block WHILE LP expression RP                                          # do
-    | FOR LP declaration? SEMICOLON expression? SEMICOLON expression? RP block # for
-    | declaration SEMICOLON                                                    # decl
-    | CONTINUE SEMICOLON                                                       # continue
-    | BREAK SEMICOLON                                                          # break
-    | RETURN expression SEMICOLON                                              # return
-    | expression SEMICOLON                                                     # expr
+    : IF LP expression RP block (ELSE block)?                                              # if
+    | WHILE LP expression RP ( block | empty )                                             # while
+    | DO block WHILE LP expression RP                                                      # do
+    | FOR LP declaration? SEMICOLON expression? SEMICOLON expression? RP ( block | empty ) # for
+    | declaration SEMICOLON                                                                # decl
+    | CONTINUE SEMICOLON                                                                   # continue
+    | BREAK SEMICOLON                                                                      # break
+    | RETURN expression SEMICOLON                                                          # return
+    | expression SEMICOLON                                                                 # expr
     ;
 
 block
     : LBRACK statement* RBRACK                 # multiple
     | statement                                # single
-    | SEMICOLON                                # empty
+    ;
+
+empty
+    : SEMICOLON
     ;
 
 declaration

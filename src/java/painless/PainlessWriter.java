@@ -5,7 +5,6 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
 
-import jdk.nashorn.internal.runtime.regexp.joni.constants.OPCode;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
@@ -141,7 +140,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
             visit(sctx);
         }
 
-        if (!sourcemd.rtn) {
+        if (!sourcemd.allrtn) {
             execute.visitInsn(Opcodes.ACONST_NULL);
             execute.visitInsn(Opcodes.ARETURN);
         }

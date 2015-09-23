@@ -10,8 +10,17 @@ public class Test {
     public Test() {
     }
 
-    public static Object stest(boolean b) {
-        for (;; b = !b) {
+    public static void stest(boolean b) {
+        while (true) {
+            if (b) {
+                ;
+                ;
+                ;
+                ;
+                break;
+            } else {
+                break;
+            }
         }
     }
 

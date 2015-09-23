@@ -95,8 +95,7 @@ public interface PainlessVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitSingle(PainlessParser.SingleContext ctx);
 	/**
-	 * Visit a parse tree produced by the {@code empty}
-	 * labeled alternative in {@link PainlessParser#block}.
+	 * Visit a parse tree produced by {@link PainlessParser#empty}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */

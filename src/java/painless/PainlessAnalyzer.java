@@ -64,10 +64,15 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     static class PMetadata {
         final ParseTree node;
 
-        boolean rtn;
-        boolean jump;
         boolean statement;
-        boolean conditional;
+        boolean close;
+
+        boolean allrtn;
+        boolean anyrtn;
+        boolean allbreak;
+        boolean anybreak;
+        boolean allcontinue;
+        boolean anycontinue;
 
         boolean righthand;
         PType declptype;
@@ -84,10 +89,15 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         PMetadata(final ParseTree node) {
             this.node = node;
 
-            rtn = false;
-            jump = false;
             statement = false;
-            conditional = false;
+            close = false;
+
+            allrtn = false;
+            anyrtn = false;
+            allbreak = false;
+            anybreak = false;
+            allcontinue = false;
+            anycontinue = false;
 
             righthand = false;
             declptype = null;
@@ -121,7 +131,6 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     private final PType objectptype;
     private final PType stringptype;
 
-    private int loop;
     private final Deque<Integer> ascopes;
     private final Deque<PVariable> pvariables;
 
@@ -141,7 +150,6 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         objectptype = getPTypeFromCanonicalPName(ptypes, PSort.OBJECT.getPName());
         stringptype = getPTypeFromCanonicalPName(ptypes, PSort.STRING.getPName());
 
-        loop = 0;
         ascopes = new ArrayDeque<>();
         pvariables = new ArrayDeque<>();
 
@@ -529,25 +537,38 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitSource(final SourceContext ctx) {
         final PMetadata sourcemd = pmetadata.get(ctx);
+        PMetadata statementmd = null;
 
         incrementScope();
 
         for (final StatementContext sctx : ctx.statement()) {
-            if (sourcemd.rtn) {
-                throw new IllegalStateException(); // TODO: message
+            if (sourcemd.close) {
+                throw new IllegalArgumentException(); // TODO: message
             }
 
-            final PMetadata statementmd = createPMetadata(sctx);
+            statementmd = createPMetadata(sctx);
             visit(sctx);
 
             if (!statementmd.statement) {
-                throw new IllegalStateException(); // TODO: message
+                throw new IllegalArgumentException(); // TODO: message
             }
 
-            sourcemd.rtn = statementmd.rtn;
+            sourcemd.close = statementmd.close;
+
+            if (statementmd.anybreak) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            if (statementmd.anycontinue) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
         }
 
-        sourcemd.statement = true;
+        if (statementmd == null) {
+            throw new IllegalStateException(); // TODO: message
+        }
+
+        sourcemd.allrtn = statementmd.allrtn;
 
         decrementScope();
 
@@ -566,15 +587,29 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         visit(ectx);
         markCast(expressionmd, boolptype, false);
 
+        if (expressionmd.constant != null) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
         final BlockContext bctx0 = ctx.block(0);
         final PMetadata blockmd0 = createPMetadata(bctx0);
         visit(ctx.block(0));
+        ifmd.anyrtn = blockmd0.anyrtn;
+        ifmd.anybreak = blockmd0.anybreak;
+        ifmd.anycontinue = blockmd0.anycontinue;
 
         if (ctx.ELSE() != null) {
             final BlockContext bctx1 = ctx.block(1);
             final PMetadata blockmd1 = createPMetadata(bctx1);
             visit(ctx.block(1));
-            ifmd.rtn = blockmd0.rtn && blockmd1.rtn;
+
+            ifmd.close = blockmd0.close && blockmd1.close;
+            ifmd.allrtn = blockmd0.allrtn && blockmd1.allrtn;
+            ifmd.anyrtn |= blockmd1.anyrtn;
+            ifmd.allbreak = blockmd0.allbreak && blockmd1.allbreak;
+            ifmd.anybreak |= blockmd1.anybreak;
+            ifmd.allcontinue = blockmd0.allcontinue && blockmd1.allcontinue;
+            ifmd.anycontinue |= blockmd1.anycontinue;
         }
 
         ifmd.statement = true;
@@ -589,7 +624,6 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata whilemd = getPMetadata(ctx);
 
         incrementScope();
-        ++loop;
 
         final ExpressionContext ectx = ctx.expression();
         final PMetadata expressionmd = createPMetadata(ectx);
@@ -597,13 +631,50 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         visit(ectx);
         markCast(expressionmd, boolptype, false);
 
+        final boolean emptyallowed = expressionmd.statement;
+        boolean breakrequired = false;
+
+        if (expressionmd.constant != null) {
+            Object constant = invokeTransform(expressionmd.castptypes[0], boolptype, expressionmd.constant, false);
+
+            if (constant == null) {
+                if (expressionmd.constant instanceof Boolean) {
+                    constant = expressionmd.constant;
+                } else {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+            }
+
+            if ((boolean)constant) {
+                breakrequired = true;
+            } else {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+        }
+
         final BlockContext bctx = ctx.block();
-        createPMetadata(bctx);
-        visit(bctx);
+
+        if (bctx != null) {
+            PMetadata blockmd = createPMetadata(bctx);
+            visit(bctx);
+
+            if (blockmd.allrtn) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            if (blockmd.allbreak) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            if (breakrequired && !blockmd.anybreak) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+        } else if (!emptyallowed) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
 
         whilemd.statement = true;
 
-        --loop;
         decrementScope();
 
         return null;
@@ -614,11 +685,22 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata domd = getPMetadata(ctx);
 
         incrementScope();
-        ++loop;
 
         final BlockContext bctx = ctx.block();
-        createPMetadata(bctx);
+        final PMetadata blockmd = createPMetadata(bctx);
         visit(bctx);
+
+        if (blockmd.allrtn) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (blockmd.allbreak) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (blockmd.allcontinue) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
 
         final ExpressionContext ectx = ctx.expression();
         final PMetadata expressionmd = createPMetadata(ectx);
@@ -626,9 +708,28 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         visit(ectx);
         markCast(expressionmd, boolptype, false);
 
+        if (expressionmd.constant != null) {
+            Object constant = invokeTransform(expressionmd.castptypes[0], boolptype, expressionmd.constant, false);
+
+            if (constant == null) {
+                if (expressionmd.constant instanceof Boolean) {
+                    constant = expressionmd.constant;
+                } else {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+            }
+
+            if ((boolean)constant && !expressionmd.anybreak) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            if (!(boolean)constant && !expressionmd.anycontinue) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+        }
+
         domd.statement = true;
 
-        --loop;
         decrementScope();
 
         return null;
@@ -637,9 +738,10 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitFor(final ForContext ctx) {
         final PMetadata formd = getPMetadata(ctx);
+        boolean emptyallowed = false;
+        boolean breakrequired = false;
 
         incrementScope();
-        ++loop;
 
         final DeclarationContext dctx = ctx.declaration();
 
@@ -659,6 +761,28 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             expressionmd0.righthand = true;
             visit(ectx0);
             markCast(expressionmd0, boolptype, false);
+
+            emptyallowed = expressionmd0.statement;
+
+            if (expressionmd0.constant != null) {
+                Object constant = invokeTransform(expressionmd0.castptypes[0], boolptype, expressionmd0.constant, false);
+
+                if (constant == null) {
+                    if (expressionmd0.constant instanceof Boolean) {
+                        constant = expressionmd0.constant;
+                    } else {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+                }
+
+                if ((boolean)constant) {
+                    breakrequired = true;
+                } else {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+            }
+        } else {
+            breakrequired = true;
         }
 
         final ExpressionContext ectx1 = ctx.expression(0);
@@ -670,15 +794,35 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             if (!expressionmd1.statement) {
                 throw new IllegalStateException(); // TODO: message
             }
+
+            emptyallowed = true;
         }
 
         final BlockContext bctx = ctx.block();
-        createPMetadata(bctx);
-        visit(bctx);
+
+        if (bctx != null) {
+            final PMetadata blockmd = createPMetadata(bctx);
+            visit(bctx);
+
+            if (blockmd.allrtn) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            if (blockmd.allbreak) {
+                throw new IllegalArgumentException(); //TODO: message
+            }
+
+            if (breakrequired && !blockmd.anybreak) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+        } else if (breakrequired) {
+            throw new IllegalArgumentException(); // TODO: message
+        } else if (!emptyallowed) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
 
         formd.statement = true;
 
-        --loop;
         decrementScope();
 
         return null;
@@ -701,12 +845,11 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     public Void visitContinue(final ContinueContext ctx) {
         final PMetadata continuemd = getPMetadata(ctx);
 
-        if (loop == 0) {
-            throw new IllegalStateException(); // TODO: message
-        }
-
-        continuemd.jump = true;
         continuemd.statement = true;
+        continuemd.close = true;
+
+        continuemd.allcontinue = true;
+        continuemd.anycontinue = true;
 
         return null;
     }
@@ -715,12 +858,11 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     public Void visitBreak(final BreakContext ctx) {
         final PMetadata breakmd = getPMetadata(ctx);
 
-        if (loop == 0) {
-            throw new IllegalStateException();  // TODO: message
-        }
-
-        breakmd.jump = true;
         breakmd.statement = true;
+        breakmd.close = true;
+
+        breakmd.allbreak = true;
+        breakmd.anybreak = true;
 
         return null;
     }
@@ -735,8 +877,11 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         visit(ectx);
         markCast(expressionmd, objectptype, false);
 
-        returnmd.rtn = true;
         returnmd.statement = true;
+        returnmd.close = true;
+
+        returnmd.allrtn = true;
+        returnmd.anyrtn = true;
 
         return null;
     }
@@ -765,9 +910,12 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitMultiple(final MultipleContext ctx) {
         final PMetadata multiplemd = getPMetadata(ctx);
+        multiplemd.allrtn = true;
+        multiplemd.allbreak = true;
+        multiplemd.allcontinue = true;
 
         for (StatementContext sctx : ctx.statement()) {
-            if (multiplemd.rtn || multiplemd.jump) {
+            if (multiplemd.close) {
                 throw new IllegalStateException();  // TODO: message
             }
 
@@ -778,8 +926,14 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 throw new IllegalStateException(); // TODO: message
             }
 
-            multiplemd.rtn = statementmd.rtn;
-            multiplemd.jump = statementmd.jump;
+            multiplemd.close = statementmd.close;
+
+            multiplemd.allrtn &= statementmd.allrtn && !statementmd.anybreak && !statementmd.anycontinue;
+            multiplemd.anyrtn |= statementmd.anyrtn;
+            multiplemd.allbreak &= !statementmd.anyrtn && statementmd.allbreak && !statementmd.anycontinue;
+            multiplemd.anybreak |= statementmd.anybreak;
+            multiplemd.allcontinue &= !statementmd.anyrtn && !statementmd.anybreak && !statementmd.allcontinue;
+            multiplemd.anycontinue |= statementmd.anycontinue;
         }
 
         multiplemd.statement = true;
@@ -800,16 +954,21 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         }
 
         singlemd.statement = true;
+        singlemd.close = statementmd.close;
+
+        singlemd.allrtn = statementmd.allrtn;
+        singlemd.anyrtn = statementmd.anyrtn;
+        singlemd.allbreak = statementmd.allbreak;
+        singlemd.anybreak = statementmd.anybreak;
+        singlemd.allcontinue = statementmd.allcontinue;
+        singlemd.anycontinue = statementmd.anycontinue;
 
         return null;
     }
 
     @Override
     public Void visitEmpty(final EmptyContext ctx) {
-        final PMetadata emptymd = getPMetadata(ctx);
-        emptymd.statement = true;
-
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
@@ -1048,9 +1207,9 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 final Object constant = invokeTransform(pfrom, boolptype, expressionmd.constant, false);
 
                 if (constant != null) {
-                    unarymd.constant = !((Boolean)constant);
+                    unarymd.constant = !((boolean)constant);
                 } else if (expressionmd.constant instanceof Boolean) {
-                    unarymd.constant = !((Boolean)expressionmd.constant);
+                    unarymd.constant = !((boolean)expressionmd.constant);
                 } else {
                     throw new IllegalArgumentException(); // TODO: message
                 }
@@ -1662,15 +1821,10 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final ExpressionContext ectx0 = ctx.expression(0);
         final PMetadata expressionmd0 = createPMetadata(ectx0);
         visit(ectx0);
+        markCast(expressionmd0, boolptype, false);
 
         if (expressionmd0.constant != null) {
-            Object constant = invokeTransform(expressionmd0.castptypes[0], boolptype, expressionmd0.constant, false);
-
-            if (constant == null) {
-                constant = expressionmd0.constant;
-            }
-
-            conditionalmd.constant = constant;
+            throw new IllegalArgumentException(); // TODO: message
         }
 
         final ExpressionContext ectx1 = ctx.expression(1);
@@ -1681,38 +1835,17 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata expressionmd2 = createPMetadata(ectx2);
         visit(ectx2);
 
-        boolean constant0 = false;
-        boolean constant1 = false;
+        final int nodeslen1 = expressionmd1.castnodes.length;
+        final int nodeslen2 = expressionmd2.castnodes.length;
+        conditionalmd.castnodes = new ParseTree[nodeslen1 + nodeslen2];
+        System.arraycopy(expressionmd1.castnodes, 0, conditionalmd.castnodes, 0, nodeslen1);
+        System.arraycopy(expressionmd2.castnodes, 0, conditionalmd.castnodes, nodeslen1, nodeslen2);
 
-        if (conditionalmd.constant != null) {
-            if ((boolean)conditionalmd.constant && expressionmd1.constant != null) {
-                constant0 = true;
-            } else if (expressionmd2.constant != null) {
-                constant1 = true;
-            }
-        }
-
-        if (constant0) {
-            conditionalmd.constant = expressionmd1.constant;
-            conditionalmd.castptypes[0] = expressionmd1.castptypes[0];
-        } else if (constant1) {
-            conditionalmd.constant = expressionmd2.constant;
-            conditionalmd.castptypes[0] = expressionmd2.castptypes[0];
-        } else {
-            final int nodeslen1 = expressionmd1.castnodes.length;
-            final int nodeslen2 = expressionmd2.castnodes.length;
-            conditionalmd.castnodes = new ParseTree[nodeslen1 + nodeslen2];
-            System.arraycopy(expressionmd1.castnodes, 0, conditionalmd.castnodes, 0, nodeslen1);
-            System.arraycopy(expressionmd2.castnodes, 0, conditionalmd.castnodes, nodeslen1, nodeslen2);
-
-            final int castslen1 = expressionmd1.castptypes.length;
-            final int castslen2 = expressionmd2.castptypes.length;
-            conditionalmd.castnodes = new ParseTree[castslen1 + castslen2];
-            System.arraycopy(expressionmd1.castptypes, 0, conditionalmd.castptypes, 0, castslen1);
-            System.arraycopy(expressionmd2.castptypes, 0, conditionalmd.castptypes, castslen1, castslen2);
-
-            conditionalmd.conditional = true;
-        }
+        final int castslen1 = expressionmd1.castptypes.length;
+        final int castslen2 = expressionmd2.castptypes.length;
+        conditionalmd.castnodes = new ParseTree[castslen1 + castslen2];
+        System.arraycopy(expressionmd1.castptypes, 0, conditionalmd.castptypes, 0, castslen1);
+        System.arraycopy(expressionmd2.castptypes, 0, conditionalmd.castptypes, castslen1, castslen2);
 
         return null;
     }
