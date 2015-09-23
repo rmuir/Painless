@@ -142,8 +142,8 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         stringptype = getPTypeFromCanonicalPName(ptypes, PSort.STRING.getPName());
 
         loop = 0;
-        pvariables = new ArrayDeque<>();
         ascopes = new ArrayDeque<>();
+        pvariables = new ArrayDeque<>();
 
         pmetadata = new HashMap<>();
 
@@ -212,7 +212,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         return nodemd;
     }
 
-    private PMetadata getPMetadata(ParseTree node) {
+    private PMetadata getPMetadata(final ParseTree node) {
         final PMetadata nodemd = pmetadata.get(node);
 
         if (nodemd == null) {
@@ -642,25 +642,34 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         ++loop;
 
         final DeclarationContext dctx = ctx.declaration();
-        final PMetadata declarationmd = createPMetadata(dctx);
-        visit(dctx);
 
-        if (!declarationmd.statement) {
-            throw new IllegalStateException(); // TODO: message
+        if (dctx != null) {
+            final PMetadata declarationmd = createPMetadata(dctx);
+            visit(dctx);
+
+            if (!declarationmd.statement) {
+                throw new IllegalStateException(); // TODO: message
+            }
         }
 
         final ExpressionContext ectx0 = ctx.expression(0);
-        final PMetadata expressionmd0 = createPMetadata(ectx0);
-        expressionmd0.righthand = true;
-        visit(ectx0);
-        markCast(expressionmd0, boolptype, false);
+
+        if (ectx0 != null) {
+            final PMetadata expressionmd0 = createPMetadata(ectx0);
+            expressionmd0.righthand = true;
+            visit(ectx0);
+            markCast(expressionmd0, boolptype, false);
+        }
 
         final ExpressionContext ectx1 = ctx.expression(0);
-        final PMetadata expressionmd1 = createPMetadata(ectx1);
-        visit(ectx1);
 
-        if (!expressionmd1.statement) {
-            throw new IllegalStateException(); // TODO: message
+        if (ectx1 != null) {
+            final PMetadata expressionmd1 = createPMetadata(ectx1);
+            visit(ectx1);
+
+            if (!expressionmd1.statement) {
+                throw new IllegalStateException(); // TODO: message
+            }
         }
 
         final BlockContext bctx = ctx.block();
@@ -742,6 +751,14 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         exprmd.statement = expressionmd.statement;
 
+        if (expressionmd.castptypes != null) {
+            if (expressionmd.castptypes.length != 1) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            exprmd.constant = expressionmd.castptypes[0];
+        }
+
         return null;
     }
 
@@ -754,7 +771,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 throw new IllegalStateException();  // TODO: message
             }
 
-            final PMetadata statementmd = new PMetadata(sctx);
+            final PMetadata statementmd = createPMetadata(sctx);
             visit(sctx);
 
             if (!statementmd.statement) {
@@ -775,7 +792,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata singlemd = getPMetadata(ctx);
 
         final StatementContext sctx = ctx.statement();
-        final PMetadata statementmd = new PMetadata(sctx);
+        final PMetadata statementmd = createPMetadata(sctx);
         visit(sctx);
 
         if (!statementmd.statement) {
@@ -928,7 +945,8 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             throw new IllegalStateException(); // TODO: message
         }
 
-        stringmd.constant = ctx.STRING().getText();
+        final int length = ctx.STRING().getText().length();
+        stringmd.constant = ctx.STRING().getText().substring(1, length - 1);
         stringmd.castnodes = new ParseTree[] {ctx};
         stringmd.castptypes = new PType[] {stringptype};
 

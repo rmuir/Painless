@@ -8,12 +8,11 @@ public class Test {
     int j;
 
     public Test() {
-        Object b = 5;
-        Integer integer = Integer.valueOf((int)b);
     }
 
-    public static void stest() {
-
+    public static Object stest(boolean b) {
+        for (;; b = !b) {
+        }
     }
 
     public void mtest(int... blah) {

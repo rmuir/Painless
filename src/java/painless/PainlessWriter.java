@@ -1,38 +1,80 @@
 package painless;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.Map;
+
+import jdk.nashorn.internal.runtime.regexp.joni.constants.OPCode;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.Method;
 
+import static painless.PainlessAnalyzer.*;
 import static painless.PainlessParser.*;
+import static painless.PainlessTypes.*;
 
-class PainlessWriter extends PainlessBaseVisitor<Object>{
+class PainlessWriter extends PainlessBaseVisitor<Void>{
+    private static class PJump {
+        private final ParseTree source;
+
+        private Label abegin;
+        private Label aend;
+        private Label atrue;
+        private Label afalse;
+
+        PJump(final ParseTree source) {
+            this.source = source;
+
+            abegin = null;
+            aend = null;
+            atrue = null;
+            afalse = null;
+        }
+    }
+
     final static String BASE_CLASS_NAME = PainlessExecutable.class.getName();
     final static String CLASS_NAME = BASE_CLASS_NAME + "$CompiledPainlessExecutable";
     final static String BASE_CLASS_INTERNAL = Type.getType(PainlessExecutable.class).getInternalName();
     final static String CLASS_INTERNAL = BASE_CLASS_INTERNAL + "$CompiledPainlessExecutable";
 
-    static byte[] write(String source, ParseTree tree) {
-        PainlessWriter writer = new PainlessWriter(source, tree);
+    static byte[] write(final PTypes ptypes, final String source,
+                        final ParseTree tree, final Map<ParseTree, PMetadata> pmetadata) {
+        PainlessWriter writer = new PainlessWriter(ptypes, source, tree, pmetadata);
+
         return writer.getBytes();
     }
 
-    private ClassWriter writer;
-    //private PainlessAdapter execute;
+    private final PTypes ptypes;
+    private final Map<ParseTree, PMetadata> pmetadata;
 
-    private PainlessWriter(String source, ParseTree tree) {
+    private final HashMap<ParseTree, PJump> pbranches;
+    private final Deque<PJump> ploops;
+
+    private ClassWriter writer;
+    private MethodVisitor execute;
+
+    private PainlessWriter(final PTypes ptypes, final String source,
+                           final ParseTree root, final Map<ParseTree, PMetadata> pmetadata) {
+        this.ptypes = ptypes;
+        this.pmetadata = pmetadata;
+
+        this.pbranches = new HashMap<>();
+        this.ploops = new ArrayDeque<>();
+
         writeBegin(source);
         writeConstructor();
-        writeExecute(tree);
+        writeExecute(root);
         writeEnd();
     }
 
-    private void writeBegin(String source) {
+    private void writeBegin(final String source) {
         final int compute = ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS;
-        final int version = Opcodes.V1_8;
+        final int version = Opcodes.V1_7;
         final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER | Opcodes.ACC_FINAL | Opcodes.ACC_SYNTHETIC;
         final String base = BASE_CLASS_INTERNAL;
         final String name = CLASS_INTERNAL;
@@ -58,235 +100,354 @@ class PainlessWriter extends PainlessBaseVisitor<Object>{
         constructor.visitEnd();
     }
 
-    private void writeExecute(ParseTree tree) {
+    private void writeExecute(final ParseTree root) {
         final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
         final Method method = Method.getMethod("Object execute(java.util.Map);");
         final String signature = "(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)Ljava/lang/Object;";
 
-        final MethodVisitor visitor = writer.visitMethod(access, method.getName(), method.getDescriptor(), signature, null);
-        /*execute = new PainlessAdapter(visitor);
+        execute = writer.visitMethod(access, method.getName(), method.getDescriptor(), signature, null);
+
         execute.visitCode();
 
-        execute.newVariable("this", "executable", 0, false);
-        execute.newVariable("input", "map", 0, false);
-
-        visit(tree);
+        visit(root);
 
         execute.visitMaxs(0, 0);
-        execute.visitEnd();*/
+        execute.visitEnd();
+    }
+
+    private PMetadata getPMetadata(final ParseTree node) {
+        final PMetadata nodemd = pmetadata.get(node);
+
+        if (nodemd == null) {
+            throw new IllegalStateException(); // TODO: message
+        }
+
+        return nodemd;
+    }
+
+    private void writeCast(PCast pcast) {
+
+    }
+
+    private void writeTransform(PTransform ptransform) {
+
     }
 
     @Override
-    public Object visitSource(SourceContext ctx) {
-        //execute.incrementScope();
+    public Void visitSource(SourceContext ctx) {
+        PMetadata sourcemd = getPMetadata(ctx);
 
         for (StatementContext sctx : ctx.statement()) {
             visit(sctx);
         }
 
-        //execute.decrementScope();
+        if (!sourcemd.rtn) {
+            execute.visitInsn(Opcodes.ACONST_NULL);
+            execute.visitInsn(Opcodes.ARETURN);
+        }
 
         return null;
     }
 
     @Override
-    public Object visitIf(IfContext ctx) {
+    public Void visitIf(IfContext ctx) {
+        final ExpressionContext ectx = ctx.expression();
+        final boolean pelse = ctx.ELSE() != null;
+
+        final PJump pjump = new PJump(ctx);
+        pjump.aend = new Label();
+        pjump.afalse = pelse ? new Label() : pjump.aend;
+
+        pbranches.put(ectx, pjump);
+        visit(ectx);
+        visit(ctx.block(0));
+
+        if (pelse) {
+            execute.visitJumpInsn(Opcodes.GOTO, pjump.aend);
+            execute.visitLabel(pjump.afalse);
+            visit(ctx.block(1));
+        }
+
+        execute.visitLabel(pjump.aend);
+
         return null;
     }
 
     @Override
-    public Object visitWhile(WhileContext ctx) {
+    public Void visitWhile(WhileContext ctx) {
+        final ExpressionContext ectx = ctx.expression();
+
+        final PJump pjump = new PJump(ctx);
+        pjump.abegin = new Label();
+        pjump.aend = new Label();
+        pjump.afalse = pjump.aend;
+
+        pbranches.put(ectx, pjump);
+        ploops.push(pjump);
+        execute.visitLabel(pjump.abegin);
+        visit(ectx);
+        visit(ctx.block());
+        execute.visitJumpInsn(Opcodes.GOTO, pjump.abegin);
+        execute.visitLabel(pjump.aend);
+        ploops.pop();
+
         return null;
     }
 
     @Override
-    public Object visitDo(DoContext ctx) {
+    public Void visitDo(DoContext ctx) {
+        final ExpressionContext ectx = ctx.expression();
+
+        final PJump pjump = new PJump(ctx);
+        pjump.abegin = new Label();
+        pjump.atrue = pjump.abegin;
+        pjump.aend = new Label();
+
+        pbranches.put(ectx, pjump);
+        ploops.push(pjump);
+        execute.visitLabel(pjump.atrue);
+        visit(ctx.block());
+        visit(ctx.expression());
+        execute.visitLabel(pjump.aend);
+        ploops.pop();
+
         return null;
     }
 
     @Override
-    public Object visitFor(ForContext ctx) {
+    public Void visitFor(ForContext ctx) {
+        final ExpressionContext ectx0 = ctx.expression(0);
+
+        final PJump pjump = new PJump(ctx);
+        pjump.abegin = new Label();
+        pjump.aend = new Label();
+        pjump.afalse = pjump.aend;
+
+        ploops.push(pjump);
+
+        if (ctx.declaration() != null) {
+            visit(ctx.declaration());
+        }
+
+        execute.visitLabel(pjump.abegin);
+
+        if (ectx0 != null) {
+            pbranches.put(ectx0, pjump);
+            visit(ectx0);
+        }
+
+        visit(ctx.block());
+
+        if (ctx.expression(1) != null) {
+            visit(ctx.expression(1));
+        }
+
+        execute.visitJumpInsn(Opcodes.GOTO, pjump.abegin);
+        execute.visitLabel(pjump.aend);
+        ploops.pop();
+
         return null;
     }
 
     @Override
-    public Object visitContinue(ContinueContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Object visitBreak(BreakContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Object visitDecl(DeclContext ctx) {
+    public Void visitDecl(DeclContext ctx) {
         visit(ctx.declaration());
 
         return null;
     }
 
     @Override
-    public Object visitExpr(ExprContext ctx) {
+    public Void visitContinue(ContinueContext ctx) {
+        final PJump pjump = ploops.peek();
+        execute.visitJumpInsn(Opcodes.GOTO, pjump.abegin);
+
         return null;
     }
 
     @Override
-    public Object visitMultiple(MultipleContext ctx) {
+    public Void visitBreak(BreakContext ctx) {
+        final PJump pjump = ploops.peek();
+        execute.visitJumpInsn(Opcodes.GOTO, pjump.aend);
+
         return null;
     }
 
     @Override
-    public Object visitSingle(SingleContext ctx) {
+    public Void visitReturn(ReturnContext ctx) {
+        visit(ctx.expression());
+        execute.visitInsn(Opcodes.ARETURN);
+
         return null;
     }
 
     @Override
-    public Object visitDeclaration(DeclarationContext ctx) {
-        /*PainlessVariable variable = null;
-        String declaration = ctx.TYPE().getText();
+    public Void visitExpr(ExprContext ctx) {
+        visit(ctx.expression());
 
-        for (int child = 0; child < ctx.getChildCount(); ++child) {
-            ParseTree cctx = ctx.getChild(child);
+        final PMetadata exprmd = getPMetadata(ctx);
 
-            if (cctx instanceof VariableContext) {
-                VariableContext vctx = (VariableContext)cctx;
+        if (exprmd.constant instanceof PType) {
+            final int asize = ((PType)exprmd.constant).getPSort().getASize();
 
-                String name = vctx.ID().getText();
-                int dimensions = vctx.LBRACE().size();
-
-                variable = execute.newVariable(name, declaration, dimensions, true);
-            } else if (cctx instanceof ExpressionContext) {
-                execute.pushExpectedType(variable.getType());
-                visit(cctx);
-                execute.storeVariable(variable);
-                execute.popExpectedType();
+            if (asize == 1) {
+                execute.visitInsn(Opcodes.POP);
+            } else if (asize == 2) {
+                execute.visitInsn(Opcodes.POP2);
             }
-        }*/
-
-        return null;
-    }
-
-    @Override
-    public Object visitExt(ExtContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Object visitString(StringContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Object visitConditional(ConditionalContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Object visitAssignment(AssignmentContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Object visitFalse(FalseContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Object visitNumeric(NumericContext ctx) {
-        /*if (!PainlessTypeUtility.isDescriptorNumeric(aexpected.peek())) {
-            throw new IllegalStateException();
         }
 
-        if (ctx.DECIMAL() != null) {
-            String value = ctx.DECIMAL().getText();
-            double push = Double.parseDouble(value);
+        return null;
+    }
 
-            if (push == 0.0) {
-                execute.visitInsn(Opcodes.DCONST_0);
-            } else if (push == 1.0) {
-                execute.visitInsn(Opcodes.DCONST_1);
-            } else {
-                execute.visitLdcInsn(push);
-            }
-
-        } else {
-            String value;
-            int base;
-
-            if (ctx.HEX() != null) {
-                value = ctx.HEX().getText().substring(2);
-                base = 16;
-            } else if (ctx.INTEGER() != null) {
-                value = ctx.INTEGER().getText();
-                base = 10;
-            } else if (ctx.OCTAL() != null) {
-                value = ctx.OCTAL().getText().substring(1);
-                base = 8;
-            } else {
-                throw new IllegalStateException();
-            }
-
-            long push = Long.parseLong(value, base);
-
-            if (push == -1) {
-                execute.visitInsn(Opcodes.ICONST_M1);
-            } else if (push == 0) {
-                execute.visitInsn(Opcodes.ICONST_0);
-            } else if (push == 1) {
-                execute.visitInsn(Opcodes.ICONST_1);
-            } else if (push == 2) {
-                execute.visitInsn(Opcodes.ICONST_2);
-            } else if (push == 3) {
-                execute.visitInsn(Opcodes.ICONST_3);
-            } else if (push == 4) {
-                execute.visitInsn(Opcodes.ICONST_4);
-            } else if (push == 5) {
-                execute.visitInsn(Opcodes.ICONST_5);
-            } else if (push >= Byte.MIN_VALUE && push <= Byte.MAX_VALUE) {
-                execute.visitIntInsn(Opcodes.BIPUSH, (int) push);
-            } else if (push >= Short.MIN_VALUE && push <= Short.MAX_VALUE) {
-                execute.visitIntInsn(Opcodes.SIPUSH, (int) push);
-            } else {
-                execute.visitLdcInsn(push);
-            }
-        }*/
+    @Override
+    public Void visitMultiple(MultipleContext ctx) {
+        for (StatementContext sctx : ctx.statement()) {
+            visit(sctx);
+        }
 
         return null;
     }
 
     @Override
-    public Object visitUnary(UnaryContext ctx) {
+    public Void visitSingle(SingleContext ctx) {
+        visit(ctx.statement());
+
         return null;
     }
 
     @Override
-    public Object visitPrecedence(PrecedenceContext ctx) {
+    public Void visitEmpty(EmptyContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitNull(NullContext ctx) {
+    public Void visitDeclaration(DeclarationContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitChar(CharContext ctx) {
+    public Void visitDecltype(DecltypeContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitTrue(TrueContext ctx) {
+    public Void visitExt(ExtContext ctx) {
         return null;
     }
 
     @Override
-    public Object visitArguments(ArgumentsContext ctx) {
+    public Void visitComp(CompContext ctx) {
         return null;
     }
 
-    @Override public Object visitCast(PainlessParser.CastContext ctx) {
-        return visitChildren(ctx);
+    @Override
+    public Void visitString(StringContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitBool(BoolContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitConditional(ConditionalContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitAssignment(AssignmentContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitFalse(FalseContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitNumeric(NumericContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitUnary(UnaryContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitPrecedence(PrecedenceContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitCast(CastContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitNull(NullContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitBinary(BinaryContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitChar(CharContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitTrue(TrueContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitExtstart(ExtstartContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitExtprec(ExtprecContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitExtcast(ExtcastContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitExtarray(ExtarrayContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitExtdot(ExtdotContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitExttype(ExttypeContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitExtcall(ExtcallContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitExtmember(ExtmemberContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitArguments(ArgumentsContext ctx) {
+        return null;
     }
 
     private void writeEnd() {
