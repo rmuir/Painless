@@ -11,17 +11,17 @@ public class Test {
     }
 
     public static void stest(boolean b) {
-        while (true) {
-            if (b) {
-                ;
-                ;
-                ;
-                ;
-                break;
-            } else {
-                break;
+        while (b) {
+            while (true) {
+                if (b) {
+                    return;
+                } else {
+                    return;
+                }
             }
         }
+
+        return;
     }
 
     public void mtest(int... blah) {

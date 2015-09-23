@@ -632,7 +632,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         markCast(expressionmd, boolptype, false);
 
         final boolean emptyallowed = expressionmd.statement;
-        boolean breakrequired = false;
+        boolean exitrequired = false;
 
         if (expressionmd.constant != null) {
             Object constant = invokeTransform(expressionmd.castptypes[0], boolptype, expressionmd.constant, false);
@@ -646,7 +646,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             }
 
             if ((boolean)constant) {
-                breakrequired = true;
+                exitrequired = true;
             } else {
                 throw new IllegalArgumentException(); // TODO: message
             }
@@ -666,8 +666,12 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 throw new IllegalArgumentException(); // TODO: message
             }
 
-            if (breakrequired && !blockmd.anybreak) {
+            if (exitrequired && !blockmd.anyrtn && !blockmd.anybreak) {
                 throw new IllegalArgumentException(); // TODO: message
+            }
+
+            if (exitrequired && blockmd.anyrtn && !blockmd.anybreak) {
+                whilemd.close = true;
             }
         } else if (!emptyallowed) {
             throw new IllegalArgumentException(); // TODO: message
@@ -719,11 +723,15 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 }
             }
 
-            if ((boolean)constant && !expressionmd.anybreak) {
+            if ((boolean)constant && !blockmd.anyrtn && !blockmd.anybreak) {
                 throw new IllegalArgumentException(); // TODO: message
             }
 
-            if (!(boolean)constant && !expressionmd.anycontinue) {
+            if ((boolean)constant && blockmd.anyrtn && !blockmd.anybreak) {
+                domd.close = true;
+            }
+
+            if (!(boolean)constant && !blockmd.anycontinue) {
                 throw new IllegalArgumentException(); // TODO: message
             }
         }
@@ -739,7 +747,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     public Void visitFor(final ForContext ctx) {
         final PMetadata formd = getPMetadata(ctx);
         boolean emptyallowed = false;
-        boolean breakrequired = false;
+        boolean exitrequired = false;
 
         incrementScope();
 
@@ -776,13 +784,13 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 }
 
                 if ((boolean)constant) {
-                    breakrequired = true;
+                    exitrequired = true;
                 } else {
                     throw new IllegalArgumentException(); // TODO: message
                 }
             }
         } else {
-            breakrequired = true;
+            exitrequired = true;
         }
 
         final ExpressionContext ectx1 = ctx.expression(1);
@@ -812,10 +820,14 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 throw new IllegalArgumentException(); //TODO: message
             }
 
-            if (breakrequired && !blockmd.anybreak) {
+            if (exitrequired && !blockmd.anyrtn && !blockmd.anybreak) {
                 throw new IllegalArgumentException(); // TODO: message
             }
-        } else if (breakrequired) {
+
+            if (exitrequired && blockmd.anyrtn && !blockmd.anybreak) {
+                formd.close = true;
+            }
+        } else if (exitrequired) {
             throw new IllegalArgumentException(); // TODO: message
         } else if (!emptyallowed) {
             throw new IllegalArgumentException(); // TODO: message
