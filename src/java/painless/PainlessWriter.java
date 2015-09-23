@@ -175,6 +175,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     @Override
     public Void visitWhile(WhileContext ctx) {
         final ExpressionContext ectx = ctx.expression();
+        final BlockContext bctx = ctx.block();
 
         final PJump pjump = new PJump(ctx);
         pjump.abegin = new Label();
@@ -185,7 +186,11 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         ploops.push(pjump);
         execute.visitLabel(pjump.abegin);
         visit(ectx);
-        visit(ctx.block());
+
+        if (bctx != null) {
+            visit(ctx.block());
+        }
+
         execute.visitJumpInsn(Opcodes.GOTO, pjump.abegin);
         execute.visitLabel(pjump.aend);
         ploops.pop();
@@ -216,6 +221,8 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     @Override
     public Void visitFor(ForContext ctx) {
         final ExpressionContext ectx0 = ctx.expression(0);
+        final ExpressionContext ectx1 = ctx.expression(1);
+        final BlockContext bctx = ctx.block();
 
         final PJump pjump = new PJump(ctx);
         pjump.abegin = new Label();
@@ -235,9 +242,11 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
             visit(ectx0);
         }
 
-        visit(ctx.block());
+        if (bctx != null) {
+            visit(ctx.block());
+        }
 
-        if (ctx.expression(1) != null) {
+        if (ectx1 != null) {
             visit(ctx.expression(1));
         }
 

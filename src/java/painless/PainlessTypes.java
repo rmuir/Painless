@@ -1036,7 +1036,11 @@ class PainlessTypes {
             PSort psort = PSort.OBJECT;
 
             for (PSort pvalue : PSort.values()) {
-                if (pvalue.getPName() == pnamestr) {
+                if (pvalue == PSort.ARRAY) {
+                    continue;
+                }
+
+                if (pvalue.getPName().equals(pnamestr)) {
                     psort = pvalue;
                 }
             }

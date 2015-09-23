@@ -785,7 +785,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             breakrequired = true;
         }
 
-        final ExpressionContext ectx1 = ctx.expression(0);
+        final ExpressionContext ectx1 = ctx.expression(1);
 
         if (ectx1 != null) {
             final PMetadata expressionmd1 = createPMetadata(ectx1);
