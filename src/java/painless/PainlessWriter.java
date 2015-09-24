@@ -140,7 +140,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     }
 
-    private void checkWritePBranch(final PJump abranch) {
+    private void checkWriteABranch(final PJump abranch) {
         if (abranch != null) {
             if (abranch.atrue != null) {
                 execute.visitJumpInsn(Opcodes.IF_ICMPNE, abranch.atrue);
@@ -504,7 +504,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
         writePNumeric(numeric);
         checkWritePCast(numericmd);
-        checkWritePBranch(abranch);
+        checkWriteABranch(abranch);
 
         return null;
     }
@@ -517,7 +517,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
         writePString(string);
         checkWritePCast(stringmd);
-        checkWritePBranch(abranch);
+        checkWriteABranch(abranch);
 
         return null;
     }
@@ -530,7 +530,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
         writePNumeric((int)(char)character);
         checkWritePCast(charmd);
-        checkWritePBranch(abranch);
+        checkWriteABranch(abranch);
 
         return null;
     }
@@ -572,7 +572,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
         execute.visitInsn(Opcodes.ACONST_NULL);
         checkWritePCast(nullmd);
-        checkWritePBranch(abranch);
+        checkWriteABranch(abranch);
 
         return null;
     }
@@ -615,7 +615,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         }
 
         checkWritePCast(unarymd);
-        checkWritePBranch(abranch);
+        checkWriteABranch(abranch);
 
         return null;
     }
@@ -648,8 +648,8 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
             if (abranch == null) {
                 if (ctx.BOOLAND() != null) {
                     final PJump localabranch = new PJump(ctx);
-                    localabranch.aend = new Label();
                     localabranch.afalse = new Label();
+                    final Label aend = new Label();
 
                     abranches.put(ectx0, localabranch);
                     visit(ectx0);
@@ -657,18 +657,16 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                     visit(ectx1);
 
                     execute.visitInsn(Opcodes.ICONST_1);
-                    execute.visitJumpInsn(Opcodes.GOTO, localabranch.aend);
+                    execute.visitJumpInsn(Opcodes.GOTO, aend);
                     execute.visitLabel(localabranch.afalse);
                     execute.visitInsn(Opcodes.ICONST_0);
-                    execute.visitLabel(localabranch.aend);
-
-                    checkWritePCast(unarymd);
+                    execute.visitLabel(aend);
                 } else if (ctx.BOOLOR() != null) {
                     final PJump abranch0 = new PJump(ctx);
                     abranch0.atrue = new Label();
                     final PJump abranch1 = new PJump(ctx);
                     abranch1.afalse = new Label();
-                    abranch1.aend = new Label();
+                    final Label aend = new Label();
 
                     abranches.put(ectx0, abranch0);
                     visit(ectx0);
@@ -677,18 +675,46 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
                     execute.visitLabel(abranch0.atrue);
                     execute.visitInsn(Opcodes.ICONST_1);
-                    execute.visitJumpInsn(Opcodes.GOTO, abranch1.aend);
+                    execute.visitJumpInsn(Opcodes.GOTO, aend);
                     execute.visitLabel(abranch1.afalse);
                     execute.visitInsn(Opcodes.ICONST_0);
-                    execute.visitLabel(abranch1.aend);
+                    execute.visitLabel(aend);
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
+
+                checkWritePCast(unarymd);
             } else {
                 if (ctx.BOOLAND() != null) {
+                    final PJump abranch0 = new PJump(ctx);
+                    abranch0.afalse = abranch.afalse == null ? new Label() : abranch.afalse;
+                    final PJump abranch1 = new PJump(ctx);
+                    abranch1.atrue = abranch.atrue;
+                    abranch1.afalse = abranch.afalse;
 
+                    abranches.put(ectx0, abranch0);
+                    visit(ectx0);
+                    abranches.put(ectx1, abranch1);
+                    visit(ectx1);
+
+                    if (abranch.afalse == null) {
+                        execute.visitLabel(abranch0.afalse);
+                    }
                 } else if (ctx.BOOLOR() != null) {
+                    final PJump abranch0 = new PJump(ctx);
+                    abranch0.atrue = abranch.atrue == null ? new Label() : abranch.atrue;
+                    final PJump abranch1 = new PJump(ctx);
+                    abranch1.atrue = abranch.atrue;
+                    abranch1.afalse = abranch.afalse;
 
+                    abranches.put(ectx0, abranch0);
+                    visit(ectx0);
+                    abranches.put(ectx1, abranch1);
+                    visit(ectx1);
+
+                    if (abranch.atrue == null) {
+                        execute.visitLabel(abranch0.atrue);
+                    }
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
