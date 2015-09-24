@@ -1011,6 +1011,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitDeclaration(final DeclarationContext ctx) {
         final PMetadata declarationmd = getPMetadata(ctx);
+        final Map<ParseTree, PVariable> pvariables = new HashMap<>();
 
         final DecltypeContext dctx = ctx.decltype();
         final PMetadata decltypemd = createPMetadata(dctx);
@@ -1021,6 +1022,8 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             throw new IllegalArgumentException(); // TODO: message
         }
 
+        String name = null;
+
         for (int child = 0; child < ctx.getChildCount(); ++child) {
             final ParseTree cctx = ctx.getChild(child);
 
@@ -1028,7 +1031,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 final TerminalNode tctx = (TerminalNode)cctx;
 
                 if (tctx.getSymbol().getType() == PainlessLexer.ID) {
-                    final String name = tctx.getText();
+                    name = tctx.getText();
                     addPVariable(name, declptype);
                 }
             } else if (cctx instanceof ExpressionContext) {
@@ -1037,9 +1040,11 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 expressionmd.righthand = true;
                 visit(ectx);
                 markCast(expressionmd, declptype, false);
+                pvariables.put(ectx, getPVariable(name));
             }
         }
 
+        declarationmd.constant = pvariables;
         declarationmd.statement = true;
 
         return null;

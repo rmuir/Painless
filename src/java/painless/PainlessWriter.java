@@ -51,7 +51,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     private final PTypes ptypes;
     private final Map<ParseTree, PMetadata> pmetadata;
 
-    private final HashMap<ParseTree, PJump> pbranches;
+    private final HashMap<ParseTree, PJump> abranches;
     private final Deque<PJump> ploops;
 
     private ClassWriter writer;
@@ -62,7 +62,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         this.ptypes = ptypes;
         this.pmetadata = pmetadata;
 
-        this.pbranches = new HashMap<>();
+        this.abranches = new HashMap<>();
         this.ploops = new ArrayDeque<>();
 
         writeBegin(source);
@@ -140,21 +140,31 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     }
 
-    private void pushConstant(final Object constant) {
+    private void checkWritePBranch(final PJump abranch) {
+        if (abranch != null) {
+            if (abranch.atrue != null) {
+                execute.visitJumpInsn(Opcodes.IF_ICMPNE, abranch.atrue);
+            } else if (abranch.afalse != null) {
+                execute.visitJumpInsn(Opcodes.IF_ICMPEQ, abranch.afalse);
+            }
+        }
+    }
+
+    private void pushPConstant(final Object constant) {
         if (constant instanceof Number) {
-            pushNumeric(constant);
+            writePNumeric(constant);
         } else if (constant instanceof Character) {
-            pushNumeric((int)(char)constant);
+            writePNumeric((int)(char)constant);
         } else if (constant instanceof String) {
-            pushString(constant);
+            writePString(constant);
         } else if (constant instanceof Boolean) {
-            pushBoolean(constant);
+            writePBoolean(constant);
         } else if (constant != null) {
             throw new IllegalStateException(); // TODO: message
         }
     }
 
-    private void pushNumeric(final Object numeric) {
+    private void writePNumeric(final Object numeric) {
         if (numeric instanceof Double) {
             final long bits = Double.doubleToLongBits((Double)numeric);
 
@@ -216,7 +226,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         }
     }
 
-    private void pushString(final Object constant) {
+    private void writePString(final Object constant) {
         if (constant instanceof String) {
             execute.visitLdcInsn(constant);
         } else {
@@ -224,7 +234,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         }
     }
 
-    private void pushBoolean(final Object constant) {
+    private void writePBoolean(final Object constant) {
         if (constant instanceof Boolean) {
             boolean value = (boolean)constant;
 
@@ -263,7 +273,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         pjump.aend = new Label();
         pjump.afalse = pelse ? new Label() : pjump.aend;
 
-        pbranches.put(ectx, pjump);
+        abranches.put(ectx, pjump);
         visit(ectx);
         visit(ctx.block(0));
 
@@ -295,7 +305,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         execute.visitLabel(pjump.abegin);
 
         if (!(constant instanceof Boolean && (boolean)constant)) {
-            pbranches.put(ectx, pjump);
+            abranches.put(ectx, pjump);
             visit(ectx);
         }
 
@@ -328,7 +338,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         visit(bctx);
 
         if (!(constant instanceof Boolean && (boolean)constant)) {
-            pbranches.put(ectx, pjump);
+            abranches.put(ectx, pjump);
             visit(ectx);
         }
 
@@ -362,7 +372,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         execute.visitLabel(pjump.abegin);
 
         if (!(constant instanceof Boolean && (boolean)constant)) {
-            pbranches.put(ectx0, pjump);
+            abranches.put(ectx0, pjump);
             visit(ectx0);
         }
 
@@ -454,8 +464,14 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitDeclaration(DeclarationContext ctx) {
+        PMetadata declarationmd = getPMetadata(ctx);
+        Map pvariables = (Map)declarationmd.getConstant();
+
         for (final ExpressionContext ectx : ctx.expression()) {
+            final PVariable pvariable = (PVariable)pvariables.get(ctx);
+
             visit(ectx);
+            //TODO: write to slot
         }
 
         return null;
@@ -468,10 +484,14 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitPrecedence(PrecedenceContext ctx) {
-        final PMetadata precedencemd = getPMetadata(ctx);
-        final Object constant = precedencemd.getConstant();
-        final PJump pbranch = pbranches.get(ctx);
+        final PJump abranch = abranches.get(ctx);
         final ExpressionContext ectx = ctx.expression();
+
+        if (abranch != null) {
+            abranches.put(ectx, abranch);
+        }
+
+        visit(ectx);
 
         return null;
     }
@@ -480,13 +500,11 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     public Void visitNumeric(NumericContext ctx) {
         final PMetadata numericmd = getPMetadata(ctx);
         final Object numeric = numericmd.getConstant();
+        final PJump abranch = abranches.get(ctx);
 
-        if (numeric == null) {
-            throw new IllegalStateException(); // TODO: message
-        }
-
-        pushNumeric(numeric);
+        writePNumeric(numeric);
         checkWritePCast(numericmd);
+        checkWritePBranch(abranch);
 
         return null;
     }
@@ -495,13 +513,11 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     public Void visitString(StringContext ctx) {
         final PMetadata stringmd = getPMetadata(ctx);
         final Object string = stringmd.getConstant();
+        final PJump abranch = abranches.get(ctx);
 
-        if (string == null) {
-            throw new IllegalStateException(); // TODO: message
-        }
-
-        pushString(string);
+        writePString(string);
         checkWritePCast(stringmd);
+        checkWritePBranch(abranch);
 
         return null;
     }
@@ -510,17 +526,11 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     public Void visitChar(CharContext ctx) {
         final PMetadata charmd = getPMetadata(ctx);
         final Object character = charmd.getConstant();
+        final PJump abranch = abranches.get(ctx);
 
-        if (character == null) {
-            throw new IllegalStateException(); // TODO: message
-        }
-
-        if (character instanceof Character) {
-            pushNumeric((int)(char)character);
-            checkWritePCast(charmd);
-        } else {
-            throw new IllegalStateException(); // TODO: message
-        }
+        writePNumeric((int)(char)character);
+        checkWritePCast(charmd);
+        checkWritePBranch(abranch);
 
         return null;
     }
@@ -528,26 +538,13 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     @Override
     public Void visitTrue(TrueContext ctx) {
         final PMetadata truemd = getPMetadata(ctx);
-        final PJump pbranch = pbranches.get(ctx);
-        final Object bool = truemd.getConstant();
+        final PJump abranch = abranches.get(ctx);
 
-        if (bool == null) {
-            throw new IllegalStateException(); // TODO: message
-        }
-
-        if (bool instanceof Boolean) {
-            if ((boolean)bool) {
-                if (pbranch != null) {
-                    execute.visitJumpInsn(Opcodes.GOTO, pbranch.atrue);
-                } else {
-                    pushBoolean(true);
-                    checkWritePCast(truemd);
-                }
-            } else {
-                throw new IllegalStateException(); // TODO: message
-            }
-        } else {
-            throw new IllegalStateException(); // TODO: message
+        if (abranch == null) {
+            writePBoolean(true);
+            checkWritePCast(truemd);
+        } else if (abranch.atrue != null) {
+            execute.visitJumpInsn(Opcodes.GOTO, abranch.atrue);
         }
 
         return null;
@@ -555,27 +552,14 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitFalse(FalseContext ctx) {
-        final PMetadata falsemd = getPMetadata(ctx);
-        final PJump pbranch = pbranches.get(ctx);
-        final Object bool = falsemd.getConstant();
+        final PMetadata truemd = getPMetadata(ctx);
+        final PJump abranch = abranches.get(ctx);
 
-        if (bool == null) {
-            throw new IllegalStateException(); // TODO: message
-        }
-
-        if (bool instanceof Boolean) {
-            if (!(boolean)bool) {
-                if (pbranch != null) {
-                    execute.visitJumpInsn(Opcodes.GOTO, pbranch.afalse);
-                } else {
-                    pushBoolean(false);
-                    checkWritePCast(falsemd);
-                }
-            } else {
-                throw new IllegalStateException(); // TODO: message
-            }
-        } else {
-            throw new IllegalStateException(); // TODO: message
+        if (abranch == null) {
+            writePBoolean(false);
+            checkWritePCast(truemd);
+        } else if (abranch.afalse != null) {
+            execute.visitJumpInsn(Opcodes.GOTO, abranch.afalse);
         }
 
         return null;
@@ -584,20 +568,22 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     @Override
     public Void visitNull(NullContext ctx) {
         final PMetadata nullmd = getPMetadata(ctx);
+        final PJump abranch = abranches.get(ctx);
 
         execute.visitInsn(Opcodes.ACONST_NULL);
         checkWritePCast(nullmd);
+        checkWritePBranch(abranch);
 
         return null;
     }
 
     @Override
     public Void visitExt(ExtContext ctx) {
-        final PJump pbranch = pbranches.get(ctx);
+        final PJump abranch = abranches.get(ctx);
         final ExtstartContext ectx = ctx.extstart();
 
-        if (pbranch != null) {
-            pbranches.put(ectx, pbranch);
+        if (abranch != null) {
+            abranches.put(ectx, abranch);
         }
 
         visit(ectx);
@@ -609,12 +595,27 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     public Void visitUnary(UnaryContext ctx) {
         final PMetadata unarymd = getPMetadata(ctx);
         final Object constant = unarymd.getConstant();
+        PJump abranch = abranches.get(ctx);
+
+        final ExpressionContext ectx = ctx.expression();
 
         if (ctx.BOOLNOT() != null) {
-            final PJump pbranch = pbranches.get(ctx);
-        } else if  (ctx.BWNOT() != null) {
+            if (abranch == null) {
+
+            } else {
+                PJump localabranch = new PJump(ctx);
+                localabranch.atrue = abranch.afalse;
+                localabranch.afalse = abranch.atrue;
+                abranches.put(ectx, localabranch);
+                visit(ectx);
+                abranch = null;
+            }
+        } else if (ctx.BWNOT() != null) {
 
         }
+
+        checkWritePCast(unarymd);
+        checkWritePBranch(abranch);
 
         return null;
     }
@@ -636,6 +637,75 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitBool(BoolContext ctx) {
+        final PMetadata unarymd = getPMetadata(ctx);
+        final Object constant = unarymd.getConstant();
+        final PJump abranch = abranches.get(ctx);
+
+        if (constant == null) {
+            final ExpressionContext ectx0 = ctx.expression(0);
+            final ExpressionContext ectx1 = ctx.expression(1);
+
+            if (abranch == null) {
+                if (ctx.BOOLAND() != null) {
+                    final PJump localabranch = new PJump(ctx);
+                    localabranch.aend = new Label();
+                    localabranch.afalse = new Label();
+
+                    abranches.put(ectx0, localabranch);
+                    visit(ectx0);
+                    abranches.put(ectx1, localabranch);
+                    visit(ectx1);
+
+                    execute.visitInsn(Opcodes.ICONST_1);
+                    execute.visitJumpInsn(Opcodes.GOTO, localabranch.aend);
+                    execute.visitLabel(localabranch.afalse);
+                    execute.visitInsn(Opcodes.ICONST_0);
+                    execute.visitLabel(localabranch.aend);
+
+                    checkWritePCast(unarymd);
+                } else if (ctx.BOOLOR() != null) {
+                    final PJump abranch0 = new PJump(ctx);
+                    abranch0.atrue = new Label();
+                    final PJump abranch1 = new PJump(ctx);
+                    abranch1.afalse = new Label();
+                    abranch1.aend = new Label();
+
+                    abranches.put(ectx0, abranch0);
+                    visit(ectx0);
+                    abranches.put(ectx1, abranch1);
+                    visit(ectx1);
+
+                    execute.visitLabel(abranch0.atrue);
+                    execute.visitInsn(Opcodes.ICONST_1);
+                    execute.visitJumpInsn(Opcodes.GOTO, abranch1.aend);
+                    execute.visitLabel(abranch1.afalse);
+                    execute.visitInsn(Opcodes.ICONST_0);
+                    execute.visitLabel(abranch1.aend);
+                } else {
+                    throw new IllegalStateException(); // TODO: message
+                }
+            } else {
+                if (ctx.BOOLAND() != null) {
+
+                } else if (ctx.BOOLOR() != null) {
+
+                } else {
+                    throw new IllegalStateException(); // TODO: message
+                }
+            }
+        } else {
+            if (abranch == null) {
+                pushPConstant(constant);
+                checkWritePCast(unarymd);
+            } else {
+                if ((boolean)constant && abranch.atrue != null) {
+                    execute.visitLabel(abranch.atrue);
+                } else if (!(boolean)constant && abranch.afalse != null) {
+                    execute.visitLabel(abranch.afalse);
+                }
+            }
+        }
+
         return null;
     }
 

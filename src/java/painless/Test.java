@@ -10,8 +10,14 @@ public class Test {
     public Test() {
     }
 
-    public static void stest(boolean b) {
-        char c = 'd';
+    public static void stest(boolean a) {
+        boolean b = true;
+
+        while (b) {
+            return;
+        }
+
+        return;
     }
 
     public void mtest(int... blah) {
