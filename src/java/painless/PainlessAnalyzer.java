@@ -62,29 +62,29 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     }
 
     static class PMetadata {
-        final ParseTree node;
+        private final ParseTree node;
 
-        boolean statement;
-        boolean close;
+        private boolean statement;
+        private boolean close;
 
-        boolean allrtn;
-        boolean anyrtn;
-        boolean allbreak;
-        boolean anybreak;
-        boolean allcontinue;
-        boolean anycontinue;
+        private boolean allrtn;
+        private boolean anyrtn;
+        private boolean allbreak;
+        private boolean anybreak;
+        private boolean allcontinue;
+        private boolean anycontinue;
 
-        boolean righthand;
-        PType declptype;
+        private boolean righthand;
+        private PType declptype;
 
-        ParseTree castnodes[];
-        PType castptypes[];
+        private ParseTree castnodes[];
+        private PType castptypes[];
 
-        Object constant;
-        PExternal pexternal;
+        private Object constant;
+        private PExternal pexternal;
 
-        PCast pcast;
-        PTransform ptransform;
+        private PCast pcast;
+        private PTransform ptransform;
 
         PMetadata(final ParseTree node) {
             this.node = node;
@@ -110,6 +110,26 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
             pcast = null;
             ptransform = null;
+        }
+
+        boolean doAllReturn() {
+            return allrtn;
+        }
+
+        PType[] getCastPTypes() {
+            return castptypes;
+        }
+
+        Object getConstant() {
+            return constant;
+        }
+
+        PCast getPCast() {
+            return pcast;
+        }
+
+        PTransform getPTransform() {
+            return ptransform;
         }
     }
 
@@ -645,11 +665,12 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 }
             }
 
-            if ((boolean)constant) {
-                exitrequired = true;
-            } else {
+            if (!(boolean)constant) {
                 throw new IllegalArgumentException(); // TODO: message
             }
+
+            exitrequired = true;
+            whilemd.constant = constant;
         }
 
         final BlockContext bctx = ctx.block();
@@ -734,6 +755,8 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             if (!(boolean)constant && !blockmd.anycontinue) {
                 throw new IllegalArgumentException(); // TODO: message
             }
+
+            domd.constant = true;
         }
 
         domd.statement = true;
@@ -783,14 +806,16 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                     }
                 }
 
-                if ((boolean)constant) {
-                    exitrequired = true;
-                } else {
+                if (!(boolean)constant) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
+
+                exitrequired = true;
+                formd.constant = true;
             }
         } else {
             exitrequired = true;
+            formd.constant = true;
         }
 
         final ExpressionContext ectx1 = ctx.expression(1);
@@ -1051,7 +1076,6 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata numericmd = getPMetadata(ctx);
 
         numericmd.castnodes = new ParseTree[] {ctx};
-        numericmd.castptypes = new PType[1];
 
         if (ctx.DECIMAL() != null) {
             final String svalue = ctx.DECIMAL().getText();
@@ -1059,14 +1083,14 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             if (svalue.endsWith("f") || svalue.endsWith("F")) {
                 try {
                     numericmd.constant = Float.parseFloat(svalue);
-                    numericmd.castptypes[0] = boolptype;
+                    numericmd.castptypes = new PType[] {floatptype};
                 } catch (NumberFormatException exception) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
             } else {
                 try {
                     numericmd.constant = Double.parseDouble(svalue);
-                    numericmd.castptypes[0] = doubleptype;
+                    numericmd.castptypes = new PType[] {doubleptype};
                 } catch (NumberFormatException exception) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
@@ -1091,14 +1115,14 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             if (svalue.endsWith("l") || svalue.endsWith("L")) {
                 try {
                     numericmd.constant = Long.parseLong(svalue, radix);
-                    numericmd.castptypes[0] = longptype;
+                    numericmd.castptypes = new PType[] {longptype};
                 } catch (NumberFormatException exception) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
             } else {
                 try {
                     numericmd.constant = Integer.parseInt(svalue, radix);
-                    numericmd.castptypes[0] = intptype;
+                    numericmd.castptypes = new PType[] {intptype};
                 } catch (NumberFormatException exception) {
                     throw new IllegalArgumentException(); // TODO: message
                 }

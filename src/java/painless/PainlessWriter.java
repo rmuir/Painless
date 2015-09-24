@@ -124,23 +124,129 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         return nodemd;
     }
 
-    private void writeCast(PCast pcast) {
+    private void checkWritePCast(final PMetadata pmetadata) {
+        if (pmetadata.getPCast() != null) {
+            writePCast(pmetadata.getPCast());
+        } else if (pmetadata.getPTransform() != null) {
+            writePTransform(pmetadata.getPTransform());
+        }
+    }
+
+    private void writePCast(final PCast pcast) {
 
     }
 
-    private void writeTransform(PTransform ptransform) {
+    private void writePTransform(final PTransform ptransform) {
 
+    }
+
+    private void pushConstant(final Object constant) {
+        if (constant instanceof Number) {
+            pushNumeric(constant);
+        } else if (constant instanceof Character) {
+            pushNumeric((int)(char)constant);
+        } else if (constant instanceof String) {
+            pushString(constant);
+        } else if (constant instanceof Boolean) {
+            pushBoolean(constant);
+        } else if (constant != null) {
+            throw new IllegalStateException(); // TODO: message
+        }
+    }
+
+    private void pushNumeric(final Object numeric) {
+        if (numeric instanceof Double) {
+            final long bits = Double.doubleToLongBits((Double)numeric);
+
+            if (bits == 0L) {
+                execute.visitInsn(Opcodes.DCONST_0);
+            } else if (bits == 0x3ff0000000000000L) {
+                execute.visitInsn(Opcodes.DCONST_1);
+            } else {
+                execute.visitLdcInsn(numeric);
+            }
+        } else if (numeric instanceof Float) {
+            final int bits = Float.floatToIntBits((Float)numeric);
+
+            if (bits == 0L) {
+                execute.visitInsn(Opcodes.FCONST_0);
+            } else if (bits == 0x3f800000) {
+                execute.visitInsn(Opcodes.FCONST_1);
+            } else if (bits == 0x40000000) {
+                execute.visitInsn(Opcodes.FCONST_2);
+            } else {
+                execute.visitLdcInsn(numeric);
+            }
+        } else if (numeric instanceof Long) {
+            final long value = (long)numeric;
+
+            if (value == 0L) {
+                execute.visitInsn(Opcodes.LCONST_0);
+            } else if (value == 1L) {
+                execute.visitInsn(Opcodes.LCONST_1);
+            } else {
+                execute.visitLdcInsn(value);
+            }
+        } else if (numeric instanceof Number) {
+            final int value = ((Number)numeric).intValue();
+
+            if (value == -1) {
+                execute.visitInsn(Opcodes.ICONST_M1);
+            } else if (value == 0) {
+                execute.visitInsn(Opcodes.ICONST_0);
+            } else if (value == 1) {
+                execute.visitInsn(Opcodes.ICONST_1);
+            } else if (value == 2) {
+                execute.visitInsn(Opcodes.ICONST_2);
+            } else if (value == 3) {
+                execute.visitInsn(Opcodes.ICONST_3);
+            } else if (value == 4) {
+                execute.visitInsn(Opcodes.ICONST_4);
+            } else if (value == 5) {
+                execute.visitInsn(Opcodes.ICONST_5);
+            } else if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
+                execute.visitIntInsn(Opcodes.BIPUSH, value);
+            } else if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
+                execute.visitIntInsn(Opcodes.SIPUSH, value);
+            } else {
+                execute.visitLdcInsn(value);
+            }
+        } else {
+            throw new IllegalStateException(); // TODO: message
+        }
+    }
+
+    private void pushString(final Object constant) {
+        if (constant instanceof String) {
+            execute.visitLdcInsn(constant);
+        } else {
+            throw new IllegalStateException(); // TODO: message
+        }
+    }
+
+    private void pushBoolean(final Object constant) {
+        if (constant instanceof Boolean) {
+            boolean value = (boolean)constant;
+
+            if (value) {
+                execute.visitInsn(Opcodes.ICONST_1);
+            } else {
+                execute.visitInsn(Opcodes.ICONST_0);
+            }
+        } else {
+            throw new IllegalStateException(); // TODO: message
+        }
     }
 
     @Override
     public Void visitSource(SourceContext ctx) {
-        PMetadata sourcemd = getPMetadata(ctx);
+        final PMetadata sourcemd = getPMetadata(ctx);
 
-        for (StatementContext sctx : ctx.statement()) {
+        for (final StatementContext sctx : ctx.statement()) {
             visit(sctx);
         }
 
-        if (!sourcemd.allrtn) {
+        if (!sourcemd.doAllReturn()) {
             execute.visitInsn(Opcodes.ACONST_NULL);
             execute.visitInsn(Opcodes.ARETURN);
         }
@@ -174,6 +280,9 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitWhile(WhileContext ctx) {
+        final PMetadata whildmd = getPMetadata(ctx);
+        final Object constant = whildmd.getConstant();
+
         final ExpressionContext ectx = ctx.expression();
         final BlockContext bctx = ctx.block();
 
@@ -182,10 +291,13 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         pjump.aend = new Label();
         pjump.afalse = pjump.aend;
 
-        pbranches.put(ectx, pjump);
         ploops.push(pjump);
         execute.visitLabel(pjump.abegin);
-        visit(ectx);
+
+        if (!(constant instanceof Boolean && (boolean)constant)) {
+            pbranches.put(ectx, pjump);
+            visit(ectx);
+        }
 
         if (bctx != null) {
             visit(ctx.block());
@@ -200,18 +312,27 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitDo(DoContext ctx) {
+        final PMetadata domd = getPMetadata(ctx);
+        final Object constant = domd.getConstant();
+
         final ExpressionContext ectx = ctx.expression();
+        final BlockContext bctx = ctx.block();
 
         final PJump pjump = new PJump(ctx);
         pjump.abegin = new Label();
-        pjump.atrue = pjump.abegin;
         pjump.aend = new Label();
+        pjump.atrue = pjump.abegin;
 
-        pbranches.put(ectx, pjump);
         ploops.push(pjump);
-        execute.visitLabel(pjump.atrue);
-        visit(ctx.block());
-        visit(ctx.expression());
+        execute.visitLabel(pjump.abegin);
+        visit(bctx);
+
+        if (!(constant instanceof Boolean && (boolean)constant)) {
+            pbranches.put(ectx, pjump);
+            visit(ectx);
+        }
+
+        execute.visitJumpInsn(Opcodes.GOTO, pjump.abegin);
         execute.visitLabel(pjump.aend);
         ploops.pop();
 
@@ -220,6 +341,9 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitFor(ForContext ctx) {
+        final PMetadata formd = getPMetadata(ctx);
+        final Object constant = formd.getConstant();
+
         final ExpressionContext ectx0 = ctx.expression(0);
         final ExpressionContext ectx1 = ctx.expression(1);
         final BlockContext bctx = ctx.block();
@@ -237,17 +361,17 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
         execute.visitLabel(pjump.abegin);
 
-        if (ectx0 != null) {
+        if (!(constant instanceof Boolean && (boolean)constant)) {
             pbranches.put(ectx0, pjump);
             visit(ectx0);
         }
 
         if (bctx != null) {
-            visit(ctx.block());
+            visit(bctx);
         }
 
         if (ectx1 != null) {
-            visit(ctx.expression(1));
+            visit(ectx1);
         }
 
         execute.visitJumpInsn(Opcodes.GOTO, pjump.abegin);
@@ -294,8 +418,8 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
         final PMetadata exprmd = getPMetadata(ctx);
 
-        if (exprmd.constant instanceof PType) {
-            final int asize = ((PType)exprmd.constant).getPSort().getASize();
+        if (exprmd.getConstant() instanceof PType) {
+            final int asize = ((PType)exprmd.getConstant()).getPSort().getASize();
 
             if (asize == 1) {
                 execute.visitInsn(Opcodes.POP);
@@ -309,7 +433,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitMultiple(MultipleContext ctx) {
-        for (StatementContext sctx : ctx.statement()) {
+        for (final StatementContext sctx : ctx.statement()) {
             visit(sctx);
         }
 
@@ -325,31 +449,188 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitEmpty(EmptyContext ctx) {
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitDeclaration(DeclarationContext ctx) {
+        for (final ExpressionContext ectx : ctx.expression()) {
+            visit(ectx);
+        }
+
         return null;
     }
 
     @Override
     public Void visitDecltype(DecltypeContext ctx) {
+        throw new UnsupportedOperationException(); //TODO: message
+    }
+
+    @Override
+    public Void visitPrecedence(PrecedenceContext ctx) {
+        final PMetadata precedencemd = getPMetadata(ctx);
+        final Object constant = precedencemd.getConstant();
+        final PJump pbranch = pbranches.get(ctx);
+        final ExpressionContext ectx = ctx.expression();
+
         return null;
     }
 
     @Override
-    public Void visitExt(ExtContext ctx) {
-        return null;
-    }
+    public Void visitNumeric(NumericContext ctx) {
+        final PMetadata numericmd = getPMetadata(ctx);
+        final Object numeric = numericmd.getConstant();
 
-    @Override
-    public Void visitComp(CompContext ctx) {
+        if (numeric == null) {
+            throw new IllegalStateException(); // TODO: message
+        }
+
+        pushNumeric(numeric);
+        checkWritePCast(numericmd);
+
         return null;
     }
 
     @Override
     public Void visitString(StringContext ctx) {
+        final PMetadata stringmd = getPMetadata(ctx);
+        final Object string = stringmd.getConstant();
+
+        if (string == null) {
+            throw new IllegalStateException(); // TODO: message
+        }
+
+        pushString(string);
+        checkWritePCast(stringmd);
+
+        return null;
+    }
+
+    @Override
+    public Void visitChar(CharContext ctx) {
+        final PMetadata charmd = getPMetadata(ctx);
+        final Object character = charmd.getConstant();
+
+        if (character == null) {
+            throw new IllegalStateException(); // TODO: message
+        }
+
+        if (character instanceof Character) {
+            pushNumeric((int)(char)character);
+            checkWritePCast(charmd);
+        } else {
+            throw new IllegalStateException(); // TODO: message
+        }
+
+        return null;
+    }
+
+    @Override
+    public Void visitTrue(TrueContext ctx) {
+        final PMetadata truemd = getPMetadata(ctx);
+        final PJump pbranch = pbranches.get(ctx);
+        final Object bool = truemd.getConstant();
+
+        if (bool == null) {
+            throw new IllegalStateException(); // TODO: message
+        }
+
+        if (bool instanceof Boolean) {
+            if ((boolean)bool) {
+                if (pbranch != null) {
+                    execute.visitJumpInsn(Opcodes.GOTO, pbranch.atrue);
+                } else {
+                    pushBoolean(true);
+                    checkWritePCast(truemd);
+                }
+            } else {
+                throw new IllegalStateException(); // TODO: message
+            }
+        } else {
+            throw new IllegalStateException(); // TODO: message
+        }
+
+        return null;
+    }
+
+    @Override
+    public Void visitFalse(FalseContext ctx) {
+        final PMetadata falsemd = getPMetadata(ctx);
+        final PJump pbranch = pbranches.get(ctx);
+        final Object bool = falsemd.getConstant();
+
+        if (bool == null) {
+            throw new IllegalStateException(); // TODO: message
+        }
+
+        if (bool instanceof Boolean) {
+            if (!(boolean)bool) {
+                if (pbranch != null) {
+                    execute.visitJumpInsn(Opcodes.GOTO, pbranch.afalse);
+                } else {
+                    pushBoolean(false);
+                    checkWritePCast(falsemd);
+                }
+            } else {
+                throw new IllegalStateException(); // TODO: message
+            }
+        } else {
+            throw new IllegalStateException(); // TODO: message
+        }
+
+        return null;
+    }
+
+    @Override
+    public Void visitNull(NullContext ctx) {
+        final PMetadata nullmd = getPMetadata(ctx);
+
+        execute.visitInsn(Opcodes.ACONST_NULL);
+        checkWritePCast(nullmd);
+
+        return null;
+    }
+
+    @Override
+    public Void visitExt(ExtContext ctx) {
+        final PJump pbranch = pbranches.get(ctx);
+        final ExtstartContext ectx = ctx.extstart();
+
+        if (pbranch != null) {
+            pbranches.put(ectx, pbranch);
+        }
+
+        visit(ectx);
+
+        return null;
+    }
+
+    @Override
+    public Void visitUnary(UnaryContext ctx) {
+        final PMetadata unarymd = getPMetadata(ctx);
+        final Object constant = unarymd.getConstant();
+
+        if (ctx.BOOLNOT() != null) {
+            final PJump pbranch = pbranches.get(ctx);
+        } else if  (ctx.BWNOT() != null) {
+
+        }
+
+        return null;
+    }
+
+    @Override
+    public Void visitCast(CastContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitBinary(BinaryContext ctx) {
+        return null;
+    }
+
+    @Override
+    public Void visitComp(CompContext ctx) {
         return null;
     }
 
@@ -369,93 +650,48 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitFalse(FalseContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Void visitNumeric(NumericContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Void visitUnary(UnaryContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Void visitPrecedence(PrecedenceContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Void visitCast(CastContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Void visitNull(NullContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Void visitBinary(BinaryContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Void visitChar(CharContext ctx) {
-        return null;
-    }
-
-    @Override
-    public Void visitTrue(TrueContext ctx) {
-        return null;
-    }
-
-    @Override
     public Void visitExtstart(ExtstartContext ctx) {
         return null;
     }
 
     @Override
     public Void visitExtprec(ExtprecContext ctx) {
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitExtcast(ExtcastContext ctx) {
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitExtarray(ExtarrayContext ctx) {
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitExtdot(ExtdotContext ctx) {
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitExttype(ExttypeContext ctx) {
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitExtcall(ExtcallContext ctx) {
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitExtmember(ExtmemberContext ctx) {
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitArguments(ArgumentsContext ctx) {
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     private void writeEnd() {

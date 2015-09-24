@@ -11,17 +11,7 @@ public class Test {
     }
 
     public static void stest(boolean b) {
-        while (b) {
-            while (true) {
-                if (b) {
-                    return;
-                } else {
-                    return;
-                }
-            }
-        }
-
-        return;
+        char c = 'd';
     }
 
     public void mtest(int... blah) {

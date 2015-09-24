@@ -33,11 +33,10 @@ final class PainlessCompiler {
         parguments.push(new PArgument("input", getPTypeFromCanonicalPName(ptypes, "smap")));
 
         final Map<ParseTree, PMetadata> pmetadata = PainlessAnalyzer.analyze(ptypes, root, parguments);
-        //final byte[] bytes = PainlessWriter.write(ptypes, source, root, pmetadata);
-        //final PainlessExecutable executable = createExecutable(name, source, parent, bytes);
+        final byte[] bytes = PainlessWriter.write(ptypes, source, root, pmetadata);
+        final PainlessExecutable executable = createExecutable(name, source, parent, bytes);
 
-        //return executable;
-        return null;
+        return executable;
     }
 
     private static ParseTree createParseTree(String source) {
