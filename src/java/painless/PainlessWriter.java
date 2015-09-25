@@ -135,7 +135,31 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     private void writePCast(final PCast pcast) {
+        final PType fromptype = pcast.getPFrom();
+        final PType toptype = pcast.getPTo();
+        final PSort frompsort = fromptype.getPSort();
+        final PSort topsort = toptype.getPSort();
 
+        if (frompsort.isPNumeric() && topsort.isPNumeric()) {
+            switch (frompsort) {
+                case BYTE:
+                    break;
+                case SHORT:
+                    break;
+                case CHAR:
+                    break;
+                case INT:
+                    break;
+                case LONG:
+                    break;
+                case FLOAT:
+                    break;
+                case DOUBLE:
+                    break;
+            }
+        } else {
+
+        }
     }
 
     private void writePTransform(final PTransform ptransform) {

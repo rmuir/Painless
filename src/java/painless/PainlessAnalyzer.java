@@ -311,62 +311,147 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PSort tpsort = pto.getPSort();
 
         if (fpsort.isPNumeric() && tpsort.isPNumeric()) {
-            if (explicit) {
-                return pcast;
-            }
-
-            if (fpsort == PSort.BYTE) {
-                if (tpsort == PSort.SHORT || tpsort == PSort.INT || tpsort == PSort.LONG ||
-                        tpsort == PSort.FLOAT || tpsort == PSort.DOUBLE) {
-                    return pcast;
-                } else {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-            } else if (fpsort == PSort.SHORT) {
-                if (tpsort == PSort.INT || tpsort == PSort.LONG ||
-                        tpsort == PSort.FLOAT || tpsort == PSort.DOUBLE) {
-                    return pcast;
-                } else {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-            } else if (fpsort == PSort.CHAR) {
-                if (tpsort == PSort.INT || tpsort == PSort.LONG ||
-                        tpsort == PSort.FLOAT || tpsort == PSort.DOUBLE) {
-                    return pcast;
-                } else {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-            } else if (fpsort == PSort.INT) {
-                if (tpsort == PSort.LONG || tpsort == PSort.FLOAT || tpsort == PSort.DOUBLE) {
-                    return pcast;
-                } else {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-            } else if (fpsort == PSort.LONG) {
-                if (tpsort == PSort.FLOAT || tpsort == PSort.DOUBLE) {
-                    return pcast;
-                } else {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-            } else if (fpsort == PSort.FLOAT) {
-                if (tpsort == PSort.DOUBLE) {
-                    return pcast;
-                } else {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-            } else if (fpsort == PSort.DOUBLE) {
-                    throw new IllegalArgumentException(); // TODO: message
-            } else {
-                throw new IllegalStateException(); // TODO: message
+            switch (fpsort) {
+                case BYTE:
+                    switch (tpsort) {
+                        case CHAR:
+                            if (explicit) {
+                                return pcast;
+                            } else {
+                                throw new IllegalArgumentException(); // TODO : message
+                            }
+                        case BYTE:
+                        case INT:
+                        case LONG:
+                        case FLOAT:
+                        case DOUBLE:
+                            return null;
+                        default:
+                            throw new IllegalStateException(); // TODO: message
+                    }
+                case SHORT:
+                    switch (tpsort) {
+                        case BYTE:
+                        case CHAR:
+                            if (explicit) {
+                                return pcast;
+                            } else {
+                                throw new IllegalArgumentException(); // TODO : message
+                            }
+                        case INT:
+                        case LONG:
+                        case FLOAT:
+                        case DOUBLE:
+                            return null;
+                        default:
+                            throw new IllegalStateException(); // TODO: message
+                    }
+                case CHAR:
+                    switch (tpsort) {
+                        case BYTE:
+                        case SHORT:
+                            if (explicit) {
+                                return pcast;
+                            } else {
+                                throw new IllegalArgumentException(); // TODO : message
+                            }
+                        case CHAR:
+                        case INT:
+                        case LONG:
+                        case FLOAT:
+                        case DOUBLE:
+                            return null;
+                        default:
+                            throw new IllegalStateException(); // TODO: message
+                    }
+                case INT:
+                    switch (tpsort) {
+                        case BYTE:
+                        case SHORT:
+                        case CHAR:
+                            if (explicit) {
+                                return pcast;
+                            } else {
+                                throw new IllegalArgumentException(); // TODO : message
+                            }
+                        case INT:
+                        case LONG:
+                        case FLOAT:
+                        case DOUBLE:
+                            return null;
+                        default:
+                            throw new IllegalStateException(); // TODO: message
+                    }
+                case LONG:
+                    switch (tpsort) {
+                        case BYTE:
+                        case SHORT:
+                        case CHAR:
+                        case INT:
+                            if (explicit) {
+                                return pcast;
+                            } else {
+                                throw new IllegalArgumentException(); // TODO : message
+                            }
+                        case LONG:
+                        case FLOAT:
+                        case DOUBLE:
+                            return null;
+                        default:
+                            throw new IllegalStateException(); // TODO: message
+                    }
+                case FLOAT:
+                    switch (tpsort) {
+                        case BYTE:
+                        case SHORT:
+                        case CHAR:
+                        case INT:
+                        case LONG:
+                            if (explicit) {
+                                return pcast;
+                            } else {
+                                throw new IllegalArgumentException(); // TODO : message
+                            }
+                        case FLOAT:
+                        case DOUBLE:
+                            return null;
+                        default:
+                            throw new IllegalStateException(); // TODO: message
+                    }
+                case DOUBLE:
+                    switch (tpsort) {
+                        case BYTE:
+                        case SHORT:
+                        case CHAR:
+                        case INT:
+                        case LONG:
+                        case FLOAT:
+                            if (explicit) {
+                                return pcast;
+                            } else {
+                                throw new IllegalArgumentException(); // TODO : message
+                            }
+                        case DOUBLE:
+                            return null;
+                        default:
+                            throw new IllegalStateException(); // TODO: message
+                    }
+                    
+                default:
+                    throw new IllegalStateException(); // TODO: message
             }
         }
 
         try {
             pfrom.getJClass().asSubclass(pto.getJClass());
+
+            return null;
         } catch (ClassCastException cce0) {
             try {
                 if (explicit) {
                     pto.getJClass().asSubclass(pfrom.getJClass());
+
+                    return pcast;
                 } else {
                     throw new IllegalArgumentException(); // TODO: message
                 }
@@ -374,8 +459,6 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 throw new IllegalArgumentException(); // TODO: message
             }
         }
-
-        return pcast;
     }
 
     private void markCast(final PMetadata pmetadata, final PType pto, final boolean explicit) {
@@ -1096,7 +1179,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             if (svalue.endsWith("f") || svalue.endsWith("F")) {
                 try {
                     numericmd.castptypes = new PType[] {floatptype};
-                    numericmd.constant = Float.parseFloat(svalue);
+                    numericmd.constant = Float.parseFloat(svalue.substring(0, svalue.length() - 1));
                 } catch (NumberFormatException exception) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
@@ -1128,7 +1211,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             if (svalue.endsWith("l") || svalue.endsWith("L")) {
                 try {
                     numericmd.castptypes = new PType[] {longptype};
-                    numericmd.constant = Long.parseLong(svalue, radix);
+                    numericmd.constant = Long.parseLong(svalue.substring(0, svalue.length() - 1), radix);
                 } catch (NumberFormatException exception) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
