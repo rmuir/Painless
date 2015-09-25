@@ -64,12 +64,15 @@ class PainlessTypes {
     static class PType {
         private final PClass pclass;
         private final Class jclass;
+        private final String adescriptor;
         private final int pdimensions;
         private final PSort psort;
 
-        PType(final PClass pclass, final Class jclass, final int pdimensions, final PSort psort) {
+        PType(final PClass pclass, final Class jclass, final String adescriptor,
+              final int pdimensions, final PSort psort) {
             this.pclass = pclass;
             this.jclass = jclass;
+            this.adescriptor = adescriptor;
             this.pdimensions = pdimensions;
             this.psort = psort;
         }
@@ -80,6 +83,10 @@ class PainlessTypes {
 
         Class getJClass() {
             return jclass;
+        }
+
+        String getADescriptor() {
+            return adescriptor;
         }
 
         int getPDimensions() {
@@ -124,15 +131,17 @@ class PainlessTypes {
         private final List<PType> parguments;
         private final List<PType> poriginals;
         private final Constructor jconstructor;
+        private final String adescriptor;
 
         private PConstructor(final String pname, final PClass powner,
                              final List<PType> parguments, final List<PType> poriginals,
-                             final Constructor jconstructor) {
+                             final Constructor jconstructor, final String adescriptor) {
             this.pname = pname;
             this.powner = powner;
             this.parguments = Collections.unmodifiableList(parguments);
             this.poriginals = Collections.unmodifiableList(poriginals);
             this.jconstructor = jconstructor;
+            this.adescriptor = adescriptor;
         }
 
         String getPName() {
@@ -154,6 +163,10 @@ class PainlessTypes {
         Constructor getJConstructor() {
             return jconstructor;
         }
+
+        String getADescriptor() {
+            return adescriptor;
+        }
     }
 
     static class PMethod {
@@ -164,9 +177,11 @@ class PainlessTypes {
         private final List<PType> parguments;
         private final List<PType> poriginals;
         private final Method jmethod;
+        private final String adescriptor;
 
-        private PMethod(final String pname, final PClass powner, final PType preturn, final PType poreturn,
-                        final List<PType> parguments, final List<PType> poriginals, final Method jmethod) {
+        private PMethod(final String pname, final PClass powner, final PType preturn,
+                        final PType poreturn, final List<PType> parguments, final List<PType> poriginals,
+                        final Method jmethod, final String adescriptor) {
             this.pname = pname;
             this.powner = powner;
             this.preturn = preturn;
@@ -174,6 +189,7 @@ class PainlessTypes {
             this.parguments = Collections.unmodifiableList(parguments);
             this.poriginals = Collections.unmodifiableList(poriginals);
             this.jmethod = jmethod;
+            this.adescriptor = adescriptor;
         }
 
         String getPName() {
@@ -202,6 +218,10 @@ class PainlessTypes {
 
         Method getJMethod() {
             return jmethod;
+        }
+
+        String getADescriptor() {
+            return adescriptor;
         }
     }
 
@@ -355,10 +375,10 @@ class PainlessTypes {
     static class PTransform {
         private final PCast pcast;
         private final PMethod pmethod;
-        private final boolean pcastfrom;
-        private final boolean pcastto;
+        private final PType pcastfrom;
+        private final PType pcastto;
 
-        private PTransform(final PCast pcast, PMethod pmethod, final boolean pcastfrom, final boolean pcastto) {
+        private PTransform(final PCast pcast, PMethod pmethod, final PType pcastfrom, final PType pcastto) {
             this.pcast = pcast;
             this.pmethod = pmethod;
             this.pcastfrom = pcastfrom;
@@ -373,11 +393,11 @@ class PainlessTypes {
             return pmethod;
         }
 
-        boolean getPCastFrom() {
+        PType getJCastFrom() {
             return pcastfrom;
         }
 
-        boolean getPCastTo() {
+        PType getJCastTo() {
             return pcastto;
         }
     }
@@ -873,8 +893,8 @@ class PainlessTypes {
         }
 
         PMethod pmethod;
-        boolean pcastfrom = false;
-        boolean pcastto = false;
+        PType pcastfrom = null;
+        PType pcastto = null;
 
         if ("function".equals(pstaticstr)) {
             pmethod = powner.pfunctions.get(pmethodstr);
@@ -894,7 +914,7 @@ class PainlessTypes {
             } catch (ClassCastException cce0) {
                 try {
                     pargument.jclass.asSubclass(pfrom.jclass);
-                    pcastfrom = true;
+                    pcastfrom = pargument;
                 } catch (ClassCastException cce1) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
@@ -903,11 +923,11 @@ class PainlessTypes {
             final PType preturn = pmethod.preturn;
 
             try {
-                pto.jclass.asSubclass(preturn.jclass);
+                preturn.jclass.asSubclass(pto.jclass);
             } catch (ClassCastException cce0) {
                 try {
-                    preturn.jclass.asSubclass(pto.jclass);
-                    pcastto = true;
+                    pto.jclass.asSubclass(preturn.jclass);
+                    pcastto = pto;
                 } catch (ClassCastException cce1) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
@@ -928,7 +948,7 @@ class PainlessTypes {
             } catch (ClassCastException cce0) {
                 try {
                     powner.jclass.asSubclass(pfrom.jclass);
-                    pcastfrom = true;
+                    pcastfrom = getPTypeFromCanonicalPName(ptypes, powner.getPName());
                 } catch (ClassCastException cce1) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
@@ -937,11 +957,11 @@ class PainlessTypes {
             final PType preturn = pmethod.preturn;
 
             try {
-                pto.jclass.asSubclass(preturn.jclass);
+                preturn.jclass.asSubclass(pto.jclass);
             } catch (ClassCastException cce0) {
                 try {
-                    preturn.jclass.asSubclass(pto.jclass);
-                    pcastto = true;
+                    pto.jclass.asSubclass(preturn.jclass);
+                    pcastto = pto;
                 } catch (ClassCastException cce1) {
                     throw new IllegalArgumentException(); // TODO: message
                 }

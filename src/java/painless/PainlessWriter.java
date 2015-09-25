@@ -1,5 +1,6 @@
 package painless;
 
+import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
@@ -35,6 +36,33 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
             aend = null;
             atrue = null;
             afalse = null;
+        }
+    }
+
+    private static Type getDescriptorFromJClass(final Class jclass) {
+        final String jnamestr = jclass.getName();
+
+        switch (jnamestr) {
+            case "void":
+                return Type.VOID_TYPE;
+            case "boolean":
+                return Type.BOOLEAN_TYPE;
+            case "byte":
+                return Type.BYTE_TYPE;
+            case "char":
+                return Type.CHAR_TYPE;
+            case "short":
+                return Type.SHORT_TYPE;
+            case "int":
+                return Type.INT_TYPE;
+            case "long":
+                return Type.LONG_TYPE;
+            case "float":
+                return Type.FLOAT_TYPE;
+            case "double":
+                return Type.DOUBLE_TYPE;
+            default:
+                return Type.getType(jclass);
         }
     }
 
@@ -143,27 +171,191 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         if (frompsort.isPNumeric() && topsort.isPNumeric()) {
             switch (frompsort) {
                 case BYTE:
+                    switch (topsort) {
+                        case SHORT:
+                            execute.visitInsn(Opcodes.I2S);
+                            break;
+                        case CHAR:
+                            execute.visitInsn(Opcodes.I2C);
+                            break;
+                        case LONG:
+                            execute.visitInsn(Opcodes.I2L);
+                            break;
+                        case FLOAT:
+                            execute.visitInsn(Opcodes.I2F);
+                            break;
+                        case DOUBLE:
+                            execute.visitInsn(Opcodes.I2D);
+                            break;
+                    }
                     break;
                 case SHORT:
+                    switch (topsort) {
+                        case BYTE:
+                            execute.visitInsn(Opcodes.I2B);
+                            break;
+                        case CHAR:
+                            execute.visitInsn(Opcodes.I2C);
+                            break;
+                        case LONG:
+                            execute.visitInsn(Opcodes.I2L);
+                            break;
+                        case FLOAT:
+                            execute.visitInsn(Opcodes.I2F);
+                            break;
+                        case DOUBLE:
+                            execute.visitInsn(Opcodes.I2D);
+                            break;
+                    }
                     break;
                 case CHAR:
+                    switch (topsort) {
+                        case BYTE:
+                            execute.visitInsn(Opcodes.I2B);
+                            break;
+                        case SHORT:
+                            execute.visitInsn(Opcodes.I2S);
+                            break;
+                        case LONG:
+                            execute.visitInsn(Opcodes.I2L);
+                            break;
+                        case FLOAT:
+                            execute.visitInsn(Opcodes.I2F);
+                            break;
+                        case DOUBLE:
+                            execute.visitInsn(Opcodes.I2D);
+                            break;
+                    }
                     break;
                 case INT:
+                    switch (topsort) {
+                        case BYTE:
+                            execute.visitInsn(Opcodes.I2B);
+                            break;
+                        case SHORT:
+                            execute.visitInsn(Opcodes.I2S);
+                            break;
+                        case CHAR:
+                            execute.visitInsn(Opcodes.I2C);
+                            break;
+                        case LONG:
+                            execute.visitInsn(Opcodes.I2L);
+                            break;
+                        case FLOAT:
+                            execute.visitInsn(Opcodes.I2F);
+                            break;
+                        case DOUBLE:
+                            execute.visitInsn(Opcodes.I2D);
+                            break;
+                    }
                     break;
                 case LONG:
+                    switch (topsort) {
+                        case BYTE:
+                            execute.visitInsn(Opcodes.L2I);
+                            execute.visitInsn(Opcodes.I2B);
+                            break;
+                        case SHORT:
+                            execute.visitInsn(Opcodes.L2I);
+                            execute.visitInsn(Opcodes.I2S);
+                            break;
+                        case CHAR:
+                            execute.visitInsn(Opcodes.L2I);
+                            execute.visitInsn(Opcodes.I2C);
+                            break;
+                        case INT:
+                            execute.visitInsn(Opcodes.L2I);
+                            break;
+                        case FLOAT:
+                            execute.visitInsn(Opcodes.L2F);
+                            break;
+                        case DOUBLE:
+                            execute.visitInsn(Opcodes.L2D);
+                            break;
+                    }
                     break;
                 case FLOAT:
+                    switch (topsort) {
+                        case BYTE:
+                            execute.visitInsn(Opcodes.F2I);
+                            execute.visitInsn(Opcodes.I2B);
+                            break;
+                        case SHORT:
+                            execute.visitInsn(Opcodes.F2I);
+                            execute.visitInsn(Opcodes.I2S);
+                            break;
+                        case CHAR:
+                            execute.visitInsn(Opcodes.F2I);
+                            execute.visitInsn(Opcodes.I2C);
+                            break;
+                        case INT:
+                            execute.visitInsn(Opcodes.F2I);
+                            break;
+                        case LONG:
+                            execute.visitInsn(Opcodes.F2L);
+                            break;
+                        case DOUBLE:
+                            execute.visitInsn(Opcodes.F2D);
+                            break;
+                    }
                     break;
                 case DOUBLE:
+                    switch (topsort) {
+                        case BYTE:
+                            execute.visitInsn(Opcodes.D2I);
+                            execute.visitInsn(Opcodes.I2B);
+                            break;
+                        case SHORT:
+                            execute.visitInsn(Opcodes.D2I);
+                            execute.visitInsn(Opcodes.I2S);
+                            break;
+                        case CHAR:
+                            execute.visitInsn(Opcodes.D2I);
+                            execute.visitInsn(Opcodes.I2C);
+                            break;
+                        case INT:
+                            execute.visitInsn(Opcodes.D2I);
+                            break;
+                        case LONG:
+                            execute.visitInsn(Opcodes.D2L);
+                            break;
+                        case FLOAT:
+                            execute.visitInsn(Opcodes.D2F);
+                            break;
+                    }
                     break;
             }
         } else {
-
+            execute.visitTypeInsn(Opcodes.CHECKCAST, toptype.getADescriptor());
         }
     }
 
     private void writePTransform(final PTransform ptransform) {
+        final PMethod pmethod = ptransform.getPMethod();
+        final java.lang.reflect.Method jmethod = pmethod.getJMethod();
+        final int modifiers = jmethod.getModifiers();
+        Class jowner = pmethod.getPOwner().getJClass();
 
+        final PType pcastfrom = ptransform.getJCastFrom();
+        final PType pcastto = ptransform.getJCastTo();
+
+        if (pcastfrom != null) {
+            execute.visitTypeInsn(Opcodes.CHECKCAST, pcastfrom.getADescriptor());
+        }
+
+
+
+        if (Modifier.isStatic(modifiers)) {
+            //execute.visitMethodInsn(Opcodes.INVOKESTATIC, jowner.getName(), pmethod.getPName(), "", jmethod.isDefault());
+        } else if (Modifier.isInterface(modifiers)) {
+
+        } else {
+
+        }
+
+        if (pcastto != null) {
+            execute.visitTypeInsn(Opcodes.CHECKCAST, pcastto.getADescriptor());
+        }
     }
 
     private void checkWritePBranch(final PJump pbranch) {

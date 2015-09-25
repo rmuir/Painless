@@ -314,18 +314,20 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             switch (fpsort) {
                 case BYTE:
                     switch (tpsort) {
+                        case BYTE:
+                        case INT:
+                            return null;
                         case CHAR:
                             if (explicit) {
                                 return pcast;
                             } else {
                                 throw new IllegalArgumentException(); // TODO : message
                             }
-                        case BYTE:
-                        case INT:
+                        case SHORT:
                         case LONG:
                         case FLOAT:
                         case DOUBLE:
-                            return null;
+                            return pcast;
                         default:
                             throw new IllegalStateException(); // TODO: message
                     }
@@ -338,11 +340,13 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                             } else {
                                 throw new IllegalArgumentException(); // TODO : message
                             }
+                        case SHORT:
                         case INT:
+                            return null;
                         case LONG:
                         case FLOAT:
                         case DOUBLE:
-                            return null;
+                            return pcast;
                         default:
                             throw new IllegalStateException(); // TODO: message
                     }
@@ -357,10 +361,11 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                             }
                         case CHAR:
                         case INT:
+                            return null;
                         case LONG:
                         case FLOAT:
                         case DOUBLE:
-                            return null;
+                            return pcast;
                         default:
                             throw new IllegalStateException(); // TODO: message
                     }
@@ -375,10 +380,11 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                                 throw new IllegalArgumentException(); // TODO : message
                             }
                         case INT:
+                            return null;
                         case LONG:
                         case FLOAT:
                         case DOUBLE:
-                            return null;
+                            return pcast;
                         default:
                             throw new IllegalStateException(); // TODO: message
                     }
@@ -394,9 +400,10 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                                 throw new IllegalArgumentException(); // TODO : message
                             }
                         case LONG:
+                            return null;
                         case FLOAT:
                         case DOUBLE:
-                            return null;
+                            return pcast;
                         default:
                             throw new IllegalStateException(); // TODO: message
                     }
@@ -413,8 +420,9 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                                 throw new IllegalArgumentException(); // TODO : message
                             }
                         case FLOAT:
-                        case DOUBLE:
                             return null;
+                        case DOUBLE:
+                            return pcast;
                         default:
                             throw new IllegalStateException(); // TODO: message
                     }

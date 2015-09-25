@@ -1,7 +1,13 @@
 package painless;
 
+import java.lang.reflect.Modifier;
+import java.util.Map;
+
 public final class Painless {
     public static void main(String args[]) throws Exception {
+        int m = Map.class.getMethod("get", Object.class).getModifiers();
+        System.out.println(Modifier.isInterface(Map.class.getModifiers()));
+
         final long start = System.currentTimeMillis();
         //PainlessExecutable executable = compile("test", "bool b = true; while (true) { while (true) {if (b) break; b = !b;} break;}");
         //PainlessExecutable executable = compile("test", "int x = 0; while (true) {x = x + 1; if (x >= 5) continue; if (x <= 6) {break;}}");

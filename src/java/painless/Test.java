@@ -8,28 +8,30 @@ public class Test {
         //boolean bool = false;
         //bool = !bool;
 
-        byte b = 0;
-        b = (byte)+b;
-
-        //short s = 0;
-        //s = (short)+s;
-
+        /*byte b = 0;
+        short s = 0;
         char c = 0;
-        c = (char)b;
+        int i = 0;
+        long l = 0;
+        float f = 0;
+        double e = 0;
 
-        //int i = 0;
-        //i = +i;
+        b = (byte)f;
+        s = (short)f;
+        c = (char)f;
+        i = (int)f;
+        l = (long)f;
+        f = (float)f;
+        e = (double)f;*/
 
-        //long l = 0;
-        //l = +l;
+        //Object o = 7;
+        //int a = (int)o;
 
-        //float f = 0;
-        //f = +f;
 
-        //double e = 0;
-        //e = +e;
 
-        //Map a = new HashMap();
+        Map a = new HashMap();
+
+        ((HashMap)a).get("test");
 
         //Object o = a;
 
