@@ -3,6 +3,7 @@ package painless;
 import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Iterator;
 
 import org.antlr.v4.runtime.tree.ParseTree;
 
@@ -10,26 +11,36 @@ import static painless.PainlessAnalyzer.*;
 import static painless.PainlessTypes.*;
 
 public class PainlessExternal {
-    final static int TYPE = 0;
-    final static int VARIABLE = 1;
-    final static int CONSTRUCTOR = 2;
-    final static int METHOD = 3;
-    final static int FIELD = 4;
-    final static int ARRAY = 5;
-    final static int ARGUMENT = 6;
-    final static int CAST = 7;
-    final static int TRANSFORM = 8;
+    enum SType {
+        TYPE,
+        VARIABLE,
+        CONSTRUCTOR,
+        METHOD,
+        FIELD,
+        ARRAY,
+        ARGUMENT,
+        CAST,
+        TRANSFORM,
 
-    final static int AMAKE = 9;
-    final static int ALENGTH = 10;
+        AMAKE,
+        ALENGTH
+    }
 
     static class PSegment {
-        final int stype;
-        final Object svalue;
+        private final SType stype;
+        private final Object svalue;
 
-        PSegment(final int stype, final Object svalue) {
+        PSegment(final SType stype, final Object svalue) {
             this.stype = stype;
             this.svalue = svalue;
+        }
+
+        SType getSType() {
+            return stype;
+        }
+
+        Object getSValue() {
+            return svalue;
         }
     }
 
@@ -54,7 +65,7 @@ public class PainlessExternal {
             ptype = null;
         }
 
-        void addSegment(final int stype, final Object svalue) {
+        void addSegment(final SType stype, final Object svalue) {
             switch (stype) {
                 case TYPE:
                     if (!(svalue instanceof PType)) {
@@ -245,6 +256,14 @@ public class PainlessExternal {
 
                     psegments.add(new PSegment(stype, svalue));
             }
+        }
+
+        Iterator<PSegment> getIterator() {
+            return psegments.iterator();
+        }
+
+        boolean isLast(final PSegment psegment) {
+            return psegment.equals(psegments.peek());
         }
 
         boolean isStatic() {

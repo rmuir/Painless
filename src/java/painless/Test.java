@@ -1,26 +1,29 @@
 package painless;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class Test {
-    static int i;
-    int j;
+    public void stest() {
+        boolean bool = false;
+        bool = !bool;
 
-    public Test() {
-    }
+        byte b = 0;
+        b = (byte)+b;
 
-    public static void stest(boolean a) {
-        boolean b = true;
+        short s = 0;
+        s = (short)+s;
 
-        while (b) {
-            return;
-        }
+        char c = 0;
+        c = (char)+c;
 
-        return;
-    }
+        int i = 0;
+        i = +i;
 
-    public void mtest(int... blah) {
+        long l = 0;
+        l = +l;
 
+        float f = 0;
+        f = +f;
+
+        double e = 0;
+        e = +e;
     }
 }

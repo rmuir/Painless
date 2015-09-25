@@ -1,5 +1,3 @@
-# java -cp lib/antlr4-4.5.jar:. org.antlr.v4.Tool -no-listener -visitor -package painless src/java/painless/Painless.g4
-
 grammar Painless;
 
 source
@@ -8,7 +6,7 @@ source
 
 statement
     : IF LP expression RP block (ELSE block)?                                              # if
-    | WHILE LP expression RP ( block | empty )                                             # while
+    | WHILE LP expression RP block                                                         # while
     | DO block WHILE LP expression RP                                                      # do
     | FOR LP declaration? SEMICOLON expression? SEMICOLON expression? RP ( block | empty ) # for
     | declaration SEMICOLON                                                                # decl
@@ -44,8 +42,8 @@ expression
     |               FALSE                                                     # false
     |               NULL                                                      # null
     |               extstart                                                  # ext
-    | <assoc=right> ( BOOLNOT | BWNOT | ADD | SUB ) expression                # unary
-    | <assoc=right> LP decltype RP expression                                 # cast
+    |               ( BOOLNOT | BWNOT | ADD | SUB ) expression                # unary
+    |               LP decltype RP expression                                 # cast
     |               expression ( MUL | DIV | REM ) expression                 # binary
     |               expression ( ADD | SUB ) expression                       # binary
     |               expression ( LSH | RSH | USH ) expression                 # binary
@@ -57,7 +55,7 @@ expression
     |               expression BOOLAND expression                             # bool
     |               expression BOOLOR expression                              # bool
     | <assoc=right> expression COND expression COLON expression               # conditional
-    | <assoc=right> extstart ASSIGN expression                                # assignment
+    |               extstart ASSIGN expression                                # assignment
     ;
 
 extstart
