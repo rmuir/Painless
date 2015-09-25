@@ -1,18 +1,17 @@
 package painless;
 
+import org.objectweb.asm.commons.Method;
+
 import java.lang.reflect.Modifier;
 import java.util.Map;
 
 public final class Painless {
     public static void main(String args[]) throws Exception {
-        int m = Map.class.getMethod("get", Object.class).getModifiers();
-        System.out.println(Modifier.isInterface(Map.class.getModifiers()));
-
         final long start = System.currentTimeMillis();
         //PainlessExecutable executable = compile("test", "bool b = true; while (true) { while (true) {if (b) break; b = !b;} break;}");
         //PainlessExecutable executable = compile("test", "int x = 0; while (true) {x = x + 1; if (x >= 5) continue; if (x <= 6) {break;}}");
         //PainlessExecutable executable = compile("test", "for (int x = 0; x < 5; x = x + 1);");
-        PainlessExecutable executable = compile("test", "int a = (int)7L;");
+        PainlessExecutable executable = compile("test", "return 7L;");
         //PainlessExecutable executable = compile("test", "bool b; b = false; if (b) return null; else return 5;");
         final long end = System.currentTimeMillis() - start;
         Object value = executable.execute(null);

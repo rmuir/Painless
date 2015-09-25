@@ -2,6 +2,7 @@ package painless;
 
 import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.Iterator;
 
@@ -154,7 +155,7 @@ public class PainlessExternal {
                     psegments.add(new PSegment(stype, svalue));
 
                     break;
-                case ARRAY:
+                case ARRAY: {
                     if (!(svalue instanceof ParseTree)) {
                         throw new IllegalArgumentException(); // TODO: message
                     }
@@ -172,12 +173,13 @@ public class PainlessExternal {
                     readonly = false;
 
                     final int dimensions = ptype.getPDimensions() - 1;
-                    ptype = new PType(ptype.getPClass(), ptype.getJClass(), dimensions, ptype.getPSort());
+                    final String adescriptor = ptype.getADescriptor().substring(1);
+                    ptype = new PType(ptype.getPClass(), ptype.getJClass(), adescriptor, dimensions, ptype.getPSort());
 
                     psegments.add(new PSegment(stype, svalue));
 
                     break;
-                case ARGUMENT:
+                } case ARGUMENT:
                     if (!(svalue instanceof ParseTree)) {
                         throw new IllegalArgumentException(); // TODO: message
                     }
@@ -225,7 +227,7 @@ public class PainlessExternal {
                     psegments.add(new PSegment(stype, svalue));
 
                     break;
-                case AMAKE:
+                case AMAKE: {
                     if (!(svalue instanceof Integer)) {
                         throw new IllegalArgumentException(); // TODO: message
                     }
@@ -238,13 +240,21 @@ public class PainlessExternal {
                     member = false;
                     readonly = true;
 
-                    ptype = new PType(ptype.getPClass(), ptype.getJClass(), (Integer)svalue, ptype.getPSort());
+                    char[] brackets = new char[(int)svalue];
+                    Arrays.fill(brackets, '[');
+                    final String adescriptor = new String(brackets) + ptype.getADescriptor();
+
+                    ptype = new PType(ptype.getPClass(), ptype.getJClass(), adescriptor, (int)svalue, ptype.getPSort());
 
                     psegments.add(new PSegment(stype, svalue));
 
                     break;
-                case ALENGTH:
+                } case ALENGTH:
                     if (!(svalue instanceof PType)) {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+
+                    if (((PType)svalue).getPDimensions() == 0) {
                         throw new IllegalArgumentException(); // TODO: message
                     }
 

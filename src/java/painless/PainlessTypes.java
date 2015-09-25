@@ -258,6 +258,7 @@ class PainlessTypes {
     static class PClass {
         private final String pname;
         private final Class jclass;
+        private final String jinternal;
 
         private final Map<String, PConstructor> pconstructors;
         private final Map<String, PMethod> pfunctions;
@@ -266,9 +267,10 @@ class PainlessTypes {
         private final Map<String, PField> pstatics;
         private final Map<String, PField> pmembers;
 
-        private PClass(final String pname, final Class jclass) {
+        private PClass(final String pname, final Class jclass, final String jinternal) {
             this.pname = pname;
             this.jclass = jclass;
+            this.jinternal = jinternal;
 
             this.pconstructors = new HashMap<>();
             this.pfunctions = new HashMap<>();
@@ -284,6 +286,10 @@ class PainlessTypes {
 
         Class getJClass() {
             return jclass;
+        }
+
+        String getJInternal() {
+            return jinternal;
         }
 
         PConstructor getPConstructor(final String pname) {
@@ -640,7 +646,7 @@ class PainlessTypes {
         loadPDisallow(ptypes, pfromstr, ptostr);
     }
 
-    private static void loadPClass(final PTypes ptypes, final String pnamestr, final String jclassstr) {
+    private static void loadPClass(final PTypes ptypes, final String pnamestr, final String jnamestr) {
         if (!pnamestr.matches("^[$_a-zA-Z][_a-zA-Z0-9]+$")) {
             throw new IllegalArgumentException(); // TODO: message
         }
@@ -649,8 +655,9 @@ class PainlessTypes {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        final Class jclass = getJClassFromCanonicalJName(jclassstr);
-        final PClass pclass = new PClass(pnamestr, jclass);
+        final Class jclass = getJClassFromCanonicalJName(jnamestr);
+        final String jinternal = jclass.getName().replace('.', '/');
+        final PClass pclass = new PClass(pnamestr, jclass, jinternal);
 
         ptypes.pclasses.put(pnamestr, pclass);
     }
@@ -684,25 +691,31 @@ class PainlessTypes {
         final PType[] poriginals = new PType[length];
         final Class[] jarguments = new Class[length];
 
+        String adescriptor = "(";
+
         for (int pargumentindex = 0; pargumentindex < length; ++ pargumentindex) {
             final String[] pargumentstrs = pargumentsstrs[pargumentindex];
 
             if (pargumentstrs.length == 1) {
                 parguments[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[0]);
                 poriginals[pargumentindex] = parguments[pargumentindex];
-                jarguments[pargumentindex] = parguments[pargumentindex].jclass;
             } else if (pargumentstrs.length == 2) {
                 parguments[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[1]);
                 poriginals[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[0]);
-                jarguments[pargumentindex] = poriginals[pargumentindex].jclass;
             } else {
                 throw new IllegalArgumentException(); // TODO: message
             }
+
+            jarguments[pargumentindex] = poriginals[pargumentindex].jclass;
+
+            adescriptor += poriginals[pargumentindex].adescriptor;
         }
+
+        adescriptor += ")V";
 
         final Constructor jconstructor = getJConstructorFromJClass(powner.jclass, jarguments);
         final PConstructor pconstructor = new PConstructor(pnamestr, powner,
-                Arrays.asList(parguments), Arrays.asList(poriginals), jconstructor);
+                Arrays.asList(parguments), Arrays.asList(poriginals), jconstructor, adescriptor);
 
         powner.pconstructors.put(pnamestr, pconstructor);
     }
@@ -740,19 +753,21 @@ class PainlessTypes {
         if (preturnstrs.length == 1) {
             preturn = getPTypeFromCanonicalPName(ptypes, preturnstrs[0]);
             poreturn = preturn;
-            jreturn = preturn.jclass;
         } else if (preturnstrs.length == 2) {
             preturn = getPTypeFromCanonicalPName(ptypes, preturnstrs[1]);
             poreturn = getPTypeFromCanonicalPName(ptypes, preturnstrs[0]);
-            jreturn = poreturn.jclass;
         } else {
             throw new IllegalArgumentException(); // TODO: message
         }
+
+        jreturn = poreturn.jclass;
 
         final int length = pargumentsstrs.length;
         final PType[] parguments = new PType[length];
         final PType[] poriginals = new PType[length];
         final Class[] jarguments = new Class[length];
+
+        String adescriptor = "(";
 
         for (int pargumentindex = 0; pargumentindex < length; ++ pargumentindex) {
             final String[] pargumentstrs = pargumentsstrs[pargumentindex];
@@ -760,15 +775,19 @@ class PainlessTypes {
             if (pargumentstrs.length == 1) {
                 parguments[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[0]);
                 poriginals[pargumentindex] = parguments[pargumentindex];
-                jarguments[pargumentindex] = parguments[pargumentindex].jclass;
             } else if (pargumentstrs.length == 2) {
                 parguments[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[1]);
                 poriginals[pargumentindex] = getPTypeFromCanonicalPName(ptypes, pargumentstrs[0]);
-                jarguments[pargumentindex] = poriginals[pargumentindex].jclass;
             } else {
                 throw new IllegalArgumentException(); // TODO: message
             }
+
+            jarguments[pargumentindex] = poriginals[pargumentindex].jclass;
+
+            adescriptor += poriginals[pargumentindex].adescriptor;
         }
+
+        adescriptor += ")" + poreturn.adescriptor;
 
         final Method jmethod = getJMethodFromJClass(powner.jclass, jnamestr, jarguments);
 
@@ -777,7 +796,7 @@ class PainlessTypes {
         }
 
         final PMethod pmethod = new PMethod(pnamestr, powner, preturn, poreturn,
-                Arrays.asList(parguments), Arrays.asList(poriginals), jmethod);
+                Arrays.asList(parguments), Arrays.asList(poriginals), jmethod, adescriptor);
         final int modifiers = jmethod.getModifiers();
 
         if (statik) {
@@ -1048,6 +1067,8 @@ class PainlessTypes {
 
         if (dimensions == 0) {
             final PClass pclass = ptypes.pclasses.get(pnamestr);
+            final Class jclass = pclass.jclass;
+            final String adescriptor = getADescriptorFromJClass(jclass);
 
             if (pclass == null) {
                 throw new IllegalArgumentException(); // TODO: message
@@ -1065,7 +1086,7 @@ class PainlessTypes {
                 }
             }
 
-            return new PType(pclass, pclass.jclass, 0, psort);
+            return new PType(pclass, jclass, adescriptor, 0, psort);
         } else {
             final int index = pnamestr.indexOf('[');
             final int length = pnamestr.length();
@@ -1079,8 +1100,9 @@ class PainlessTypes {
             final String brackets = pnamestr.substring(index, length);
             final String jnamestr = pclass.jclass.getCanonicalName() + brackets;
             final Class jclass = getJClassFromCanonicalJName(jnamestr);
+            final String adescriptor = getADescriptorFromJClass(jclass);
 
-            return new PType(pclass, jclass, dimensions, PSort.ARRAY);
+            return new PType(pclass, jclass, adescriptor, dimensions, PSort.ARRAY);
         }
     }
 
@@ -1174,6 +1196,39 @@ class PainlessTypes {
         }
 
         return dimensions;
+    }
+
+    private static String getADescriptorFromJClass(final Class jclass) {
+        final String jnamestr = jclass.getName();
+
+        switch (jnamestr) {
+            case "void":
+                return "V";
+            case "boolean":
+                return "Z";
+            case "byte":
+                return "B";
+            case "char":
+                return "C";
+            case "short":
+                return "S";
+            case "int":
+                return "I";
+            case "long":
+                return "J";
+            case "float":
+                return "F";
+            case "double":
+                return "D";
+            default:
+                String adescriptor = jnamestr.replace('.', '/');
+
+                if (!adescriptor.startsWith("[")) {
+                    adescriptor = "L" + adescriptor + ";";
+                }
+
+                return adescriptor;
+        }
     }
 
     private static Constructor getJConstructorFromJClass(final Class jclass, final Class[] jarguments) {

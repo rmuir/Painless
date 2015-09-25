@@ -297,9 +297,9 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             return pexplicit;
         }
 
-        final PTransform pimplicit = ptypes.getPExplicit(pcast);
+        final PTransform pimplicit = ptypes.getPImplicit(pcast);
 
-        if (ptypes.getPImplicit(pcast) != null) {
+        if (pimplicit != null) {
             return pimplicit;
         }
 

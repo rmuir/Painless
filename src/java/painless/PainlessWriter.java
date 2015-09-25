@@ -12,8 +12,6 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
-import org.objectweb.asm.commons.Method;
 
 import static painless.PainlessAnalyzer.*;
 import static painless.PainlessExternal.*;
@@ -39,36 +37,9 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         }
     }
 
-    private static Type getDescriptorFromJClass(final Class jclass) {
-        final String jnamestr = jclass.getName();
-
-        switch (jnamestr) {
-            case "void":
-                return Type.VOID_TYPE;
-            case "boolean":
-                return Type.BOOLEAN_TYPE;
-            case "byte":
-                return Type.BYTE_TYPE;
-            case "char":
-                return Type.CHAR_TYPE;
-            case "short":
-                return Type.SHORT_TYPE;
-            case "int":
-                return Type.INT_TYPE;
-            case "long":
-                return Type.LONG_TYPE;
-            case "float":
-                return Type.FLOAT_TYPE;
-            case "double":
-                return Type.DOUBLE_TYPE;
-            default:
-                return Type.getType(jclass);
-        }
-    }
-
     final static String BASE_CLASS_NAME = PainlessExecutable.class.getName();
     final static String CLASS_NAME = BASE_CLASS_NAME + "$CompiledPainlessExecutable";
-    final static String BASE_CLASS_INTERNAL = Type.getType(PainlessExecutable.class).getInternalName();
+    final static String BASE_CLASS_INTERNAL = PainlessExecutable.class.getName().replace('.', '/');
     final static String CLASS_INTERNAL = BASE_CLASS_INTERNAL + "$CompiledPainlessExecutable";
 
     static byte[] write(final PTypes ptypes, final String source,
@@ -115,15 +86,15 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     private void writeConstructor() {
         final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
-        final Method method = Method.getMethod("void <init>(String, String)");
-        final String base = Type.getType(PainlessExecutable.class).getInternalName();
+        final String aname = "<init>";
+        final String adescriptor = "(Ljava/lang/String;Ljava/lang/String;)V";
 
-        final MethodVisitor constructor = writer.visitMethod(access, method.getName(), method.getDescriptor(), null, null);
+        final MethodVisitor constructor = writer.visitMethod(access, aname, adescriptor, null, null);
         constructor.visitCode();
         constructor.visitVarInsn(Opcodes.ALOAD, 0);
         constructor.visitVarInsn(Opcodes.ALOAD, 1);
         constructor.visitVarInsn(Opcodes.ALOAD, 2);
-        constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, base, method.getName(), method.getDescriptor(), false);
+        constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, BASE_CLASS_INTERNAL, aname, adescriptor, false);
         constructor.visitInsn(Opcodes.RETURN);
         constructor.visitMaxs(0, 0);
         constructor.visitEnd();
@@ -131,10 +102,11 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     private void writeExecute(final ParseTree root) {
         final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
-        final Method method = Method.getMethod("Object execute(java.util.Map);");
+        final String aname = "execute";
+        final String adescriptor = "(Ljava/util/Map;)Ljava/lang/Object;";
         final String signature = "(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)Ljava/lang/Object;";
 
-        execute = writer.visitMethod(access, method.getName(), method.getDescriptor(), signature, null);
+        execute = writer.visitMethod(access, aname, adescriptor, signature, null);
 
         execute.visitCode();
 
@@ -334,7 +306,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         final PMethod pmethod = ptransform.getPMethod();
         final java.lang.reflect.Method jmethod = pmethod.getJMethod();
         final int modifiers = jmethod.getModifiers();
-        Class jowner = pmethod.getPOwner().getJClass();
+        final PClass powner = pmethod.getPOwner();
 
         final PType pcastfrom = ptransform.getJCastFrom();
         final PType pcastto = ptransform.getJCastTo();
@@ -343,14 +315,15 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
             execute.visitTypeInsn(Opcodes.CHECKCAST, pcastfrom.getADescriptor());
         }
 
-
-
         if (Modifier.isStatic(modifiers)) {
-            //execute.visitMethodInsn(Opcodes.INVOKESTATIC, jowner.getName(), pmethod.getPName(), "", jmethod.isDefault());
+            execute.visitMethodInsn(Opcodes.INVOKESTATIC,
+                    powner.getJInternal(), jmethod.getName(), pmethod.getADescriptor(), jmethod.isDefault());
         } else if (Modifier.isInterface(modifiers)) {
-
+            execute.visitMethodInsn(Opcodes.INVOKEINTERFACE,
+                    powner.getJInternal(), jmethod.getName(), pmethod.getADescriptor(), jmethod.isDefault());
         } else {
-
+            execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                    powner.getJInternal(), jmethod.getName(), pmethod.getADescriptor(), jmethod.isDefault());
         }
 
         if (pcastto != null) {
