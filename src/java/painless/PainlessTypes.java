@@ -917,6 +917,10 @@ class PainlessTypes {
         final PType pfrom = getPTypeFromCanonicalPName(ptypes, pfromstr);
         final PType pto = getPTypeFromCanonicalPName(ptypes, ptostr);
 
+        if (pfrom.equals(pto)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
         final PCast pcast = new PCast(pfrom, pto);
 
         if (ptypes.pdisalloweds.contains(pcast)) {
@@ -1023,6 +1027,10 @@ class PainlessTypes {
     private static void loadPDisallow(final PTypes ptypes, final String pfromstr, final String ptostr) {
         final PType pfrom = getPTypeFromCanonicalPName(ptypes, pfromstr);
         final PType pto = getPTypeFromCanonicalPName(ptypes, ptostr);
+
+        if (pfrom.equals(pto)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
 
         final PCast pcast = new PCast(pfrom, pto);
 

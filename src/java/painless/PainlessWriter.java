@@ -290,9 +290,9 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     private void checkWritePBranch(final PJump pbranch) {
         if (pbranch != null) {
             if (pbranch.atrue != null) {
-                execute.visitJumpInsn(Opcodes.IF_ICMPNE, pbranch.atrue);
+                execute.visitJumpInsn(Opcodes.IFNE, pbranch.atrue);
             } else if (pbranch.afalse != null) {
-                execute.visitJumpInsn(Opcodes.IF_ICMPEQ, pbranch.afalse);
+                execute.visitJumpInsn(Opcodes.IFEQ, pbranch.afalse);
             }
         }
     }
@@ -871,6 +871,39 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitComp(CompContext ctx) {
+        final PMetadata compmd = getPMetadata(ctx);
+        final Object constant = compmd.getConstant();
+        final PJump pbranch = pbranches.get(ctx);
+
+        if (constant == null) {
+            final ExpressionContext ectx0 = ctx.expression(0);
+            final ExpressionContext ectx1 = ctx.expression(1);
+            final PMetadata expressionmd0 = getPMetadata(ectx0);
+            final PMetadata expressionmd1 = getPMetadata(ectx1);
+
+
+            visit(ectx0);
+            visit(ectx1);
+
+
+            if (pbranch == null) {
+
+            } else {
+
+            }
+        } else {
+            if (pbranch == null) {
+                pushPConstant(constant);
+                checkWritePCast(compmd);
+            } else {
+                if ((boolean)constant && pbranch.atrue != null) {
+                    execute.visitLabel(pbranch.atrue);
+                } else if (!(boolean)constant && pbranch.afalse != null) {
+                    execute.visitLabel(pbranch.afalse);
+                }
+            }
+        }
+
         return null;
     }
 
@@ -980,14 +1013,29 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitAssignment(AssignmentContext ctx) {
+    public Void visitAssignment(final AssignmentContext ctx) {
         final PMetadata assignmentmd = getPMetadata(ctx);
         final PJump pbranch = pbranches.get(ctx);
+        final boolean pop = assignmentmd.doPop();
 
         final ExpressionContext ectx1 = ctx.expression();
         final ExtstartContext ectx0 = ctx.extstart();
 
+        final PMetadata extstartmd = getPMetadata(ectx0);
+        final PExternal pexternal = extstartmd.getPExternal();
+
         visit(ectx1);
+
+        if (!pop) {
+            final int asize = pexternal.getPType().getPSort().getASize();
+
+            if (asize == 1) {
+                execute.visitInsn(Opcodes.DUP);
+            } else if (asize == 2) {
+                execute.visitInsn(Opcodes.DUP2);
+            }
+        }
+
         visit(ectx0);
 
         checkWritePCast(assignmentmd);
@@ -1002,83 +1050,81 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         final PJump pbranch = pbranches.get(ctx);
         final PExternal pexternal = extstartmd.getPExternal();
         boolean write = extstartmd.doWrite();
-        boolean read = !write || !extstartmd.doPop();
+        boolean pop = extstartmd.doPop();
 
-        while (write || read) {
-            final Iterator<PSegment> psegments = pexternal.getIterator();
+        final Iterator<PSegment> psegments = pexternal.getIterator();
 
-            while (psegments.hasNext()) {
-                final PSegment psegment = psegments.next();
-                final SType stype = psegment.getSType();
-                final Object svalue = psegment.getSValue();
-                final boolean store = write && pexternal.isLast(psegment);
+        while (psegments.hasNext()) {
+            final PSegment psegment = psegments.next();
+            final SType stype = psegment.getSType();
+            final Object svalue = psegment.getSValue();
+            final boolean store = write && pexternal.isLast(psegment);
 
-                switch (stype) {
-                    case TYPE:
-                        break;
-                    case VARIABLE:
-                        final PVariable pvariable = (PVariable)svalue;
-                        final int aslot = pvariable.getASlot();
-                        final PType ptype = pvariable.getPType();
-                        final PSort psort = ptype.getPSort();
+            switch (stype) {
+                case TYPE:
+                    break;
+                case VARIABLE:
+                    final PVariable pvariable = (PVariable)svalue;
+                    final int aslot = pvariable.getASlot();
+                    final PType ptype = pvariable.getPType();
+                    final PSort psort = ptype.getPSort();
 
-                        switch (psort) {
-                            case BOOL:
-                            case BYTE:
-                            case SHORT:
-                            case CHAR:
-                            case INT:
-                                execute.visitVarInsn(store ? Opcodes.ISTORE : Opcodes.ILOAD, aslot);
-                                break;
-                            case LONG:
-                                execute.visitVarInsn(store ? Opcodes.LSTORE : Opcodes.LLOAD, aslot);
-                            case FLOAT:
-                                execute.visitVarInsn(store ? Opcodes.FSTORE : Opcodes.FLOAD, aslot);
-                            case DOUBLE:
-                                execute.visitVarInsn(store ? Opcodes.DSTORE : Opcodes.DLOAD, aslot);
-                            default:
-                                execute.visitVarInsn(store ? Opcodes.ASTORE : Opcodes.ALOAD, aslot);
-                        }
-
-                        break;
-                    case CONSTRUCTOR:
-                        break;
-                    case METHOD:
-                        break;
-                    case FIELD:
-                        break;
-                    case ARRAY:
-                        break;
-                    case ARGUMENT:
-                        break;
-                    case CAST:
-                        break;
-                    case TRANSFORM:
-                        break;
-                    case AMAKE:
-                        break;
-                    case ALENGTH:
-                        break;
-                    default:
-                        throw new IllegalStateException(); // TODO: message
-                }
-            }
-
-            if (write) {
-                write = false;
-            } else {
-                checkWritePCast(extstartmd);
-                checkWritePBranch(pbranch);
-                read = false;
-
-                if (extstartmd.doPop()) {
-                    final int asize = pexternal.getPType().getPSort().getASize();
-
-                    if (asize == 1) {
-                        execute.visitInsn(Opcodes.POP);
-                    } else if (asize == 2) {
-                        execute.visitInsn(Opcodes.POP2);
+                    switch (psort) {
+                        case BOOL:
+                        case BYTE:
+                        case SHORT:
+                        case CHAR:
+                        case INT:
+                            execute.visitVarInsn(store ? Opcodes.ISTORE : Opcodes.ILOAD, aslot);
+                            break;
+                        case LONG:
+                            execute.visitVarInsn(store ? Opcodes.LSTORE : Opcodes.LLOAD, aslot);
+                            break;
+                        case FLOAT:
+                            execute.visitVarInsn(store ? Opcodes.FSTORE : Opcodes.FLOAD, aslot);
+                            break;
+                        case DOUBLE:
+                            execute.visitVarInsn(store ? Opcodes.DSTORE : Opcodes.DLOAD, aslot);
+                            break;
+                        default:
+                            execute.visitVarInsn(store ? Opcodes.ASTORE : Opcodes.ALOAD, aslot);
                     }
+
+                    break;
+                case CONSTRUCTOR:
+                    break;
+                case METHOD:
+                    break;
+                case FIELD:
+                    break;
+                case ARRAY:
+                    break;
+                case ARGUMENT:
+                    break;
+                case CAST:
+                    break;
+                case TRANSFORM:
+                    break;
+                case AMAKE:
+                    break;
+                case ALENGTH:
+                    break;
+                default:
+                    throw new IllegalStateException(); // TODO: message
+            }
+        }
+
+        if (!write) {
+            checkWritePCast(extstartmd);
+            checkWritePBranch(pbranch);
+
+            if (pop) {
+                final int asize = pexternal.getPType().getPSort().getASize();
+
+                if (asize == 1) {
+                    execute.visitInsn(Opcodes.POP);
+                } else if (asize == 2) {
+                    execute.visitInsn(Opcodes.POP2);
                 }
             }
         }
@@ -1087,7 +1133,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitExtprec(ExtprecContext ctx) {
+    public Void visitExtprec(final ExtprecContext ctx) {
         throw new UnsupportedOperationException(); // TODO: message
     }
 
