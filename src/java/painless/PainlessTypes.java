@@ -17,29 +17,31 @@ import java.util.Set;
 
 class PainlessTypes {
     enum PSort {
-        VOID   ( 0 , false , "void"   , void.class               ),
-        BOOL   ( 1 , false , "bool"   , boolean.class            ),
-        BYTE   ( 1 , true  , "byte"   , byte.class               ),
-        SHORT  ( 1 , true  , "short"  , short.class              ),
-        CHAR   ( 1 , true  , "char"   , char.class               ),
-        INT    ( 1 , true  , "int"    , int.class                ),
-        LONG   ( 2 , true  , "long"   , long.class               ),
-        FLOAT  ( 1 , true  , "float"  , float.class              ),
-        DOUBLE ( 2 , true  , "double" , double.class             ),
-        OBJECT ( 1 , false , "object" , Object.class             ),
-        STRING ( 1 , false , "string" , String.class             ),
-        EXEC   ( 1 , false , "exec"   , PainlessExecutable.class ),
-        SMAP   ( 1 , false , "smap"   , Map.class                ),
-        ARRAY  ( 1 , false , null     , null                     );
+        VOID   ( 0 , false , false , "void"   , void.class               ),
+        BOOL   ( 1 , false , true  , "bool"   , boolean.class            ),
+        BYTE   ( 1 , true  , true  , "byte"   , byte.class               ),
+        SHORT  ( 1 , true  , true  , "short"  , short.class              ),
+        CHAR   ( 1 , true  , true  , "char"   , char.class               ),
+        INT    ( 1 , true  , true  , "int"    , int.class                ),
+        LONG   ( 2 , true  , true  , "long"   , long.class               ),
+        FLOAT  ( 1 , true  , true  , "float"  , float.class              ),
+        DOUBLE ( 2 , true  , true  , "double" , double.class             ),
+        OBJECT ( 1 , false , false , "object" , Object.class             ),
+        STRING ( 1 , false , true  , "string" , String.class             ),
+        EXEC   ( 1 , false , false , "exec"   , PainlessExecutable.class ),
+        SMAP   ( 1 , false , false , "smap"   , Map.class                ),
+        ARRAY  ( 1 , false , false , null     , null                     );
 
         private final int asize;
         private final boolean pnumeric;
+        private final boolean pbasic;
         private final String pname;
         private final Class jclass;
 
-        PSort(final int asize, final boolean pnumeric, final String pname, final Class jclass) {
+        PSort(final int asize, final boolean pnumeric, final boolean pbasic, final String pname, final Class jclass) {
             this.asize = asize;
             this.pnumeric = pnumeric;
+            this.pbasic = pbasic;
             this.pname = pname;
             this.jclass = jclass;
         }
@@ -50,6 +52,10 @@ class PainlessTypes {
 
         boolean isPNumeric() {
             return pnumeric;
+        }
+
+        boolean isPBasic() {
+            return pbasic;
         }
 
         String getPName() {
@@ -64,14 +70,16 @@ class PainlessTypes {
     static class PType {
         private final PClass pclass;
         private final Class jclass;
+        private final String jinternal;
         private final String adescriptor;
         private final int pdimensions;
         private final PSort psort;
 
-        PType(final PClass pclass, final Class jclass, final String adescriptor,
-              final int pdimensions, final PSort psort) {
+        PType(final PClass pclass, final Class jclass, final String jinternal,
+              final String adescriptor, final int pdimensions, final PSort psort) {
             this.pclass = pclass;
             this.jclass = jclass;
+            this.jinternal = jinternal;
             this.adescriptor = adescriptor;
             this.pdimensions = pdimensions;
             this.psort = psort;
@@ -83,6 +91,10 @@ class PainlessTypes {
 
         Class getJClass() {
             return jclass;
+        }
+
+        String getJInternal() {
+            return jinternal;
         }
 
         String getADescriptor() {
@@ -1064,15 +1076,21 @@ class PainlessTypes {
 
     static PType getPTypeFromCanonicalPName(final PTypes ptypes, final String pnamestr) {
         final int dimensions = getArrayDimensionsFromCanonicalName(pnamestr);
+        final String pclassstr = dimensions == 0 ? pnamestr : pnamestr.substring(0, pnamestr.indexOf('['));
+        final PClass pclass = ptypes.pclasses.get(pclassstr);
 
+        if (pclass == null) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        return getPTypeWithArrayDimensions(pclass, dimensions);
+    }
+
+    static PType getPTypeWithArrayDimensions(final PClass pclass, final int dimensions) {
         if (dimensions == 0) {
-            final PClass pclass = ptypes.pclasses.get(pnamestr);
             final Class jclass = pclass.jclass;
+            final String jinternal = pclass.jinternal;
             final String adescriptor = getADescriptorFromJClass(jclass);
-
-            if (pclass == null) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
 
             PSort psort = PSort.OBJECT;
 
@@ -1081,28 +1099,26 @@ class PainlessTypes {
                     continue;
                 }
 
-                if (pvalue.getPName().equals(pnamestr)) {
+                if (pvalue.getPName().equals(pclass.getPName())) {
                     psort = pvalue;
                 }
             }
 
-            return new PType(pclass, jclass, adescriptor, 0, psort);
+            return new PType(pclass, jclass, jinternal, adescriptor, 0, psort);
         } else {
-            final int index = pnamestr.indexOf('[');
-            final int length = pnamestr.length();
-            final String pclassstr = pnamestr.substring(0, index);
-            final PClass pclass = ptypes.pclasses.get(pclassstr);
+            final char[] brackets = new char[dimensions*2];
 
-            if (pclass == null) {
-                throw new IllegalArgumentException(); // TODO: message
+            for (int index = 0; index < brackets.length; ++index) {
+                brackets[index] = '[';
+                brackets[++index] = ']';
             }
 
-            final String brackets = pnamestr.substring(index, length);
-            final String jnamestr = pclass.jclass.getCanonicalName() + brackets;
+            final String jnamestr = pclass.jclass.getCanonicalName() + new String(brackets);
             final Class jclass = getJClassFromCanonicalJName(jnamestr);
+            final String jinternal = jclass.getName().replace('.', '/');
             final String adescriptor = getADescriptorFromJClass(jclass);
 
-            return new PType(pclass, jclass, adescriptor, dimensions, PSort.ARRAY);
+            return new PType(pclass, jclass, jinternal, adescriptor, dimensions, PSort.ARRAY);
         }
     }
 

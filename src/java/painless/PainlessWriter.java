@@ -72,50 +72,6 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         writeEnd();
     }
 
-    private void writeBegin(final String source) {
-        final int compute = ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS;
-        final int version = Opcodes.V1_7;
-        final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER | Opcodes.ACC_FINAL | Opcodes.ACC_SYNTHETIC;
-        final String base = BASE_CLASS_INTERNAL;
-        final String name = CLASS_INTERNAL;
-
-        writer = new ClassWriter(compute);
-        writer.visit(version, access, name, null, base, null);
-        writer.visitSource(source, null);
-    }
-
-    private void writeConstructor() {
-        final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
-        final String aname = "<init>";
-        final String adescriptor = "(Ljava/lang/String;Ljava/lang/String;)V";
-
-        final MethodVisitor constructor = writer.visitMethod(access, aname, adescriptor, null, null);
-        constructor.visitCode();
-        constructor.visitVarInsn(Opcodes.ALOAD, 0);
-        constructor.visitVarInsn(Opcodes.ALOAD, 1);
-        constructor.visitVarInsn(Opcodes.ALOAD, 2);
-        constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, BASE_CLASS_INTERNAL, aname, adescriptor, false);
-        constructor.visitInsn(Opcodes.RETURN);
-        constructor.visitMaxs(0, 0);
-        constructor.visitEnd();
-    }
-
-    private void writeExecute(final ParseTree root) {
-        final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
-        final String aname = "execute";
-        final String adescriptor = "(Ljava/util/Map;)Ljava/lang/Object;";
-        final String signature = "(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)Ljava/lang/Object;";
-
-        execute = writer.visitMethod(access, aname, adescriptor, signature, null);
-
-        execute.visitCode();
-
-        visit(root);
-
-        execute.visitMaxs(0, 0);
-        execute.visitEnd();
-    }
-
     private PMetadata getPMetadata(final ParseTree node) {
         final PMetadata nodemd = pmetadata.get(node);
 
@@ -298,7 +254,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                     break;
             }
         } else {
-            execute.visitTypeInsn(Opcodes.CHECKCAST, toptype.getADescriptor());
+            execute.visitTypeInsn(Opcodes.CHECKCAST, toptype.getJInternal());
         }
     }
 
@@ -312,7 +268,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         final PType pcastto = ptransform.getJCastTo();
 
         if (pcastfrom != null) {
-            execute.visitTypeInsn(Opcodes.CHECKCAST, pcastfrom.getADescriptor());
+            execute.visitTypeInsn(Opcodes.CHECKCAST, pcastfrom.getJInternal());
         }
 
         if (Modifier.isStatic(modifiers)) {
@@ -327,7 +283,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         }
 
         if (pcastto != null) {
-            execute.visitTypeInsn(Opcodes.CHECKCAST, pcastto.getADescriptor());
+            execute.visitTypeInsn(Opcodes.CHECKCAST, pcastto.getJInternal());
         }
     }
 
@@ -439,8 +395,52 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         }
     }
 
+    private void writeBegin(final String source) {
+        final int compute = ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS;
+        final int version = Opcodes.V1_7;
+        final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER | Opcodes.ACC_FINAL | Opcodes.ACC_SYNTHETIC;
+        final String base = BASE_CLASS_INTERNAL;
+        final String name = CLASS_INTERNAL;
+
+        writer = new ClassWriter(compute);
+        writer.visit(version, access, name, null, base, null);
+        writer.visitSource(source, null);
+    }
+
+    private void writeConstructor() {
+        final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
+        final String aname = "<init>";
+        final String adescriptor = "(Ljava/lang/String;Ljava/lang/String;)V";
+
+        final MethodVisitor constructor = writer.visitMethod(access, aname, adescriptor, null, null);
+        constructor.visitCode();
+        constructor.visitVarInsn(Opcodes.ALOAD, 0);
+        constructor.visitVarInsn(Opcodes.ALOAD, 1);
+        constructor.visitVarInsn(Opcodes.ALOAD, 2);
+        constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, BASE_CLASS_INTERNAL, aname, adescriptor, false);
+        constructor.visitInsn(Opcodes.RETURN);
+        constructor.visitMaxs(0, 0);
+        constructor.visitEnd();
+    }
+
+    private void writeExecute(final ParseTree root) {
+        final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
+        final String aname = "execute";
+        final String adescriptor = "(Ljava/util/Map;)Ljava/lang/Object;";
+        final String signature = "(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)Ljava/lang/Object;";
+
+        execute = writer.visitMethod(access, aname, adescriptor, signature, null);
+
+        execute.visitCode();
+
+        visit(root);
+
+        execute.visitMaxs(0, 0);
+        execute.visitEnd();
+    }
+
     @Override
-    public Void visitSource(SourceContext ctx) {
+    public Void visitSource(final SourceContext ctx) {
         final PMetadata sourcemd = getPMetadata(ctx);
 
         for (final StatementContext sctx : ctx.statement()) {
@@ -456,7 +456,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitIf(IfContext ctx) {
+    public Void visitIf(final IfContext ctx) {
         final ExpressionContext ectx = ctx.expression();
         final boolean pelse = ctx.ELSE() != null;
 
@@ -480,7 +480,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitWhile(WhileContext ctx) {
+    public Void visitWhile(final WhileContext ctx) {
         final PMetadata whildmd = getPMetadata(ctx);
         final Object constant = whildmd.getConstant();
 
@@ -512,7 +512,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitDo(DoContext ctx) {
+    public Void visitDo(final DoContext ctx) {
         final PMetadata domd = getPMetadata(ctx);
         final Object constant = domd.getConstant();
 
@@ -541,7 +541,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitFor(ForContext ctx) {
+    public Void visitFor(final ForContext ctx) {
         final PMetadata formd = getPMetadata(ctx);
         final Object constant = formd.getConstant();
 
@@ -583,14 +583,14 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitDecl(DeclContext ctx) {
+    public Void visitDecl(final DeclContext ctx) {
         visit(ctx.declaration());
 
         return null;
     }
 
     @Override
-    public Void visitContinue(ContinueContext ctx) {
+    public Void visitContinue(final ContinueContext ctx) {
         final PJump pjump = ploops.peek();
         execute.visitJumpInsn(Opcodes.GOTO, pjump.abegin);
 
@@ -598,7 +598,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitBreak(BreakContext ctx) {
+    public Void visitBreak(final BreakContext ctx) {
         final PJump pjump = ploops.peek();
         execute.visitJumpInsn(Opcodes.GOTO, pjump.aend);
 
@@ -606,7 +606,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitReturn(ReturnContext ctx) {
+    public Void visitReturn(final ReturnContext ctx) {
         visit(ctx.expression());
         execute.visitInsn(Opcodes.ARETURN);
 
@@ -614,26 +614,14 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitExpr(ExprContext ctx) {
+    public Void visitExpr(final ExprContext ctx) {
         visit(ctx.expression());
-
-        final PMetadata exprmd = getPMetadata(ctx);
-
-        if (exprmd.getConstant() instanceof PType) {
-            final int asize = ((PType)exprmd.getConstant()).getPSort().getASize();
-
-            if (asize == 1) {
-                execute.visitInsn(Opcodes.POP);
-            } else if (asize == 2) {
-                execute.visitInsn(Opcodes.POP2);
-            }
-        }
 
         return null;
     }
 
     @Override
-    public Void visitMultiple(MultipleContext ctx) {
+    public Void visitMultiple(final MultipleContext ctx) {
         for (final StatementContext sctx : ctx.statement()) {
             visit(sctx);
         }
@@ -642,14 +630,14 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitSingle(SingleContext ctx) {
+    public Void visitSingle(final SingleContext ctx) {
         visit(ctx.statement());
 
         return null;
     }
 
     @Override
-    public Void visitEmpty(EmptyContext ctx) {
+    public Void visitEmpty(final EmptyContext ctx) {
         throw new UnsupportedOperationException(); // TODO: message
     }
 
@@ -657,18 +645,16 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     public Void visitDeclaration(DeclarationContext ctx) {
         PMetadata declarationmd = getPMetadata(ctx);
 
-        // TODO : assign variables
-
         return null;
     }
 
     @Override
-    public Void visitDecltype(DecltypeContext ctx) {
+    public Void visitDecltype(final DecltypeContext ctx) {
         throw new UnsupportedOperationException(); //TODO: message
     }
 
     @Override
-    public Void visitPrecedence(PrecedenceContext ctx) {
+    public Void visitPrecedence(final PrecedenceContext ctx) {
         final PJump pbranch = pbranches.get(ctx);
         final ExpressionContext ectx = ctx.expression();
 
@@ -682,7 +668,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitNumeric(NumericContext ctx) {
+    public Void visitNumeric(final NumericContext ctx) {
         final PMetadata numericmd = getPMetadata(ctx);
         final Object numeric = numericmd.getConstant();
         final PJump pbranch = pbranches.get(ctx);
@@ -695,7 +681,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitString(StringContext ctx) {
+    public Void visitString(final StringContext ctx) {
         final PMetadata stringmd = getPMetadata(ctx);
         final Object string = stringmd.getConstant();
         final PJump pbranch = pbranches.get(ctx);
@@ -708,7 +694,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitChar(CharContext ctx) {
+    public Void visitChar(final CharContext ctx) {
         final PMetadata charmd = getPMetadata(ctx);
         final Object character = charmd.getConstant();
         final PJump pbranch = pbranches.get(ctx);
@@ -721,7 +707,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitTrue(TrueContext ctx) {
+    public Void visitTrue(final TrueContext ctx) {
         final PMetadata truemd = getPMetadata(ctx);
         final PJump pbranch = pbranches.get(ctx);
 
@@ -736,7 +722,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitFalse(FalseContext ctx) {
+    public Void visitFalse(final FalseContext ctx) {
         final PMetadata truemd = getPMetadata(ctx);
         final PJump pbranch = pbranches.get(ctx);
 
@@ -751,7 +737,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitNull(NullContext ctx) {
+    public Void visitNull(final NullContext ctx) {
         final PMetadata nullmd = getPMetadata(ctx);
         final PJump pbranch = pbranches.get(ctx);
 
@@ -763,7 +749,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitExt(ExtContext ctx) {
+    public Void visitExt(final ExtContext ctx) {
         final PJump pbranch = pbranches.get(ctx);
         final ExtstartContext ectx = ctx.extstart();
 
@@ -777,7 +763,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitUnary(UnaryContext ctx) {
+    public Void visitUnary(final UnaryContext ctx) {
         final PMetadata unarymd = getPMetadata(ctx);
         final Object constant = unarymd.getConstant();
         final PJump pbranch = pbranches.get(ctx);
@@ -861,7 +847,20 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitCast(CastContext ctx) {
+    public Void visitCast(final CastContext ctx) {
+        final PMetadata castmd = getPMetadata(ctx);
+        final Object constant = castmd.getConstant();
+        final PJump pbranch = pbranches.get(ctx);
+
+        if (constant == null) {
+            visit(ctx.expression());
+        } else {
+            pushPConstant(constant);
+        }
+
+        checkWritePCast(castmd);
+        checkWritePBranch(pbranch);
+
         return null;
     }
 
@@ -876,7 +875,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitBool(BoolContext ctx) {
+    public Void visitBool(final BoolContext ctx) {
         final PMetadata unarymd = getPMetadata(ctx);
         final Object constant = unarymd.getConstant();
         final PJump pbranch = pbranches.get(ctx);
@@ -1077,7 +1076,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         }
 
         return null;
-    }
+    }*/
 
     @Override
     public Void visitExtprec(ExtprecContext ctx) {
@@ -1085,39 +1084,39 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitExtcast(ExtcastContext ctx) {
+    public Void visitExtcast(final ExtcastContext ctx) {
         throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
-    public Void visitExtarray(ExtarrayContext ctx) {
+    public Void visitExtarray(final ExtarrayContext ctx) {
         throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
-    public Void visitExtdot(ExtdotContext ctx) {
+    public Void visitExtdot(final ExtdotContext ctx) {
         throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
-    public Void visitExttype(ExttypeContext ctx) {
+    public Void visitExttype(final ExttypeContext ctx) {
         throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
-    public Void visitExtcall(ExtcallContext ctx) {
+    public Void visitExtcall(final ExtcallContext ctx) {
         throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
-    public Void visitExtmember(ExtmemberContext ctx) {
+    public Void visitExtmember(final ExtmemberContext ctx) {
         throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
-    public Void visitArguments(ArgumentsContext ctx) {
+    public Void visitArguments(final ArgumentsContext ctx) {
         throw new UnsupportedOperationException(); // TODO: message
-    }*/
+    }
 
     private void writeEnd() {
         writer.visitEnd();

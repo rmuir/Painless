@@ -80,6 +80,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         private PType declptype;
         private ParseTree castnodes[];
         private PType castptypes[];
+
         private Object constant;
 
         private PExternal pexternal;
@@ -105,6 +106,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             declptype = null;
             castnodes = null;
             castptypes = null;
+
             constant = null;
 
             pexternal = null;
@@ -1450,7 +1452,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata expressionmd = createPMetadata(ectx);
         visit(ectx);
 
-        if (expressionmd.constant != null) {
+        if (declpsort.isPBasic() && expressionmd.constant != null) {
             PType pfrom = expressionmd.castptypes[0];
             PSort fpsort = pfrom.getPSort();
             castmd.constant = invokeTransform(pfrom, declptype, expressionmd.constant, true);

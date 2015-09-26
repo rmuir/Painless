@@ -172,9 +172,7 @@ public class PainlessExternal {
                     member = true;
                     readonly = false;
 
-                    final int dimensions = ptype.getPDimensions() - 1;
-                    final String adescriptor = ptype.getADescriptor().substring(1);
-                    ptype = new PType(ptype.getPClass(), ptype.getJClass(), adescriptor, dimensions, ptype.getPSort());
+                    ptype = getPTypeWithArrayDimensions(ptype.getPClass(), ptype.getPDimensions() - 1);
 
                     psegments.add(new PSegment(stype, svalue));
 
@@ -240,11 +238,7 @@ public class PainlessExternal {
                     member = false;
                     readonly = true;
 
-                    char[] brackets = new char[(int)svalue];
-                    Arrays.fill(brackets, '[');
-                    final String adescriptor = new String(brackets) + ptype.getADescriptor();
-
-                    ptype = new PType(ptype.getPClass(), ptype.getJClass(), adescriptor, (int)svalue, ptype.getPSort());
+                    ptype = getPTypeWithArrayDimensions(ptype.getPClass(), (int)svalue);
 
                     psegments.add(new PSegment(stype, svalue));
 
