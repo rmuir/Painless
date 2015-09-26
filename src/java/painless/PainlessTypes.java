@@ -17,31 +17,34 @@ import java.util.Set;
 
 class PainlessTypes {
     enum PSort {
-        VOID   ( 0 , false , false , "void"   , void.class               ),
-        BOOL   ( 1 , false , true  , "bool"   , boolean.class            ),
-        BYTE   ( 1 , true  , true  , "byte"   , byte.class               ),
-        SHORT  ( 1 , true  , true  , "short"  , short.class              ),
-        CHAR   ( 1 , true  , true  , "char"   , char.class               ),
-        INT    ( 1 , true  , true  , "int"    , int.class                ),
-        LONG   ( 2 , true  , true  , "long"   , long.class               ),
-        FLOAT  ( 1 , true  , true  , "float"  , float.class              ),
-        DOUBLE ( 2 , true  , true  , "double" , double.class             ),
-        OBJECT ( 1 , false , false , "object" , Object.class             ),
-        STRING ( 1 , false , true  , "string" , String.class             ),
-        EXEC   ( 1 , false , false , "exec"   , PainlessExecutable.class ),
-        SMAP   ( 1 , false , false , "smap"   , Map.class                ),
-        ARRAY  ( 1 , false , false , null     , null                     );
+        VOID   ( 0 , false , false , false , "void"   , void.class               ),
+        BOOL   ( 1 , false , true  , false , "bool"   , boolean.class            ),
+        BYTE   ( 1 , true  , true  , false , "byte"   , byte.class               ),
+        SHORT  ( 1 , true  , true  , false , "short"  , short.class              ),
+        CHAR   ( 1 , true  , true  , false , "char"   , char.class               ),
+        INT    ( 1 , true  , true  , false , "int"    , int.class                ),
+        LONG   ( 2 , true  , true  , false , "long"   , long.class               ),
+        FLOAT  ( 1 , true  , true  , false , "float"  , float.class              ),
+        DOUBLE ( 2 , true  , true  , false , "double" , double.class             ),
+        OBJECT ( 1 , false , false , true  , "object" , Object.class             ),
+        STRING ( 1 , false , true  , true  , "string" , String.class             ),
+        EXEC   ( 1 , false , false , true  , "exec"   , PainlessExecutable.class ),
+        SMAP   ( 1 , false , false , true  , "smap"   , Map.class                ),
+        ARRAY  ( 1 , false , false , true  , null     , null                     );
 
         private final int asize;
         private final boolean pnumeric;
         private final boolean pbasic;
+        private final boolean jobject;
         private final String pname;
         private final Class jclass;
 
-        PSort(final int asize, final boolean pnumeric, final boolean pbasic, final String pname, final Class jclass) {
+        PSort(final int asize, final boolean pnumeric, final boolean pbasic,
+              final boolean jobject, final String pname, final Class jclass) {
             this.asize = asize;
             this.pnumeric = pnumeric;
             this.pbasic = pbasic;
+            this.jobject = jobject;
             this.pname = pname;
             this.jclass = jclass;
         }
@@ -56,6 +59,10 @@ class PainlessTypes {
 
         boolean isPBasic() {
             return pbasic;
+        }
+
+        boolean isJObject() {
+            return jobject;
         }
 
         String getPName() {
@@ -271,6 +278,7 @@ class PainlessTypes {
         private final String pname;
         private final Class jclass;
         private final String jinternal;
+        private final boolean pgeneric;
 
         private final Map<String, PConstructor> pconstructors;
         private final Map<String, PMethod> pfunctions;
@@ -279,10 +287,11 @@ class PainlessTypes {
         private final Map<String, PField> pstatics;
         private final Map<String, PField> pmembers;
 
-        private PClass(final String pname, final Class jclass, final String jinternal) {
+        private PClass(final String pname, final Class jclass, final String jinternal, final boolean pgeneric) {
             this.pname = pname;
             this.jclass = jclass;
             this.jinternal = jinternal;
+            this.pgeneric = pgeneric;
 
             this.pconstructors = new HashMap<>();
             this.pfunctions = new HashMap<>();
@@ -302,6 +311,10 @@ class PainlessTypes {
 
         String getJInternal() {
             return jinternal;
+        }
+
+        boolean isPGeneric() {
+            return pgeneric;
         }
 
         PConstructor getPConstructor(final String pname) {
@@ -420,7 +433,40 @@ class PainlessTypes {
         }
     }
 
+    static class PStandard {
+        final PType pvoid;
+        final PType pbool;
+        final PType pbyte;
+        final PType pshort;
+        final PType pchar;
+        final PType pint;
+        final PType plong;
+        final PType pfloat;
+        final PType pdouble;
+        final PType pobject;
+        final PType pstring;
+        final PType pexec;
+        final PType psmap;
+
+        private PStandard(final PTypes ptypes) {
+            pvoid = getPTypeFromCanonicalPName(   ptypes , PSort.VOID.getPName()   );
+            pbool = getPTypeFromCanonicalPName(   ptypes , PSort.BOOL.getPName()   );
+            pbyte = getPTypeFromCanonicalPName(   ptypes , PSort.BYTE.getPName()   );
+            pshort = getPTypeFromCanonicalPName(  ptypes , PSort.SHORT.getPName()  );
+            pchar = getPTypeFromCanonicalPName(   ptypes , PSort.CHAR.getPName()   );
+            pint = getPTypeFromCanonicalPName(    ptypes , PSort.INT.getPName()    );
+            plong = getPTypeFromCanonicalPName(   ptypes , PSort.LONG.getPName()   );
+            pfloat = getPTypeFromCanonicalPName(  ptypes , PSort.FLOAT.getPName()  );
+            pdouble = getPTypeFromCanonicalPName( ptypes , PSort.DOUBLE.getPName() );
+            pobject = getPTypeFromCanonicalPName( ptypes , PSort.OBJECT.getPName() );
+            pstring = getPTypeFromCanonicalPName( ptypes , PSort.STRING.getPName() );
+            pexec = getPTypeFromCanonicalPName(   ptypes , PSort.EXEC.getPName()   );
+            psmap = getPTypeFromCanonicalPName(   ptypes , PSort.SMAP.getPName()   );
+        }
+    }
+
     static class PTypes {
+        private PStandard pstandard;
         private final Map<String, PClass> pclasses;
 
         private final Set<PCast> pdisalloweds;
@@ -428,6 +474,7 @@ class PainlessTypes {
         private final Map<PCast, PTransform> pimplicits;
 
         private PTypes() {
+            pstandard = null;
             pclasses = new HashMap<>();
 
             pdisalloweds = new HashSet<>();
@@ -437,6 +484,10 @@ class PainlessTypes {
 
         PClass getPClass(final String pname) {
             return pclasses.get(pname);
+        }
+
+        PStandard getPStandard() {
+            return pstandard;
         }
 
         boolean isPDisallowed(final PCast pcast) {
@@ -473,7 +524,9 @@ class PainlessTypes {
             final String property = properties.getProperty(key);
 
             if (key.startsWith("class")) {
-                loadPClassFromProperty(ptypes, property);
+                loadPClassFromProperty(ptypes, property, false);
+            } else if (key.startsWith("generic")) {
+                loadPClassFromProperty(ptypes, property, true);
             } else {
                 boolean valid = key.startsWith("constructor") || key.startsWith("function")   ||
                                 key.startsWith("method")      || key.startsWith("cross")      ||
@@ -514,13 +567,15 @@ class PainlessTypes {
             }
         }
 
-        createPSortTypes(ptypes);
+        validatePSortTypes(ptypes);
         validatePMethods(ptypes);
+
+        ptypes.pstandard = new PStandard(ptypes);
 
         return ptypes;
     }
 
-    private static void loadPClassFromProperty(final PTypes ptypes, final String property) {
+    private static void loadPClassFromProperty(final PTypes ptypes, final String property, final boolean generic) {
         final String[] split = property.split("\\s+");
 
         if (split.length != 2) {
@@ -530,7 +585,7 @@ class PainlessTypes {
         final String pnamestr = split[0];
         final String jclassstr = split[1];
 
-        loadPClass(ptypes, pnamestr, jclassstr);
+        loadPClass(ptypes, pnamestr, jclassstr, generic);
     }
 
     private static void loadPConstructorFromProperty(final PTypes ptypes, final String property) {
@@ -557,7 +612,7 @@ class PainlessTypes {
         loadPConstructor(ptypes, pownerstr, pnamestr, pargumentsstrs);
     }
 
-    private static void loadPMethodFromProperty(final PTypes ptypes, final String property, boolean statik) {
+    private static void loadPMethodFromProperty(final PTypes ptypes, final String property, final boolean statik) {
         String parsed = property;
         int index = parsed.indexOf(' ');
 
@@ -658,7 +713,8 @@ class PainlessTypes {
         loadPDisallow(ptypes, pfromstr, ptostr);
     }
 
-    private static void loadPClass(final PTypes ptypes, final String pnamestr, final String jnamestr) {
+    private static void loadPClass(final PTypes ptypes, final String pnamestr,
+                                   final String jnamestr, final boolean generic) {
         if (!pnamestr.matches("^[$_a-zA-Z][_a-zA-Z0-9]+$")) {
             throw new IllegalArgumentException(); // TODO: message
         }
@@ -669,7 +725,7 @@ class PainlessTypes {
 
         final Class jclass = getJClassFromCanonicalJName(jnamestr);
         final String jinternal = jclass.getName().replace('.', '/');
-        final PClass pclass = new PClass(pnamestr, jclass, jinternal);
+        final PClass pclass = new PClass(pnamestr, jclass, jinternal, generic);
 
         ptypes.pclasses.put(pnamestr, pclass);
     }
@@ -1279,7 +1335,7 @@ class PainlessTypes {
         }
     }
 
-    private static void createPSortTypes(PTypes ptypes) {
+    private static void validatePSortTypes(final PTypes ptypes) {
         for (PSort psort : PSort.values()) {
             if (psort != PSort.ARRAY) {
                 final PClass pclass = ptypes.pclasses.get(psort.pname);
@@ -1297,7 +1353,7 @@ class PainlessTypes {
         }
     }
 
-    private static void validatePMethods(PTypes ptypes) {
+    private static void validatePMethods(final PTypes ptypes) {
         for (final PClass pclass : ptypes.pclasses.values()) {
             for (final PConstructor pconstructor : pclass.pconstructors.values()) {
                 final int length = pconstructor.parguments.size();
@@ -1335,7 +1391,7 @@ class PainlessTypes {
         }
     }
 
-    private static void validateArgument(PTypes ptypes, PType pargument, PType poriginal) {
+    private static void validateArgument(final PTypes ptypes, final PType pargument, final PType poriginal) {
         PCast pcast = new PCast(pargument, poriginal);
 
         if (ptypes.pdisalloweds.contains(pcast)) {

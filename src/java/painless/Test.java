@@ -1,10 +1,15 @@
 package painless;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Test {
-    public void stest(boolean b) {
-        Long l = (!b ? new Long(8L) : 8) * (b ? new Long(5L) : 12);
+    public void stest(boolean b, Map m, List l) {
+
+        if ((b ? m : 3) == (!b ? new ArrayList() : new HashMap())) {
+
+        }
     }
 }
