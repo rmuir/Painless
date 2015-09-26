@@ -62,7 +62,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     }
 
     static class PMetadata {
-        private final ParseTree source;
+        private ParseTree source;
 
         private boolean close;
         private boolean statement;
@@ -83,10 +83,10 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         private boolean isnull;
 
         private PType toptype;
-        private boolean numeric;
+        private boolean pnumeric;
         private boolean anyptype;
-        private PType fromptype;
         private boolean explicit;
+        private PType fromptype;
         private PCast pcast;
         private PTransform ptransform;
 
@@ -112,10 +112,10 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             isnull = false;
 
             toptype = null;
-            numeric = false;
+            pnumeric = false;
             anyptype = false;
-            fromptype = null;
             explicit = false;
+            fromptype = null;
             pcast = null;
             ptransform = null;
         }
@@ -176,20 +176,20 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             return toptype;
         }
 
-        boolean getNumeric() {
-            return numeric;
+        boolean getPNumeric() {
+            return pnumeric;
         }
 
         boolean getAnyPType() {
             return anyptype;
         }
 
-        PType getFromPType() {
-            return fromptype;
-        }
-
         boolean getExplicit() {
             return explicit;
+        }
+
+        PType getFromPType() {
+            return fromptype;
         }
 
         PCast getPCast() {
@@ -281,21 +281,26 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         ascopes.push(update);
     }
 
-    private PMetadata createPMetadata(final ParseTree node) {
-        final PMetadata nodemd = new PMetadata(node);
-        pmetadata.put(node, nodemd);
+    private PMetadata createPMetadata(final ParseTree source) {
+        final PMetadata sourcemd = new PMetadata(source);
+        pmetadata.put(source, sourcemd);
 
-        return nodemd;
+        return sourcemd;
     }
 
-    private PMetadata getPMetadata(final ParseTree node) {
-        final PMetadata nodemd = pmetadata.get(node);
+    private void passPMetadata(final ParseTree source, final PMetadata sourcemd) {
+        sourcemd.source = source;
+        pmetadata.put(source, sourcemd);
+    }
 
-        if (nodemd == null) {
+    private PMetadata getPMetadata(final ParseTree source) {
+        final PMetadata sourcemd = pmetadata.get(source);
+
+        if (sourcemd == null) {
             throw new IllegalStateException(); // TODO: message
         }
 
-        return nodemd;
+        return sourcemd;
     }
 
     private void markCast(final PMetadata pmetadata) {
@@ -315,9 +320,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             if (pmetadata.toptype.getPSort().isPBasic()) {
                 constCast(pmetadata);
             }
-        } else if (pmetadata.numeric && !pmetadata.fromptype.getPSort().isPNumeric()) {
-            throw new IllegalArgumentException();
-        } else if (!pmetadata.numeric && !pmetadata.anyptype) {
+        } else if (!pmetadata.pnumeric && !pmetadata.anyptype) {
             throw new IllegalStateException(); // TODO: message
         }
     }
@@ -956,7 +959,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             }
 
             exitrequired = true;
-            whilemd.constpost = constant;
+            whilemd.constpost = true;
         }
 
         final BlockContext bctx = ctx.block();
@@ -1323,13 +1326,8 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata precedencemd = getPMetadata(ctx);
 
         final ExpressionContext ectx = ctx.expression();
-        final PMetadata expressionmd = createPMetadata(ectx);
-        expressionmd.toptype = precedencemd.toptype;
+        passPMetadata(ectx, precedencemd);
         visit(ectx);
-
-        precedencemd.constpost = expressionmd.constpost;
-        precedencemd.isnull = expressionmd.isnull;
-        precedencemd.fromptype = expressionmd.fromptype;
 
         return null;
     }
@@ -1404,9 +1402,10 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         }
 
         final int length = ctx.STRING().getText().length();
-        stringmd.constant = ctx.STRING().getText().substring(1, length - 1);
-        stringmd.castnodes = new ParseTree[] {ctx};
-        stringmd.castptypes = new PType[] {stringptype};
+        stringmd.constpre = ctx.STRING().getText().substring(1, length - 1);
+        stringmd.fromptype = pstandard.pstring;
+
+        markCast(stringmd);
 
         return null;
     }
@@ -1419,13 +1418,14 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             throw new IllegalStateException(); // TODO: message
         }
 
-        if (ctx.CHAR().getText().length() > 1) {
+        if (ctx.CHAR().getText().length() != 3) {
             throw new IllegalStateException(); // TODO: message
         }
 
-        charmd.constant = ctx.CHAR().getText().charAt(0);
-        charmd.castnodes = new ParseTree[] {ctx};
-        charmd.castptypes = new PType[] {charptype};
+        charmd.constpre = ctx.CHAR().getText().charAt(1);
+        charmd.fromptype = pstandard.pchar;
+
+        markCast(charmd);
 
         return null;
     }
@@ -1438,9 +1438,10 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             throw new IllegalStateException(); // TODO: message
         }
 
-        truemd.constant = true;
-        truemd.castnodes = new ParseTree[] {ctx};
-        truemd.castptypes = new PType[] {boolptype};
+        truemd.constpre = true;
+        truemd.fromptype = pstandard.pbool;
+
+        markCast(truemd);
 
         return null;
     }
@@ -1453,9 +1454,10 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             throw new IllegalStateException(); // TODO: message
         }
 
-        falsemd.constant = false;
-        falsemd.castnodes = new ParseTree[] {ctx};
-        falsemd.castptypes = new PType[] {boolptype};
+        falsemd.constpre = false;
+        falsemd.fromptype = pstandard.pbool;
+
+        markCast(falsemd);
 
         return null;
     }
@@ -1468,9 +1470,10 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             throw new IllegalStateException(); // TODO: message
         }
 
-        nullmd.castnodes = new ParseTree[] {ctx};
-        nullmd.castptypes = new PType[] {objectptype};
         nullmd.isnull = true;
+        nullmd.fromptype = pstandard.pobject;
+
+        markCast(nullmd);
 
         return null;
     }
@@ -1480,13 +1483,8 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata extmd = getPMetadata(ctx);
 
         final ExtstartContext ectx = ctx.extstart();
-        final PMetadata extstartmd = createPMetadata(ectx);
-        extstartmd.pop = extmd.pop;
+        passPMetadata(ectx, extmd);
         visit(ectx);
-
-        extmd.statement = extstartmd.statement;
-        extmd.castnodes = extstartmd.castnodes;
-        extmd.castptypes = extstartmd.castptypes;
 
         return null;
     }
