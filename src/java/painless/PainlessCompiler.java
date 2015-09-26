@@ -37,7 +37,6 @@ final class PainlessCompiler {
         final PainlessExecutable executable = createExecutable(name, source, parent, bytes);
 
         return executable;
-        //return null;
     }
 
     private static ParseTree createParseTree(String source) {

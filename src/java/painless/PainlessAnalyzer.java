@@ -239,7 +239,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         int aslot = 0;
 
         if (previous != null) {
-            aslot += previous.ptype.getPSort().getASize();
+            aslot += previous.aslot + previous.ptype.getPSort().getASize();
         }
 
         final PVariable pvariable = new PVariable(name, ptype, aslot);

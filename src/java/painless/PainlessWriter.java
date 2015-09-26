@@ -979,11 +979,10 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         return null;
     }
 
-    /*@Override
+    @Override
     public Void visitAssignment(AssignmentContext ctx) {
         final PMetadata assignmentmd = getPMetadata(ctx);
         final PJump pbranch = pbranches.get(ctx);
-        final boolean righthand = assignmentmd.isRightHand();
 
         final ExpressionContext ectx1 = ctx.expression();
         final ExtstartContext ectx0 = ctx.extstart();
@@ -991,10 +990,8 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         visit(ectx1);
         visit(ectx0);
 
-        if (righthand) {
-            checkWritePCast(assignmentmd);
-            checkWritePBranch(pbranch);
-        }
+        checkWritePCast(assignmentmd);
+        checkWritePBranch(pbranch);
 
         return null;
     }
@@ -1002,18 +999,19 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     @Override
     public Void visitExtstart(ExtstartContext ctx) {
         final PMetadata extstartmd = getPMetadata(ctx);
+        final PJump pbranch = pbranches.get(ctx);
         final PExternal pexternal = extstartmd.getPExternal();
-        boolean lefthand = extstartmd.isLeftHand();
-        boolean righthand = extstartmd.isRightHand();
+        boolean write = extstartmd.doWrite();
+        boolean read = !write || !extstartmd.doPop();
 
-        while (lefthand || righthand) {
+        while (write || read) {
             final Iterator<PSegment> psegments = pexternal.getIterator();
 
             while (psegments.hasNext()) {
                 final PSegment psegment = psegments.next();
                 final SType stype = psegment.getSType();
                 final Object svalue = psegment.getSValue();
-                final boolean store = lefthand && pexternal.isLast(psegment);
+                final boolean store = write && pexternal.isLast(psegment);
 
                 switch (stype) {
                     case TYPE:
@@ -1066,17 +1064,27 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                 }
             }
 
-            if (lefthand) {
-                checkWritePCast(extstartmd);
-
-                lefthand = false;
+            if (write) {
+                write = false;
             } else {
-                righthand = false;
+                checkWritePCast(extstartmd);
+                checkWritePBranch(pbranch);
+                read = false;
+
+                if (extstartmd.doPop()) {
+                    final int asize = pexternal.getPType().getPSort().getASize();
+
+                    if (asize == 1) {
+                        execute.visitInsn(Opcodes.POP);
+                    } else if (asize == 2) {
+                        execute.visitInsn(Opcodes.POP2);
+                    }
+                }
             }
         }
 
         return null;
-    }*/
+    }
 
     @Override
     public Void visitExtprec(ExtprecContext ctx) {
