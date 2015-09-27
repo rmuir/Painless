@@ -447,7 +447,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
             visit(sctx);
         }
 
-        if (!sourcemd.doAllReturn()) {
+        if (!sourcemd.getAllReturn()) {
             execute.visitInsn(Opcodes.ACONST_NULL);
             execute.visitInsn(Opcodes.ARETURN);
         }

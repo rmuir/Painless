@@ -83,7 +83,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         private boolean isnull;
 
         private PType toptype;
-        private boolean pnumeric;
+        private boolean anypnumeric;
         private boolean anyptype;
         private boolean explicit;
         private PType fromptype;
@@ -112,7 +112,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             isnull = false;
 
             toptype = null;
-            pnumeric = false;
+            anypnumeric = false;
             anyptype = false;
             explicit = false;
             fromptype = null;
@@ -176,8 +176,8 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             return toptype;
         }
 
-        boolean getPNumeric() {
-            return pnumeric;
+        boolean getAnyPNumeric() {
+            return anypnumeric;
         }
 
         boolean getAnyPType() {
@@ -320,7 +320,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             if (pmetadata.toptype.getPSort().isPBasic()) {
                 constCast(pmetadata);
             }
-        } else if (!pmetadata.pnumeric && !pmetadata.anyptype) {
+        } else if (!pmetadata.anypnumeric && !pmetadata.anyptype) {
             throw new IllegalStateException(); // TODO: message
         }
     }
@@ -333,7 +333,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PCast pcast = new PCast(pfrom, pto);
 
         if (ptypes.isPDisallowed(pcast)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new ClassCastException(); // TODO: message
         }
 
         final PTransform pexplicit = ptypes.getPExplicit(pcast);
@@ -746,26 +746,43 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         }
     }
 
-    private PType getNumericPromotion(final PType pfrom0, final PType pfrom1) {
-        final Deque<PType> ptypes = new ArrayDeque<>();
+    private PType getUnaryNumericPromotion(final PType pfrom, boolean decimal) {
+        return getBinaryNumericPromotion(pfrom, null , decimal);
+    }
 
-        ptypes.push(pstandard.pdouble);
-        ptypes.push(pstandard.pfloat);
-        ptypes.push(pstandard.plong);
-        ptypes.push(pstandard.pint);
+    private PType getBinaryNumericPromotion(final PType pfrom0, final PType pfrom1, boolean decimal) {
+        final Deque<PType> upcast = new ArrayDeque<>();
+        final Deque<PType> downcast = new ArrayDeque<>();
 
-        while (!ptypes.isEmpty()) {
-            final PType pto = ptypes.pop();
+        if (decimal) {
+            upcast.push(pstandard.pdouble);
+            upcast.push(pstandard.pfloat);
+        } else {
+            downcast.push(pstandard.pdouble);
+            downcast.push(pstandard.pfloat);
+        }
+
+        upcast.push(pstandard.plong);
+        upcast.push(pstandard.pint);
+
+        while (!upcast.isEmpty()) {
+            final PType pto = upcast.pop();
             final PCast pcast0 = new PCast(pfrom0, pto);
-            final PCast pcast1 = new PCast(pfrom1, pto);
             boolean promote;
 
-            promote = this.ptypes.isPDisallowed(pcast0); if (promote) continue;
-            promote = this.ptypes.isPDisallowed(pcast1); if (promote) continue;
-            promote = ptypes.contains(pfrom0); if (promote) continue;
-            promote = ptypes.contains(pfrom1); if (promote) continue;
-            promote = !pfrom0.getPSort().isPNumeric() && this.ptypes.getPImplicit(pcast0) == null; if (promote) continue;
-            promote = !pfrom1.getPSort().isPNumeric() && this.ptypes.getPImplicit(pcast1) == null; if (promote) continue;
+            promote = ptypes.isPDisallowed(pcast0); if (promote) continue;
+            promote = upcast.contains(pfrom0); if (promote) continue;
+            promote = downcast.contains(pfrom0) && ptypes.getPImplicit(pcast0) == null; if (promote) continue;
+            promote = !pfrom0.getPSort().isPNumeric() && ptypes.getPImplicit(pcast0) == null; if (promote) continue;
+
+            if (pfrom1 != null) {
+                final PCast pcast1 = new PCast(pfrom1, pto);
+
+                promote = ptypes.isPDisallowed(pcast1); if (promote) continue;
+                promote = upcast.contains(pfrom1); if (promote) continue;
+                promote = downcast.contains(pfrom1) && ptypes.getPImplicit(pcast1) == null; if (promote) continue;
+                promote = !pfrom1.getPSort().isPNumeric() && ptypes.getPImplicit(pcast1) == null; if (promote) continue;
+            }
 
             return pto;
         }
@@ -773,7 +790,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         return null;
     }
 
-    private PType getAnyPromotion(final PType pfrom0, final PType pfrom1) {
+    private PType getBinaryAnyPromotion(final PType pfrom0, final PType pfrom1) {
         if (pfrom0.equals(pfrom1)) {
             return pfrom0;
         }
@@ -790,7 +807,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         }
 
         if (pfsort0.isPNumeric() || pfsort1.isPNumeric()) {
-            PType ptype = getNumericPromotion(pfrom0, pfrom1);
+            PType ptype = getBinaryNumericPromotion(pfrom0, pfrom1, true);
 
             if (ptype != null) {
                 return ptype;
@@ -1492,102 +1509,79 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitUnary(final UnaryContext ctx) {
         final PMetadata unarymd = getPMetadata(ctx);
-        unarymd.castnodes = new ParseTree[] {ctx};
 
         final ExpressionContext ectx = ctx.expression();
         final PMetadata expressionmd = createPMetadata(ectx);
-        visit(ectx);
 
         if (ctx.BOOLNOT() != null) {
-            unarymd.castptypes = new PType[] {boolptype};
+            expressionmd.toptype = pstandard.pbool;
+            visit(ectx);
 
-            if (expressionmd.constant != null) {
-                final PType pfrom = expressionmd.castptypes[0];
-                final Object constant = invokeTransform(pfrom, boolptype, expressionmd.constant, false);
-
-                if (constant != null) {
-                    unarymd.constant = !((boolean)constant);
-                } else if (expressionmd.constant instanceof Boolean) {
-                    unarymd.constant = !((boolean)expressionmd.constant);
-                } else {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-            } else {
-                markCast(expressionmd, boolptype, false);
+            if (expressionmd.constpost != null) {
+                unarymd.constpre = !(boolean)expressionmd.constpost;
             }
+
+            unarymd.fromptype = pstandard.pbool;
         } else if (ctx.BWNOT() != null || ctx.ADD() != null || ctx.SUB() != null) {
+            expressionmd.anypnumeric = true;
+            visit(ectx);
+
             final boolean decimal = ctx.ADD() != null || ctx.SUB() != null;
-            final PType promoteptype = getPromotion(new PMetadata[] {expressionmd}, decimal);
-            unarymd.castptypes = new PType[] {promoteptype};
+            final PType promoteptype = getUnaryNumericPromotion(expressionmd.fromptype, decimal);
 
-            if (expressionmd.constant != null) {
-                final PType pfrom = expressionmd.castptypes[0];
-                final Object object = invokeTransform(pfrom, promoteptype, expressionmd.constant, false);
-                Number number;
+            if (promoteptype == null) {
+                throw new ClassCastException(); // TODO: message
+            }
 
-                if (object != null) {
-                    if (object instanceof Number) {
-                        number = (Number)object;
-                    } else {
-                        throw new IllegalArgumentException(); // TODO: message
-                    }
-                } else {
-                    if (expressionmd.constant instanceof Number) {
-                        number = (Number)expressionmd.constant;
-                    } else if (expressionmd.constant instanceof Character) {
-                        number = getNumericFromChar((char)expressionmd.constant, promoteptype);
-                    } else {
-                        throw new IllegalArgumentException(); // TODO: message
-                    }
-                }
+            expressionmd.toptype = promoteptype;
+            markCast(expressionmd);
 
-                if (number == null) {
-                    throw new IllegalStateException(); // TODO: message
-                }
-
+            if (expressionmd.constpost != null) {
                 final PSort promotepsort = promoteptype.getPSort();
 
                 if (ctx.BWNOT() != null) {
                     if (promotepsort == PSort.INT) {
-                        unarymd.constant = ~number.intValue();
+                        unarymd.constpre = ~(int)expressionmd.constpost;
                     } else if (promotepsort == PSort.LONG) {
-                        unarymd.constant = ~number.longValue();
+                        unarymd.constpre = ~(long)expressionmd.constpost;
                     } else {
                         throw new IllegalStateException(); // TODO: message
                     }
                 } else if (ctx.SUB() != null) {
                     if (promotepsort == PSort.INT) {
-                        unarymd.constant = -number.intValue();
+                        unarymd.constpre = -(int)expressionmd.constpost;
                     } else if (promotepsort == PSort.LONG) {
-                        unarymd.constant = -number.longValue();
+                        unarymd.constpre = -(long)expressionmd.constpost;
                     } else if (promotepsort == PSort.FLOAT) {
-                        unarymd.constant = -number.floatValue();
+                        unarymd.constpre = -(float)expressionmd.constpost;
                     } else if (promotepsort == PSort.DOUBLE) {
-                        unarymd.constant = -number.doubleValue();
+                        unarymd.constpre = -(double)expressionmd.constpost;
                     } else {
                         throw new IllegalStateException(); // TODO: message
                     }
                 } else if (ctx.ADD() != null) {
                     if (promotepsort == PSort.INT) {
-                        unarymd.constant = -number.intValue();
+                        unarymd.constpre = +(int)expressionmd.constpost;
                     } else if (promotepsort == PSort.LONG) {
-                        unarymd.constant = -number.longValue();
+                        unarymd.constpre = +(long)expressionmd.constpost;
                     } else if (promotepsort == PSort.FLOAT) {
-                        unarymd.constant = -number.floatValue();
+                        unarymd.constpre = +(float)expressionmd.constpost;
                     } else if (promotepsort == PSort.DOUBLE) {
-                        unarymd.constant = -number.doubleValue();
+                        unarymd.constpre = +(double)expressionmd.constpost;
                     } else {
                         throw new IllegalStateException(); // TODO: message
                     }
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
-            } else {
-                markCast(expressionmd, promoteptype, false);
             }
+
+            unarymd.fromptype = promoteptype;
         } else {
             throw new IllegalStateException(); // TODO: message
         }
+
+        markCast(unarymd);
 
         return null;
     }
@@ -1595,117 +1589,25 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitCast(final CastContext ctx) {
         final PMetadata castmd = getPMetadata(ctx);
-        castmd.castnodes = new ParseTree[] {ctx};
 
         final DecltypeContext dctx = ctx.decltype();
         final PMetadata decltypemd = createPMetadata(dctx);
         visit(dctx);
 
-        final PType declptype = decltypemd.declptype;
-        final PSort declpsort = declptype.getPSort();
-        castmd.castptypes = new PType[] {declptype};
+        final PType declptype = decltypemd.fromptype;
+        castmd.fromptype = declptype;
 
         final ExpressionContext ectx = ctx.expression();
         final PMetadata expressionmd = createPMetadata(ectx);
+        expressionmd.toptype = declptype;
+        expressionmd.explicit = true;
         visit(ectx);
 
-        if (declpsort.isPBasic() && expressionmd.constant != null) {
-            PType pfrom = expressionmd.castptypes[0];
-            PSort fpsort = pfrom.getPSort();
-            castmd.constant = invokeTransform(pfrom, declptype, expressionmd.constant, true);
-
-            if (castmd.constant == null) {
-                if (fpsort == PSort.BOOL) {
-                    if (declpsort == PSort.BOOL) {
-                        castmd.constant = expressionmd.constant;
-                    }
-                } else if (expressionmd.constant instanceof Number) {
-                    if (declpsort == PSort.BYTE) {
-                        castmd.constant = invokeTransform(byteptype, declptype, expressionmd.constant, true);
-
-                        if (castmd.constant == null) {
-                            castmd.constant = ((Number)expressionmd.constant).byteValue();
-                        }
-                    } else if (declpsort == PSort.SHORT) {
-                        castmd.constant = invokeTransform(shortptype, declptype, expressionmd.constant, true);
-
-                        if (castmd.constant == null) {
-                            castmd.constant = ((Number)expressionmd.constant).shortValue();
-                        }
-                    } else if (declpsort == PSort.CHAR) {
-                        castmd.constant = invokeTransform(charptype, declptype, expressionmd.constant, true);
-
-                        if (castmd.constant == null) {
-                            final PType promote = getPromotion(new PMetadata[] {expressionmd}, true);
-
-                            if (promote.equals(intptype)) {
-                                castmd.constant = (char)((Number)expressionmd.constant).intValue();
-                            } else if (promote.equals(longptype)) {
-                                castmd.constant = (char)((Number)expressionmd.constant).longValue();
-                            } else if (promote.equals(floatptype)) {
-                                castmd.constant = (char)((Number)expressionmd.constant).floatValue();
-                            } else if (promote.equals(doubleptype)) {
-                                castmd.constant = (char)((Number)expressionmd.constant).doubleValue();
-                            }
-                        }
-                    } else if (declpsort == PSort.INT) {
-                        castmd.constant = invokeTransform(intptype, declptype, expressionmd.constant, true);
-
-                        if (castmd.constant == null) {
-                            castmd.constant = ((Number)expressionmd.constant).intValue();
-                        }
-                    } else if (declpsort == PSort.LONG) {
-                        castmd.constant = invokeTransform(longptype, declptype, expressionmd.constant, true);
-
-                        if (castmd.constant == null) {
-                            castmd.constant = ((Number)expressionmd.constant).longValue();
-                        }
-                    } else if (declpsort == PSort.FLOAT) {
-                        castmd.constant = invokeTransform(floatptype, declptype, expressionmd.constant, true);
-
-                        if (castmd.constant == null) {
-                            castmd.constant = ((Number)expressionmd.constant).floatValue();
-                        }
-                    } else if (declpsort == PSort.DOUBLE) {
-                        castmd.constant = invokeTransform(doubleptype, declptype, expressionmd.constant, true);
-
-                        if (castmd.constant == null) {
-                            castmd.constant = ((Number)expressionmd.constant).doubleValue();
-                        }
-                    }
-                } else if (expressionmd.constant instanceof Character) {
-                    castmd.constant = invokeTransform(charptype, declptype, expressionmd.constant, true);
-
-                    if (castmd.constant == null) {
-                        if (declpsort == PSort.BYTE) {
-                            castmd.constant = (byte)(char)expressionmd.constant;
-                        } else if (declpsort == PSort.SHORT) {
-                            castmd.constant = (short)(char)expressionmd.constant;
-                        } else if (declpsort == PSort.CHAR) {
-                            castmd.constant = expressionmd.constant;
-                        } else if (declpsort == PSort.INT) {
-                            castmd.constant = (int)(char)expressionmd.constant;
-                        } else if (declpsort == PSort.LONG) {
-                            castmd.constant = (long)(char)expressionmd.constant;
-                        } else if (declpsort == PSort.FLOAT) {
-                            castmd.constant = (float)(char)expressionmd.constant;
-                        } else if (declpsort == PSort.DOUBLE) {
-                            castmd.constant = (double)(char)expressionmd.constant;
-                        }
-                    }
-                } else if (expressionmd.constant instanceof String) {
-                    castmd.constant = invokeTransform(stringptype, declptype, expressionmd.constant, true);
-
-                    if (castmd.constant == null && declpsort == PSort.STRING) {
-                        castmd.constant = expressionmd.constant;
-                    }
-                }
-            }
+        if (expressionmd.constpost != null) {
+            castmd.constpre = expressionmd.constpost;
         }
 
-        if (castmd.constant == null) {
-            markCast(expressionmd, declptype, true);
-        }
+        markCast(castmd);
 
         return null;
     }
@@ -1713,181 +1615,148 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitBinary(final BinaryContext ctx) {
         final PMetadata binarymd = getPMetadata(ctx);
-        binarymd.castnodes = new ParseTree[] {ctx};
 
         final ExpressionContext ectx0 = ctx.expression(0);
         final PMetadata expressionmd0 = createPMetadata(ectx0);
+        expressionmd0.anypnumeric = true;
         visit(ectx0);
 
         final ExpressionContext ectx1 = ctx.expression(1);
         final PMetadata expressionmd1 = createPMetadata(ectx1);
+        expressionmd1.anypnumeric = true;
         visit(ectx1);
 
         final boolean decimal = ctx.ADD() != null || ctx.SUB() != null ||
                 ctx.DIV() != null || ctx.MUL() != null || ctx.REM() != null;
-        final PType promoteptype = getPromotion(new PMetadata[] {expressionmd0, expressionmd1}, decimal);
-        final PSort psort = promoteptype.getPSort();
-        binarymd.castptypes = new PType[] {promoteptype};
+        final PType promoteptype = getBinaryNumericPromotion(expressionmd0.fromptype, expressionmd1.fromptype, decimal);
 
-        if (expressionmd0.constant != null && expressionmd1.constant != null) {
-            PType ptype0 = expressionmd0.castptypes[0];
-            PType ptype1 = expressionmd0.castptypes[0];
-            final Object object0 = invokeTransform(ptype0, promoteptype, expressionmd0.constant, false);
-            final Object object1 = invokeTransform(ptype1, promoteptype, expressionmd0.constant, false);
-            Number number0;
-            Number number1;
+        if (promoteptype == null) {
+            throw new ClassCastException(); // TODO: message
+        }
 
-            if (object0 != null) {
-                if (object0 instanceof Number) {
-                    number0 = (Number)object0;
-                } else {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-            } else {
-                if (expressionmd0.constant instanceof Number) {
-                    number0 = (Number)expressionmd0.constant;
-                } else if (expressionmd0.constant instanceof Character) {
-                    number0 = getNumericFromChar((char)expressionmd0.constant, promoteptype);
-                } else {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-            }
+        expressionmd0.toptype = promoteptype;
+        markCast(expressionmd0);
+        expressionmd1.toptype = promoteptype;
+        markCast(expressionmd1);
 
-            if (object1 != null) {
-                if (object1 instanceof Number) {
-                    number1 = (Number)object1;
-                } else {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-            } else {
-                if (expressionmd1.constant instanceof Number) {
-                    number1 = (Number)expressionmd1.constant;
-                } else if (expressionmd1.constant instanceof Character) {
-                    number1 = getNumericFromChar((char)expressionmd1.constant, promoteptype);
-                } else {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-            }
-
-            if (number0 == null || number1 == null) {
-                throw new IllegalStateException(); // TODO: message
-            }
-
+        if (expressionmd0.constpost != null && expressionmd1.constpost != null) {
+            final PSort promotepsort = promoteptype.getPSort();
+            
             if (ctx.MUL() != null) {
-                if (psort == PSort.INT) {
-                    binarymd.constant = number0.intValue() * number1.intValue();
-                } else if (psort == PSort.LONG) {
-                    binarymd.constant = number0.longValue() * number1.longValue();
-                } else if (psort == PSort.FLOAT) {
-                    binarymd.constant = number0.floatValue() * number1.floatValue();
-                } else if (psort == PSort.DOUBLE) {
-                    binarymd.constant = number0.doubleValue() * number1.doubleValue();
+                if (promotepsort == PSort.INT) {
+                    binarymd.constpre = (int)expressionmd0.constpost * (int)expressionmd1.constpost;
+                } else if (promotepsort == PSort.LONG) {
+                    binarymd.constpre = (long)expressionmd0.constpost * (long)expressionmd1.constpost;
+                } else if (promotepsort == PSort.FLOAT) {
+                    binarymd.constpre = (float)expressionmd0.constpost * (float)expressionmd1.constpost;
+                } else if (promotepsort == PSort.DOUBLE) {
+                    binarymd.constpre = (double)expressionmd0.constpost * (double)expressionmd1.constpost;
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
             } else if (ctx.DIV() != null) {
-                if (psort == PSort.INT) {
-                    binarymd.constant = number0.intValue() / number1.intValue();
-                } else if (psort == PSort.LONG) {
-                    binarymd.constant = number0.longValue() / number1.longValue();
-                } else if (psort == PSort.FLOAT) {
-                    binarymd.constant = number0.floatValue() / number1.floatValue();
-                } else if (psort == PSort.DOUBLE) {
-                    binarymd.constant = number0.doubleValue() / number1.doubleValue();
+                if (promotepsort == PSort.INT) {
+                    binarymd.constpre = (int)expressionmd0.constpost / (int)expressionmd1.constpost;
+                } else if (promotepsort == PSort.LONG) {
+                    binarymd.constpre = (long)expressionmd0.constpost / (long)expressionmd1.constpost;
+                } else if (promotepsort == PSort.FLOAT) {
+                    binarymd.constpre = (float)expressionmd0.constpost / (float)expressionmd1.constpost;
+                } else if (promotepsort == PSort.DOUBLE) {
+                    binarymd.constpre = (double)expressionmd0.constpost / (double)expressionmd1.constpost;
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
             } else if (ctx.REM() != null) {
-                if (psort == PSort.INT) {
-                    binarymd.constant = number0.intValue() % number1.intValue();
-                } else if (psort == PSort.LONG) {
-                    binarymd.constant = number0.longValue() % number1.longValue();
-                } else if (psort == PSort.FLOAT) {
-                    binarymd.constant = number0.floatValue() % number1.floatValue();
-                } else if (psort == PSort.DOUBLE) {
-                    binarymd.constant = number0.doubleValue() % number1.doubleValue();
+                if (promotepsort == PSort.INT) {
+                    binarymd.constpre = (int)expressionmd0.constpost % (int)expressionmd1.constpost;
+                } else if (promotepsort == PSort.LONG) {
+                    binarymd.constpre = (long)expressionmd0.constpost % (long)expressionmd1.constpost;
+                } else if (promotepsort == PSort.FLOAT) {
+                    binarymd.constpre = (float)expressionmd0.constpost % (float)expressionmd1.constpost;
+                } else if (promotepsort == PSort.DOUBLE) {
+                    binarymd.constpre = (double)expressionmd0.constpost % (double)expressionmd1.constpost;
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
             } else if (ctx.ADD() != null) {
-                if (psort == PSort.INT) {
-                    binarymd.constant = number0.intValue() + number1.intValue();
-                } else if (psort == PSort.LONG) {
-                    binarymd.constant = number0.longValue() + number1.longValue();
-                } else if (psort == PSort.FLOAT) {
-                    binarymd.constant = number0.floatValue() + number1.floatValue();
-                } else if (psort == PSort.DOUBLE) {
-                    binarymd.constant = number0.doubleValue() + number1.doubleValue();
+                if (promotepsort == PSort.INT) {
+                    binarymd.constpre = (int)expressionmd0.constpost + (int)expressionmd1.constpost;
+                } else if (promotepsort == PSort.LONG) {
+                    binarymd.constpre = (long)expressionmd0.constpost + (long)expressionmd1.constpost;
+                } else if (promotepsort == PSort.FLOAT) {
+                    binarymd.constpre = (float)expressionmd0.constpost + (float)expressionmd1.constpost;
+                } else if (promotepsort == PSort.DOUBLE) {
+                    binarymd.constpre = (double)expressionmd0.constpost + (double)expressionmd1.constpost;
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
             } else if (ctx.SUB() != null) {
-                if (psort == PSort.INT) {
-                    binarymd.constant = number0.intValue() - number1.intValue();
-                } else if (psort == PSort.LONG) {
-                    binarymd.constant = number0.longValue() - number1.longValue();
-                } else if (psort == PSort.FLOAT) {
-                    binarymd.constant = number0.floatValue() - number1.floatValue();
-                } else if (psort == PSort.DOUBLE) {
-                    binarymd.constant = number0.doubleValue() - number1.doubleValue();
+                if (promotepsort == PSort.INT) {
+                    binarymd.constpre = (int)expressionmd0.constpost - (int)expressionmd1.constpost;
+                } else if (promotepsort == PSort.LONG) {
+                    binarymd.constpre = (long)expressionmd0.constpost - (long)expressionmd1.constpost;
+                } else if (promotepsort == PSort.FLOAT) {
+                    binarymd.constpre = (float)expressionmd0.constpost - (float)expressionmd1.constpost;
+                } else if (promotepsort == PSort.DOUBLE) {
+                    binarymd.constpre = (double)expressionmd0.constpost - (double)expressionmd1.constpost;
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
             } else if (ctx.LSH() != null) {
-                if (psort == PSort.INT) {
-                    binarymd.constant = number0.intValue() << number1.intValue();
-                } else if (psort == PSort.LONG) {
-                    binarymd.constant = number0.longValue() << number1.longValue();
+                if (promotepsort == PSort.INT) {
+                    binarymd.constpre = (int)expressionmd0.constpost << (int)expressionmd1.constpost;
+                } else if (promotepsort == PSort.LONG) {
+                    binarymd.constpre = (long)expressionmd0.constpost << (long)expressionmd1.constpost;
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
             } else if (ctx.RSH() != null) {
-                if (psort == PSort.INT) {
-                    binarymd.constant = number0.intValue() >> number1.intValue();
-                } else if (psort == PSort.LONG) {
-                    binarymd.constant = number0.longValue() >> number1.longValue();
+                if (promotepsort == PSort.INT) {
+                    binarymd.constpre = (int)expressionmd0.constpost >> (int)expressionmd1.constpost;
+                } else if (promotepsort == PSort.LONG) {
+                    binarymd.constpre = (long)expressionmd0.constpost >> (long)expressionmd1.constpost;
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
             } else if (ctx.USH() != null) {
-                if (psort == PSort.INT) {
-                    binarymd.constant = number0.intValue() >>> number1.intValue();
-                } else if (psort == PSort.LONG) {
-                    binarymd.constant = number0.longValue() >>> number1.longValue();
+                if (promotepsort == PSort.INT) {
+                    binarymd.constpre = (int)expressionmd0.constpost >>> (int)expressionmd1.constpost;
+                } else if (promotepsort == PSort.LONG) {
+                    binarymd.constpre = (long)expressionmd0.constpost >>> (long)expressionmd1.constpost;
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
             } else if (ctx.BWAND() != null) {
-                if (psort == PSort.INT) {
-                    binarymd.constant = number0.intValue() & number1.intValue();
-                } else if (psort == PSort.LONG) {
-                    binarymd.constant = number0.longValue() & number1.longValue();
+                if (promotepsort == PSort.INT) {
+                    binarymd.constpre = (int)expressionmd0.constpost & (int)expressionmd1.constpost;
+                } else if (promotepsort == PSort.LONG) {
+                    binarymd.constpre = (long)expressionmd0.constpost & (long)expressionmd1.constpost;
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
             } else if (ctx.BWXOR() != null) {
-                if (psort == PSort.INT) {
-                    binarymd.constant = number0.intValue() ^ number1.intValue();
-                } else if (psort == PSort.LONG) {
-                    binarymd.constant = number0.longValue() ^ number1.longValue();
+                if (promotepsort == PSort.INT) {
+                    binarymd.constpre = (int)expressionmd0.constpost ^ (int)expressionmd1.constpost;
+                } else if (promotepsort == PSort.LONG) {
+                    binarymd.constpre = (long)expressionmd0.constpost ^ (long)expressionmd1.constpost;
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
             } else if (ctx.BWOR() != null) {
-                if (psort == PSort.INT) {
-                    binarymd.constant = number0.intValue() | number1.intValue();
-                } else if (psort == PSort.LONG) {
-                    binarymd.constant = number0.longValue() | number1.longValue();
+                if (promotepsort == PSort.INT) {
+                    binarymd.constpre = (int)expressionmd0.constpost | (int)expressionmd1.constpost;
+                } else if (promotepsort == PSort.LONG) {
+                    binarymd.constpre = (long)expressionmd0.constpost | (long)expressionmd1.constpost;
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
             } else {
                 throw new IllegalStateException(); // TODO: message
             }
-        } else {
-            markCast(expressionmd0, promoteptype, false);
-            markCast(expressionmd1, promoteptype, false);
         }
+
+        binarymd.fromptype = promoteptype;
+        markCast(binarymd);
 
         return null;
     }
@@ -1895,183 +1764,138 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitComp(final CompContext ctx) {
         final PMetadata compmd = getPMetadata(ctx);
-        compmd.castnodes = new ParseTree[] {ctx};
-        compmd.castptypes = new PType[] {boolptype};
 
         final ExpressionContext ectx0 = ctx.expression(0);
         final PMetadata expressionmd0 = createPMetadata(ectx0);
-        visit(ectx0);
-
         final ExpressionContext ectx1 = ctx.expression(1);
         final PMetadata expressionmd1 = createPMetadata(ectx1);
-        visit(ectx1);
 
         if (expressionmd0.isnull && expressionmd1.isnull) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        boolean anybool = isAnyPType(expressionmd0, boolptype) || isAnyPType(expressionmd1, boolptype);
-        boolean anynumeric = isAnyPNumeric(expressionmd0) && isAnyPNumeric(expressionmd1);
+        if (ctx.EQ() != null || ctx.NE() != null) {
+            expressionmd0.anyptype = true;
+            visit(ectx0);
+            expressionmd1.anyptype = true;
+            visit(ectx1);
 
-        if (expressionmd0.constant != null && expressionmd1.constant != null) {
-            final PType pfrom0 = expressionmd0.castptypes[0];
-            final PType pfrom1 = expressionmd1.castptypes[0];
+            final PType promoteptype = getBinaryAnyPromotion(expressionmd0.fromptype, expressionmd1.fromptype);
 
-            if (anybool) {
-                Object constant0 = invokeTransform(pfrom0, boolptype, expressionmd0.constant, false);
-                Object constant1 = invokeTransform(pfrom1, boolptype, expressionmd1.constant, false);
+            if (promoteptype == null) {
+                throw new ClassCastException(); // TODO: message
+            }
 
-                if (constant0 == null && expressionmd0.constant instanceof Boolean) {
-                    constant0 = expressionmd0.constant;
-                }
+            expressionmd0.toptype = promoteptype;
+            markCast(expressionmd0);
+            expressionmd1.toptype = promoteptype;
+            markCast(expressionmd1);
 
-                if (constant1 == null && expressionmd1.constant instanceof Boolean) {
-                    constant1 = expressionmd1.constant;
-                }
-
-                if (constant0 == null || constant1 == null) {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
+            if (expressionmd0.constpost != null && expressionmd1.constpost != null) {
+                final PSort promotepsort = promoteptype.getPSort();
 
                 if (ctx.EQ() != null) {
-                    compmd.constant = (boolean)constant0 == (boolean)constant1;
+                    if (promotepsort == PSort.BOOL) {
+                        compmd.constpre = (boolean)expressionmd0.constpost == (boolean)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.INT) {
+                        compmd.constpre = (int)expressionmd0.constpost == (int)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.LONG) {
+                        compmd.constpre = (long)expressionmd0.constpost == (long)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.FLOAT) {
+                        compmd.constpre = (float)expressionmd0.constpost == (float)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.DOUBLE) {
+                        compmd.constpre = (double)expressionmd0.constpost == (double)expressionmd1.constpost;
+                    } else {
+                        compmd.constpre = expressionmd0.constpost == expressionmd1.constpost;
+                    }
                 } else if (ctx.NE() != null) {
-                    compmd.constant = (boolean)constant0 != (boolean)constant1;
-                } else {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-            } else if (anynumeric) {
-                final PType promoteptype = getPromotion(new PMetadata[]{expressionmd0, expressionmd1}, true);
-                final PSort psort = promoteptype.getPSort();
-
-                final Object object0 = invokeTransform(pfrom0, promoteptype, expressionmd0.constant, false);
-                final Object object1 = invokeTransform(pfrom1, promoteptype, expressionmd0.constant, false);
-                Number number0;
-                Number number1;
-
-                if (object0 != null) {
-                    if (object0 instanceof Number) {
-                        number0 = (Number)object0;
+                    if (promotepsort == PSort.BOOL) {
+                        compmd.constpre = (boolean)expressionmd0.constpost != (boolean)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.INT) {
+                        compmd.constpre = (int)expressionmd0.constpost != (int)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.LONG) {
+                        compmd.constpre = (long)expressionmd0.constpost != (long)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.FLOAT) {
+                        compmd.constpre = (float)expressionmd0.constpost != (float)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.DOUBLE) {
+                        compmd.constpre = (double)expressionmd0.constpost != (double)expressionmd1.constpost;
                     } else {
-                        throw new IllegalArgumentException(); // TODO: message
+                        compmd.constpre = expressionmd0.constpost != expressionmd1.constpost;
                     }
                 } else {
-                    if (expressionmd0.constant instanceof Number) {
-                        number0 = (Number)expressionmd0.constant;
-                    } else if (expressionmd0.constant instanceof Character) {
-                        number0 = getNumericFromChar((char)expressionmd0.constant, promoteptype);
-                    } else {
-                        throw new IllegalArgumentException(); // TODO: message
-                    }
-                }
-
-                if (object1 != null) {
-                    if (object1 instanceof Number) {
-                        number1 = (Number)object1;
-                    } else {
-                        throw new IllegalArgumentException(); // TODO: message
-                    }
-                } else {
-                    if (expressionmd1.constant instanceof Number) {
-                        number1 = (Number)expressionmd0.constant;
-                    } else if (expressionmd1.constant instanceof Character) {
-                        number1 = getNumericFromChar((char)expressionmd1.constant, promoteptype);
-                    } else {
-                        throw new IllegalArgumentException(); // TODO: message
-                    }
-                }
-
-                if (number0 == null || number1 == null) {
                     throw new IllegalStateException(); // TODO: message
                 }
+            }
+        } else if (ctx.GT() != null || ctx.GTE() != null || ctx.LT() != null || ctx.LTE() != null) {
+            expressionmd0.anypnumeric = true;
+            visit(ectx0);
+            expressionmd1.anypnumeric = true;
+            visit(ectx1);
 
-                if (ctx.EQ() != null) {
-                    if (psort == PSort.INT) {
-                        compmd.constant = number0.intValue() == number1.intValue();
-                    } else if (psort == PSort.LONG) {
-                        compmd.constant = number0.longValue() == number1.longValue();
-                    } else if (psort == PSort.FLOAT) {
-                        compmd.constant = number0.floatValue() == number1.floatValue();
-                    } else if (psort == PSort.DOUBLE) {
-                        compmd.constant = number0.doubleValue() == number1.doubleValue();
-                    }
-                } else if (ctx.NE() != null) {
-                    if (psort == PSort.INT) {
-                        compmd.constant = number0.intValue() != number1.intValue();
-                    } else if (psort == PSort.LONG) {
-                        compmd.constant = number0.longValue() != number1.longValue();
-                    } else if (psort == PSort.FLOAT) {
-                        compmd.constant = number0.floatValue() != number1.floatValue();
-                    } else if (psort == PSort.DOUBLE) {
-                        compmd.constant = number0.doubleValue() != number1.doubleValue();
-                    }
-                } else if (ctx.GTE() != null) {
-                    if (psort == PSort.INT) {
-                        compmd.constant = number0.intValue() >= number1.intValue();
-                    } else if (psort == PSort.LONG) {
-                        compmd.constant = number0.longValue() >= number1.longValue();
-                    } else if (psort == PSort.FLOAT) {
-                        compmd.constant = number0.floatValue() >= number1.floatValue();
-                    } else if (psort == PSort.DOUBLE) {
-                        compmd.constant = number0.doubleValue() >= number1.doubleValue();
+            final PType promoteptype = getBinaryNumericPromotion(expressionmd0.fromptype, expressionmd1.fromptype, true);
+
+            if (promoteptype == null) {
+                throw new ClassCastException(); // TODO: message
+            }
+
+            expressionmd0.toptype = promoteptype;
+            markCast(expressionmd0);
+            expressionmd1.toptype = promoteptype;
+            markCast(expressionmd1);
+
+            if (expressionmd0.constpost != null && expressionmd1.constpost != null) {
+                final PSort promotepsort = promoteptype.getPSort();
+
+                if (ctx.GTE() != null) {
+                    if (promotepsort == PSort.INT) {
+                        compmd.constpre = (int)expressionmd0.constpost >= (int)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.LONG) {
+                        compmd.constpre = (long)expressionmd0.constpost >= (long)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.FLOAT) {
+                        compmd.constpre = (float)expressionmd0.constpost >= (float)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.DOUBLE) {
+                        compmd.constpre = (double)expressionmd0.constpost >= (double)expressionmd1.constpost;
                     }
                 } else if (ctx.GT() != null) {
-                    if (psort == PSort.INT) {
-                        compmd.constant = number0.intValue() > number1.intValue();
-                    } else if (psort == PSort.LONG) {
-                        compmd.constant = number0.longValue() > number1.longValue();
-                    } else if (psort == PSort.FLOAT) {
-                        compmd.constant = number0.floatValue() > number1.floatValue();
-                    } else if (psort == PSort.DOUBLE) {
-                        compmd.constant = number0.doubleValue() > number1.doubleValue();
+                    if (promotepsort == PSort.INT) {
+                        compmd.constpre = (int)expressionmd0.constpost > (int)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.LONG) {
+                        compmd.constpre = (long)expressionmd0.constpost > (long)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.FLOAT) {
+                        compmd.constpre = (float)expressionmd0.constpost > (float)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.DOUBLE) {
+                        compmd.constpre = (double)expressionmd0.constpost > (double)expressionmd1.constpost;
                     }
                 } else if (ctx.LTE() != null) {
-                    if (psort == PSort.INT) {
-                        compmd.constant = number0.intValue() <= number1.intValue();
-                    } else if (psort == PSort.LONG) {
-                        compmd.constant = number0.longValue() <= number1.longValue();
-                    } else if (psort == PSort.FLOAT) {
-                        compmd.constant = number0.floatValue() <= number1.floatValue();
-                    } else if (psort == PSort.DOUBLE) {
-                        compmd.constant = number0.doubleValue() <= number1.doubleValue();
+                    if (promotepsort == PSort.INT) {
+                        compmd.constpre = (int)expressionmd0.constpost <= (int)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.LONG) {
+                        compmd.constpre = (long)expressionmd0.constpost <= (long)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.FLOAT) {
+                        compmd.constpre = (float)expressionmd0.constpost <= (float)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.DOUBLE) {
+                        compmd.constpre = (double)expressionmd0.constpost <= (double)expressionmd1.constpost;
                     }
                 } else if (ctx.LT() != null) {
-                    if (psort == PSort.INT) {
-                        compmd.constant = number0.intValue() < number1.intValue();
-                    } else if (psort == PSort.LONG) {
-                        compmd.constant = number0.longValue() < number1.longValue();
-                    } else if (psort == PSort.FLOAT) {
-                        compmd.constant = number0.floatValue() < number1.floatValue();
-                    } else if (psort == PSort.DOUBLE) {
-                        compmd.constant = number0.doubleValue() < number1.doubleValue();
+                    if (promotepsort == PSort.INT) {
+                        compmd.constpre = (int)expressionmd0.constpost < (int)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.LONG) {
+                        compmd.constpre = (long)expressionmd0.constpost < (long)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.FLOAT) {
+                        compmd.constpre = (float)expressionmd0.constpost < (float)expressionmd1.constpost;
+                    } else if (promotepsort == PSort.DOUBLE) {
+                        compmd.constpre = (double)expressionmd0.constpost < (double)expressionmd1.constpost;
                     }
-                } else {
-                    throw new IllegalStateException(); // TODO: message
-                }
-            } else {
-                if (ctx.EQ() != null) {
-                    compmd.constant = expressionmd0.constant == expressionmd1.constant;
-                } else if (ctx.NE() != null) {
-                    compmd.constant = expressionmd0.constant != expressionmd1.constant;
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
             }
         } else {
-            if (anybool && (ctx.EQ() != null || ctx.NE() != null)) {
-                markCast(expressionmd0, boolptype, false);
-                markCast(expressionmd1, boolptype, false);
-            } else if (!anynumeric && (ctx.EQ() != null || ctx.NE() != null)) {
-                markCast(expressionmd0, objectptype, false);
-                markCast(expressionmd1, objectptype, false);
-            } else if (anynumeric) {
-                final PType promoteptype = getPromotion(new PMetadata[] {expressionmd0, expressionmd1}, true);
-                markCast(expressionmd0, promoteptype, false);
-                markCast(expressionmd1, promoteptype, false);
-            } else {
-                throw new IllegalArgumentException(); // TODO: message
-            }
+            throw new IllegalStateException();
         }
+
+        compmd.fromptype = pstandard.pbool;
+        markCast(compmd);
 
         return null;
     }
@@ -2079,40 +1903,29 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitBool(BoolContext ctx) {
         final PMetadata boolmd = getPMetadata(ctx);
-        boolmd.castnodes = new ParseTree[] {ctx};
-        boolmd.castptypes = new PType[] {boolptype};
 
         final ExpressionContext ectx0 = ctx.expression(0);
         final PMetadata expressionmd0 = createPMetadata(ectx0);
+        expressionmd0.toptype = pstandard.pbool;
         visit(ectx0);
 
         final ExpressionContext ectx1 = ctx.expression(1);
         final PMetadata expressionmd1 = createPMetadata(ectx1);
+        expressionmd1.toptype = pstandard.pbool;
         visit(ectx1);
 
-        if (expressionmd0.constant != null && expressionmd1.constant != null) {
-            Object constant0 = invokeTransform(expressionmd0.castptypes[0], boolptype, expressionmd0.constant, false);
-            Object constant1 = invokeTransform(expressionmd1.castptypes[0], boolptype, expressionmd1.constant, false);
-
-            if (constant0 == null) {
-                constant0 = expressionmd0.constant;
-            }
-
-            if (constant1 == null) {
-                constant1 = expressionmd1.constant;
-            }
-
+        if (expressionmd0.constpost != null && expressionmd1.constpost != null) {
             if (ctx.BOOLAND() != null) {
-                boolmd.constant = (boolean)constant0 && (boolean)constant1;
+                boolmd.constpre = (boolean)expressionmd0.constpost && (boolean)expressionmd1.constpost;
             } else if (ctx.BOOLOR() != null) {
-                boolmd.constant = (boolean)constant0 || (boolean)constant1;
+                boolmd.constpre = (boolean)expressionmd0.constpost || (boolean)expressionmd1.constpost;
             } else {
                 throw new IllegalStateException(); // TODO: message
             }
-        } else {
-            markCast(expressionmd0, boolptype, false);
-            markCast(expressionmd1, boolptype, false);
         }
+
+        boolmd.fromptype = pstandard.pbool;
+        markCast(boolmd);
 
         return null;
     }
@@ -2123,32 +1936,49 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         final ExpressionContext ectx0 = ctx.expression(0);
         final PMetadata expressionmd0 = createPMetadata(ectx0);
+        expressionmd0.toptype = pstandard.pbool;
         visit(ectx0);
-        markCast(expressionmd0, boolptype, false);
 
-        if (expressionmd0.constant != null) {
+        if (expressionmd0.constpost != null) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
         final ExpressionContext ectx1 = ctx.expression(1);
         final PMetadata expressionmd1 = createPMetadata(ectx1);
+        expressionmd1.toptype = conditionalmd.toptype;
+        expressionmd1.anyptype = conditionalmd.anyptype;
+        expressionmd1.anypnumeric = conditionalmd.anypnumeric;
         visit(ectx1);
 
         final ExpressionContext ectx2 = ctx.expression(2);
         final PMetadata expressionmd2 = createPMetadata(ectx2);
+        expressionmd2.toptype = conditionalmd.toptype;
+        expressionmd1.anyptype = conditionalmd.anyptype;
+        expressionmd1.anypnumeric = conditionalmd.anypnumeric;
         visit(ectx2);
 
-        final int nodeslen1 = expressionmd1.castnodes.length;
-        final int nodeslen2 = expressionmd2.castnodes.length;
-        conditionalmd.castnodes = new ParseTree[nodeslen1 + nodeslen2];
-        System.arraycopy(expressionmd1.castnodes, 0, conditionalmd.castnodes, 0, nodeslen1);
-        System.arraycopy(expressionmd2.castnodes, 0, conditionalmd.castnodes, nodeslen1, nodeslen2);
+        if (conditionalmd.toptype != null) {
+            conditionalmd.fromptype = conditionalmd.toptype;
+        } else if (conditionalmd.anyptype || conditionalmd.anypnumeric) {
+            PType promoteptype = conditionalmd.anyptype ?
+                    getBinaryAnyPromotion(expressionmd1.fromptype, expressionmd2.fromptype) :
+                    getBinaryNumericPromotion(expressionmd1.fromptype, expressionmd2.fromptype, true);
 
-        final int castslen1 = expressionmd1.castptypes.length;
-        final int castslen2 = expressionmd2.castptypes.length;
-        conditionalmd.castnodes = new ParseTree[castslen1 + castslen2];
-        System.arraycopy(expressionmd1.castptypes, 0, conditionalmd.castptypes, 0, castslen1);
-        System.arraycopy(expressionmd2.castptypes, 0, conditionalmd.castptypes, castslen1, castslen2);
+            if (promoteptype == null) {
+                throw new ClassCastException();
+            }
+
+            expressionmd0.toptype = promoteptype;
+            markCast(expressionmd1);
+            expressionmd1.toptype = promoteptype;
+            markCast(expressionmd2);
+
+            conditionalmd.fromptype = promoteptype;
+        } else {
+            throw new IllegalStateException(); // TODO: message
+        }
+
+        markCast(conditionalmd);
 
         return null;
     }
@@ -2171,7 +2001,6 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        assignmentmd.castnodes = new ParseTree[] {ctx};
         assignmentmd.castptypes = new PType[] {extstartmd.castptypes[0]};
 
         final ExpressionContext ectx1 = ctx.expression();
@@ -2216,7 +2045,6 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         }
 
         extstartmd.statement = extstartmd.pexternal.isCall();
-        extstartmd.castnodes = new ParseTree[] {ctx};
         extstartmd.castptypes = new PType[] {pop ? voidptype : extstartmd.pexternal.getPType()};
 
         return null;

@@ -21,7 +21,6 @@ public class PainlessExternal {
         ARGUMENT,
         CAST,
         TRANSFORM,
-
         AMAKE,
         ALENGTH
     }
