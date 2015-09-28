@@ -27,15 +27,21 @@ public class PainlessExternal {
 
     static class PSegment {
         private final SType stype;
+        private final PType ptype;
         private final Object svalue;
 
-        PSegment(final SType stype, final Object svalue) {
+        private PSegment(final SType stype, final PType ptype, final Object svalue) {
             this.stype = stype;
+            this.ptype = ptype;
             this.svalue = svalue;
         }
 
         SType getSType() {
             return stype;
+        }
+
+        PType getPType() {
+            return ptype;
         }
 
         Object getSValue() {
@@ -79,7 +85,7 @@ public class PainlessExternal {
 
                     ptype = (PType)svalue;
 
-                    psegments.push(new PSegment(stype, svalue));
+                    psegments.push(new PSegment(stype, ptype, svalue));
 
                     break;
                 case VARIABLE:
@@ -98,7 +104,7 @@ public class PainlessExternal {
 
                     ptype = ((PVariable)svalue).getPType();
 
-                    psegments.add(new PSegment(stype, svalue));
+                    psegments.add(new PSegment(stype, ptype, svalue));
 
                     break;
                 case CONSTRUCTOR:
@@ -114,7 +120,7 @@ public class PainlessExternal {
                     member = false;
                     readonly = true;
 
-                    psegments.add(new PSegment(stype, svalue));
+                    psegments.add(new PSegment(stype, ptype, svalue));
 
                     break;
                 case METHOD:
@@ -132,7 +138,7 @@ public class PainlessExternal {
 
                     ptype = ((PMethod)svalue).getPReturn();
 
-                    psegments.add(new PSegment(stype, svalue));
+                    psegments.add(new PSegment(stype, ptype, svalue));
 
                     break;
                 case FIELD:
@@ -146,11 +152,11 @@ public class PainlessExternal {
 
                     call = false;
                     member = true;
-                    readonly = Modifier.isFinal(((PField) svalue).getJField().getModifiers());
+                    readonly = Modifier.isFinal(((PField)svalue).getJField().getModifiers());
 
                     ptype = ((PField)svalue).getPType();
 
-                    psegments.add(new PSegment(stype, svalue));
+                    psegments.add(new PSegment(stype, ptype, svalue));
 
                     break;
                 case ARRAY: {
@@ -172,7 +178,7 @@ public class PainlessExternal {
 
                     ptype = getPTypeWithArrayDimensions(ptype.getPClass(), ptype.getPDimensions() - 1);
 
-                    psegments.add(new PSegment(stype, svalue));
+                    psegments.add(new PSegment(stype, ptype, svalue));
 
                     break;
                 } case ARGUMENT:
@@ -184,11 +190,9 @@ public class PainlessExternal {
                         throw new IllegalArgumentException(); // TODO: message
                     }
 
-                    if (!call) {
-                        throw new IllegalArgumentException(); // TODO: message
-                    }
+                    ptype = null;
 
-                    psegments.add(new PSegment(stype, svalue));
+                    psegments.add(new PSegment(stype, ptype, svalue));
 
                     break;
                 case CAST:
@@ -204,7 +208,7 @@ public class PainlessExternal {
 
                     ptype = ((PCast)svalue).getPTo();
 
-                    psegments.add(new PSegment(stype, svalue));
+                    psegments.add(new PSegment(stype, ptype, svalue));
 
                     break;
                 case TRANSFORM:
@@ -220,7 +224,7 @@ public class PainlessExternal {
 
                     ptype = ((PTransform)svalue).getPCast().getPTo();
 
-                    psegments.add(new PSegment(stype, svalue));
+                    psegments.add(new PSegment(stype, ptype, svalue));
 
                     break;
                 case AMAKE: {
@@ -238,7 +242,7 @@ public class PainlessExternal {
 
                     ptype = getPTypeWithArrayDimensions(ptype.getPClass(), (int)svalue);
 
-                    psegments.add(new PSegment(stype, svalue));
+                    psegments.add(new PSegment(stype, ptype, svalue));
 
                     break;
                 } case ALENGTH:
@@ -256,7 +260,7 @@ public class PainlessExternal {
 
                     ptype = (PType)svalue;
 
-                    psegments.add(new PSegment(stype, svalue));
+                    psegments.add(new PSegment(stype, ptype, svalue));
             }
         }
 

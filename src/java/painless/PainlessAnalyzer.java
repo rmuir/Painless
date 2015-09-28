@@ -2215,10 +2215,13 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final String pname = ctx.ID().getText();
         final boolean statik = extcallmd.pexternal.isStatic();
         final List<ExpressionContext> arguments = ctx.arguments().expression();
+        SType stype;
+        Object svalue;
         PType[] argumentsptypes;
 
         if (statik && "makearray".equals(pname)) {
-            extcallmd.pexternal.addSegment(SType.AMAKE, arguments.size());
+            stype = SType.AMAKE;
+            svalue = arguments.size();
             argumentsptypes = new PType[arguments.size()];
             Arrays.fill(argumentsptypes, pstandard.pint);
         } else {
@@ -2226,11 +2229,13 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             final PMethod pmethod = statik ? pclass.getPFunction(pname) : pclass.getPMethod(pname);
 
             if (pconstructor != null) {
-                extcallmd.pexternal.addSegment(SType.CONSTRUCTOR, pconstructor);
+                stype = SType.CONSTRUCTOR;
+                svalue = pconstructor;
                 argumentsptypes = new PType[pconstructor.getPArguments().size()];
                 pconstructor.getPArguments().toArray(argumentsptypes);
             } else if (pmethod != null) {
-                extcallmd.pexternal.addSegment(SType.METHOD, pmethod);
+                stype = SType.METHOD;
+                svalue = pmethod;
                 argumentsptypes = new PType[pmethod.getPArguments().size()];
                 pmethod.getPArguments().toArray(argumentsptypes);
             } else {
@@ -2250,6 +2255,8 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
             extcallmd.pexternal.addSegment(SType.ARGUMENT, ectx);
         }
+
+        extcallmd.pexternal.addSegment(stype, svalue);
 
         final ExtdotContext ectx0 = ctx.extdot();
         final ExtarrayContext ectx1 = ctx.extarray();

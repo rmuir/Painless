@@ -7,13 +7,8 @@ import java.util.Map;
 
 public class Test {
     public Object stest() {
-        float a = 1;
-        float b = 0;
-
-        if (a < b) {
-            a = 5;
-        }
-
-        return null;
+        HashMap<String, Object> sm = new HashMap<>();
+        sm.put("1", 1);
+        return sm.get("1");
     }
 }

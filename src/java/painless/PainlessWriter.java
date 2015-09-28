@@ -1,5 +1,6 @@
 package painless;
 
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -1452,13 +1453,12 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
             final boolean store = write && pexternal.isLast(psegment);
 
             switch (stype) {
-                case TYPE:
+                case TYPE: {
                     break;
-                case VARIABLE:
+                } case VARIABLE: {
                     final PVariable pvariable = (PVariable)svalue;
                     final int aslot = pvariable.getASlot();
-                    final PType ptype = pvariable.getPType();
-                    final PSort psort = ptype.getPSort();
+                    final PSort psort = pvariable.getPType().getPSort();
 
                     switch (psort) {
                         case BOOL:
@@ -1482,25 +1482,103 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                     }
 
                     break;
-                case CONSTRUCTOR:
+                } case CONSTRUCTOR: {
+                    final PConstructor pconstructor = (PConstructor)svalue;
+                    final String jinternal = pconstructor.getPOwner().getJInternal();
+
+                    execute.visitTypeInsn(Opcodes.NEW, jinternal);
+                    execute.visitInsn(Opcodes.DUP);
+                    execute.visitMethodInsn(Opcodes.INVOKESPECIAL, jinternal, "<init>",
+                            pconstructor.getADescriptor(), false);
+
                     break;
-                case METHOD:
+                } case METHOD: {
+                    final PMethod pmethod = (PMethod)svalue;
+                    final int modifiers = pmethod.getJMethod().getModifiers();
+                    final String jinternal = pmethod.getPOwner().getJInternal();
+                    final Method jmethod = pmethod.getJMethod();
+
+                    if (Modifier.isStatic(modifiers)) {
+                        execute.visitMethodInsn(Opcodes.INVOKESTATIC,
+                                jinternal, jmethod.getName(), pmethod.getADescriptor(), jmethod.isDefault());
+                    } else if (Modifier.isInterface(modifiers)) {
+                        execute.visitMethodInsn(Opcodes.INVOKEINTERFACE,
+                                jinternal, jmethod.getName(), pmethod.getADescriptor(), jmethod.isDefault());
+                    } else {
+                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                                jinternal, jmethod.getName(), pmethod.getADescriptor(), jmethod.isDefault());
+                    }
+
                     break;
-                case FIELD:
+                } case FIELD: {
+                    final PField pfield = (PField)svalue;
+                    final String jinternal = pfield.getPOwner().getJInternal();
+                    final String jname = pfield.getJField().getName();
+                    final String adescriptor = pfield.getPType().getADescriptor();
+
+                    int opcode;
+
+                    if (Modifier.isStatic(pfield.getJField().getModifiers())) {
+                        opcode = store ? Opcodes.PUTSTATIC : Opcodes.GETSTATIC;
+                    } else {
+                        opcode = store ? Opcodes.PUTFIELD : Opcodes.GETFIELD;
+                    }
+
+                    execute.visitFieldInsn(opcode, jinternal, jname, adescriptor);
+
                     break;
-                case ARRAY:
+                } case ARRAY: {
+                    final PSort psort = psegment.getPType().getPSort();
+                    final ParseTree ectx = (ParseTree)svalue;
+                    visit(ectx);
+
+                    switch (psort) {
+                        case BOOL:
+                        case BYTE:
+                        case SHORT:
+                        case CHAR:
+                        case INT:
+                            execute.visitInsn(store ? Opcodes.IASTORE : Opcodes.IALOAD);
+                            break;
+                        case LONG:
+                            execute.visitInsn(store ? Opcodes.LASTORE : Opcodes.LALOAD);
+                            break;
+                        case FLOAT:
+                            execute.visitInsn(store ? Opcodes.FASTORE : Opcodes.FALOAD);
+                            break;
+                        case DOUBLE:
+                            execute.visitInsn(store ? Opcodes.DASTORE : Opcodes.DALOAD);
+                            break;
+                        default:
+                            execute.visitInsn(store ? Opcodes.AASTORE : Opcodes.AALOAD);
+                            break;
+                    }
+
                     break;
-                case ARGUMENT:
+                } case ARGUMENT: {
+                    final ParseTree ectx = (ParseTree)svalue;
+                    visit(ectx);
+
                     break;
-                case CAST:
+                } case CAST: {
+                    final PCast pcast = (PCast)svalue;
+                    writePCast(pcast);
+
                     break;
-                case TRANSFORM:
+                } case TRANSFORM: {
+                    final PTransform ptransform = (PTransform)svalue;
+                    writePTransform(ptransform);
+
                     break;
-                case AMAKE:
+                }
+                case AMAKE: {
+
                     break;
-                case ALENGTH:
+                } case ALENGTH: {
+                    execute.visitInsn(Opcodes.ARRAYLENGTH);
+
                     break;
-                default:
+                } default:
                     throw new IllegalStateException(); // TODO: message
             }
         }
