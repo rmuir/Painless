@@ -7,6 +7,13 @@ import java.util.Map;
 
 public class Test {
     public Object stest() {
-        boolean x = true; x = false; if (x) return !x; return null;
+        float a = 1;
+        float b = 0;
+
+        if (a < b) {
+            a = 5;
+        }
+
+        return null;
     }
 }

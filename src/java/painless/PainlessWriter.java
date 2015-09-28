@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import com.sun.org.apache.bcel.internal.generic.IF_ICMPEQ;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
@@ -466,10 +467,16 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
         pbranches.put(ectx, pjump);
         visit(ectx);
-        visit(ctx.block(0));
+
+        BlockContext bctx0 = ctx.block(0);
+        PMetadata blockmd0 = getPMetadata(bctx0);
+        visit(bctx0);
 
         if (pelse) {
-            execute.visitJumpInsn(Opcodes.GOTO, pjump.aend);
+            if (!blockmd0.getAllExit()) { // TODO: this needs to check fo all paths exit
+                execute.visitJumpInsn(Opcodes.GOTO, pjump.aend);
+            }
+
             execute.visitLabel(pjump.afalse);
             visit(ctx.block(1));
         }
@@ -500,11 +507,18 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
             visit(ectx);
         }
 
+        boolean allexit = false;
+
         if (bctx != null) {
-            visit(ctx.block());
+            PMetadata blockmd = getPMetadata(bctx);
+            allexit = blockmd.getAllExit();
+            visit(bctx);
         }
 
-        execute.visitJumpInsn(Opcodes.GOTO, pjump.abegin);
+        if (!allexit) {
+            execute.visitJumpInsn(Opcodes.GOTO, pjump.abegin);
+        }
+
         execute.visitLabel(pjump.aend);
         ploops.pop();
 
@@ -518,6 +532,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
         final ExpressionContext ectx = ctx.expression();
         final BlockContext bctx = ctx.block();
+        final PMetadata blockmd = getPMetadata(bctx);
 
         final PBranch pjump = new PBranch(ctx);
         pjump.abegin = new Label();
@@ -533,7 +548,10 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
             visit(ectx);
         }
 
-        execute.visitJumpInsn(Opcodes.GOTO, pjump.abegin);
+        if (!blockmd.getAllExit()) {
+            execute.visitJumpInsn(Opcodes.GOTO, pjump.abegin);
+        }
+
         execute.visitLabel(pjump.aend);
         ploops.pop();
 
@@ -550,7 +568,8 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         final BlockContext bctx = ctx.block();
 
         final PBranch pjump = new PBranch(ctx);
-        pjump.abegin = new Label();
+        final Label astart = new Label();
+        pjump.abegin = ectx1 == null ? astart : new Label();
         pjump.aend = new Label();
         pjump.afalse = pjump.aend;
 
@@ -560,22 +579,31 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
             visit(ctx.declaration());
         }
 
-        execute.visitLabel(pjump.abegin);
+        execute.visitLabel(astart);
 
         if (!(constant instanceof Boolean && (boolean)constant)) {
             pbranches.put(ectx0, pjump);
             visit(ectx0);
         }
 
+        boolean allexit = false;
+
         if (bctx != null) {
+            PMetadata blockmd = getPMetadata(bctx);
+            allexit = blockmd.getAllExit();
             visit(bctx);
         }
 
         if (ectx1 != null) {
+            execute.visitLabel(pjump.abegin);
+
             visit(ectx1);
         }
 
-        execute.visitJumpInsn(Opcodes.GOTO, pjump.abegin);
+        if (ectx1 != null || !allexit) {
+            execute.visitJumpInsn(Opcodes.GOTO, astart);
+        }
+
         execute.visitLabel(pjump.aend);
         ploops.pop();
 
@@ -737,7 +765,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         final PBranch pbranch = pbranches.get(ctx);
 
         if (constpost == null) {
-            final Object constpre = stringmd.getConstPost();
+            final Object constpre = stringmd.getConstPre();
 
             writePNumeric(constpre);
             checkWritePCast(stringmd);
@@ -757,7 +785,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         final PBranch pbranch = pbranches.get(ctx);
 
         if (constpost == null) {
-            final Object constpre = stringmd.getConstPost();
+            final Object constpre = stringmd.getConstPre();
 
             writePString(constpre);
             checkWritePCast(stringmd);
@@ -777,7 +805,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         final PBranch pbranch = pbranches.get(ctx);
 
         if (constpost != null) {
-            final Object constpre = stringmd.getConstPost();
+            final Object constpre = stringmd.getConstPre();
 
             writePNumeric((int)(char)constpre);
             checkWritePCast(stringmd);
@@ -890,8 +918,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                     visit(ectx);
                 }
             } else {
-                final PType ptype = unarymd.getFromPType();
-                final PSort psort = ptype.getPSort();
+                final PSort psort = unarymd.getFromPType().getPSort();
 
                 visit(ectx);
 
@@ -958,39 +985,186 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitBinary(BinaryContext ctx) {
+        final PMetadata compmd = getPMetadata(ctx);
+        final Object constpost = compmd.getConstPost();
+        final PBranch pbranch = pbranches.get(ctx);
+
+        if (constpost == null) {
+
+        } else {
+            writePConstant(constpost);
+            checkWritePBranch(pbranch);
+        }
+
         return null;
     }
 
     @Override
-    public Void visitComp(CompContext ctx) {
+    public Void visitComp(final CompContext ctx) {
         final PMetadata compmd = getPMetadata(ctx);
-        final Object constant = compmd.getConstPost();
+        final Object constpost = compmd.getConstPost();
         final PBranch pbranch = pbranches.get(ctx);
 
-        if (constant == null) {
+        if (constpost == null) {
             final ExpressionContext ectx0 = ctx.expression(0);
             final ExpressionContext ectx1 = ctx.expression(1);
-            final PMetadata expressionmd0 = getPMetadata(ectx0);
             final PMetadata expressionmd1 = getPMetadata(ectx1);
-
+            final PSort psort = expressionmd1.getToPType().getPSort();
 
             visit(ectx0);
-            visit(ectx1);
 
+            if (!expressionmd1.getIsNull()) {
+                visit(ectx1);
+            }
+
+            final boolean ptrue = pbranch != null && pbranch.atrue != null;
+            final boolean pfalse = pbranch != null && pbranch.afalse != null;
+            final Label ajump = ptrue ? pbranch.atrue : pfalse ? pbranch.afalse : new Label();
+            final Label aend = new Label();
+
+            final boolean eq  = ctx.EQ()  != null && (ptrue || !pfalse) || ctx.NE()  != null && pfalse;
+            final boolean ne  = ctx.NE()  != null && (ptrue || !pfalse) || ctx.EQ()  != null && pfalse;
+            final boolean lt  = ctx.LT()  != null && (ptrue || !pfalse) || ctx.GTE() != null && pfalse;
+            final boolean lte = ctx.LTE() != null && (ptrue || !pfalse) || ctx.GT()  != null && pfalse;
+            final boolean gt  = ctx.GT()  != null && (ptrue || !pfalse) || ctx.LTE() != null && pfalse;
+            final boolean gte = ctx.GTE() != null && (ptrue || !pfalse) || ctx.LT()  != null && pfalse;
+
+            switch (psort) {
+                case VOID:
+                    throw new IllegalStateException(); // TODO: message
+                case BOOL:
+                    if (eq) {
+                        execute.visitJumpInsn(Opcodes.IF_ICMPEQ, ajump);
+                    } else if (ne) {
+                        execute.visitJumpInsn(Opcodes.IF_ICMPNE, ajump);
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+
+                    break;
+                case BYTE:
+                case SHORT:
+                case CHAR:
+                case INT:
+                    if (eq) {
+                        execute.visitJumpInsn(Opcodes.IF_ICMPEQ, ajump);
+                    } else if (ne) {
+                        execute.visitJumpInsn(Opcodes.IF_ICMPNE, ajump);
+                    } else if (lt) {
+                        execute.visitJumpInsn(Opcodes.IF_ICMPLT, ajump);
+                    } else if (lte) {
+                        execute.visitJumpInsn(Opcodes.IF_ICMPLE, ajump);
+                    } else if (gt) {
+                        execute.visitJumpInsn(Opcodes.IF_ICMPGT, ajump);
+                    } else if (gte) {
+                        execute.visitJumpInsn(Opcodes.IF_ICMPGE, ajump);
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+
+                    break;
+                case LONG:
+                    execute.visitInsn(Opcodes.LCMP);
+
+                    if (eq) {
+                        execute.visitJumpInsn(Opcodes.IFNE, ajump);
+                    } else if (ne) {
+                        execute.visitJumpInsn(Opcodes.IFEQ, ajump);
+                    } else if (lt) {
+                        execute.visitJumpInsn(Opcodes.IFLT, ajump);
+                    } else if (lte) {
+                        execute.visitJumpInsn(Opcodes.IFLE, ajump);
+                    } else if (gt) {
+                        execute.visitJumpInsn(Opcodes.IFGT, ajump);
+                    } else if (gte) {
+                        execute.visitJumpInsn(Opcodes.IFGE, ajump);
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+
+                    break;
+                case FLOAT:
+                    if (eq) {
+                        execute.visitInsn(Opcodes.FCMPL);
+                        execute.visitJumpInsn(Opcodes.IFNE, ajump);
+                    } else if (ne) {
+                        execute.visitInsn(Opcodes.FCMPL);
+                        execute.visitJumpInsn(Opcodes.IFEQ, ajump);
+                    } else if (lt) {
+                        execute.visitInsn(Opcodes.FCMPG);
+                        execute.visitJumpInsn(Opcodes.IFLT, ajump);
+                    } else if (lte) {
+                        execute.visitInsn(Opcodes.FCMPG);
+                        execute.visitJumpInsn(Opcodes.IFLE, ajump);
+                    } else if (gt) {
+                        execute.visitInsn(Opcodes.FCMPL);
+                        execute.visitJumpInsn(Opcodes.IFGT, ajump);
+                    } else if (gte) {
+                        execute.visitInsn(Opcodes.FCMPL);
+                        execute.visitJumpInsn(Opcodes.IFGT, ajump);
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+
+                    break;
+                case DOUBLE:
+                    if (eq) {
+                        execute.visitInsn(Opcodes.DCMPL);
+                        execute.visitJumpInsn(Opcodes.IFNE, ajump);
+                    } else if (ne) {
+                        execute.visitInsn(Opcodes.DCMPL);
+                        execute.visitJumpInsn(Opcodes.IFEQ, ajump);
+                    } else if (lt) {
+                        execute.visitInsn(Opcodes.DCMPG);
+                        execute.visitJumpInsn(Opcodes.IFLT, ajump);
+                    } else if (lte) {
+                        execute.visitInsn(Opcodes.DCMPG);
+                        execute.visitJumpInsn(Opcodes.IFLE, ajump);
+                    } else if (gt) {
+                        execute.visitInsn(Opcodes.DCMPL);
+                        execute.visitJumpInsn(Opcodes.IFGT, ajump);
+                    } else if (gte) {
+                        execute.visitInsn(Opcodes.DCMPL);
+                        execute.visitJumpInsn(Opcodes.IFGT, ajump);
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+
+                    break;
+                default:
+                    if (eq) {
+                        if (expressionmd1.getIsNull()) {
+                            execute.visitJumpInsn(Opcodes.IFNULL, ajump);
+                        } else {
+                            execute.visitJumpInsn(Opcodes.IF_ACMPNE, ajump);
+                        }
+                    } else if (ne) {
+                        if (expressionmd1.getIsNull()) {
+                            execute.visitJumpInsn(Opcodes.IFNONNULL, ajump);
+                        } else {
+                            execute.visitJumpInsn(Opcodes.IF_ACMPEQ, ajump);
+                        }
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+            }
 
             if (pbranch == null) {
+                execute.visitInsn(Opcodes.ICONST_0);
+                execute.visitJumpInsn(Opcodes.GOTO, aend);
+                execute.visitLabel(ajump);
+                execute.visitInsn(Opcodes.ICONST_1);
+                execute.visitLabel(aend);
 
-            } else {
-
+                checkWritePCast(compmd);
             }
         } else {
             if (pbranch == null) {
-                writePConstant(constant);
-                checkWritePCast(compmd);
+                writePConstant(constpost);
             } else {
-                if ((boolean)constant && pbranch.atrue != null) {
+                if ((boolean)constpost && pbranch.atrue != null) {
                     execute.visitLabel(pbranch.atrue);
-                } else if (!(boolean)constant && pbranch.afalse != null) {
+                } else if (!(boolean)constpost && pbranch.afalse != null) {
                     execute.visitLabel(pbranch.afalse);
                 }
             }
@@ -1104,7 +1278,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitAssignment(AssignmentContext ctx) {
+    public Void visitAssignment(final AssignmentContext ctx) {
         final PMetadata assignmentmd = getPMetadata(ctx);
         final PBranch pbranch = pbranches.get(ctx);
         final boolean pop = assignmentmd.getPop();

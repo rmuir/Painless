@@ -67,6 +67,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         private boolean close;
         private boolean statement;
 
+        private boolean allexit;
         private boolean allrtn;
         private boolean anyrtn;
         private boolean allbreak;
@@ -96,6 +97,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             close = false;
             statement = false;
 
+            allexit = false;
             allrtn = false;
             anyrtn = false;
             allbreak = false;
@@ -122,6 +124,10 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         ParseTree getSource() {
             return source;
+        }
+
+        boolean getAllExit() {
+            return allexit;
         }
 
         boolean getAllReturn() {
@@ -914,6 +920,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             final PMetadata blockmd1 = createPMetadata(bctx1);
             visit(bctx1);
             ifmd.close = blockmd0.close && blockmd1.close;
+            ifmd.allexit = blockmd0.allexit && blockmd1.allexit;
             ifmd.allrtn = blockmd0.allrtn && blockmd1.allrtn;
             ifmd.anyrtn |= blockmd1.anyrtn;
             ifmd.allbreak = blockmd0.allbreak && blockmd1.allbreak;
@@ -1150,6 +1157,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         continuemd.statement = true;
         continuemd.close = true;
 
+        continuemd.allexit = true;
         continuemd.allcontinue = true;
         continuemd.anycontinue = true;
 
@@ -1163,6 +1171,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         breakmd.statement = true;
         breakmd.close = true;
 
+        breakmd.allexit = true;
         breakmd.allbreak = true;
         breakmd.anybreak = true;
 
@@ -1181,6 +1190,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         returnmd.statement = true;
         returnmd.close = true;
 
+        returnmd.allexit = true;
         returnmd.allrtn = true;
         returnmd.anyrtn = true;
 
@@ -1205,9 +1215,6 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitMultiple(final MultipleContext ctx) {
         final PMetadata multiplemd = getPMetadata(ctx);
-        multiplemd.allrtn = true;
-        multiplemd.allbreak = true;
-        multiplemd.allcontinue = true;
 
         for (StatementContext sctx : ctx.statement()) {
             if (multiplemd.close) {
@@ -1223,11 +1230,12 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
             multiplemd.close = statementmd.close;
 
-            multiplemd.allrtn &= statementmd.allrtn && !statementmd.anybreak && !statementmd.anycontinue;
+            multiplemd.allexit = statementmd.allexit;
+            multiplemd.allrtn = statementmd.allrtn && !statementmd.anybreak && !statementmd.anycontinue;
             multiplemd.anyrtn |= statementmd.anyrtn;
-            multiplemd.allbreak &= !statementmd.anyrtn && statementmd.allbreak && !statementmd.anycontinue;
+            multiplemd.allbreak = !statementmd.anyrtn && statementmd.allbreak && !statementmd.anycontinue;
             multiplemd.anybreak |= statementmd.anybreak;
-            multiplemd.allcontinue &= !statementmd.anyrtn && !statementmd.anybreak && !statementmd.allcontinue;
+            multiplemd.allcontinue = !statementmd.anyrtn && !statementmd.anybreak && !statementmd.allcontinue;
             multiplemd.anycontinue |= statementmd.anycontinue;
         }
 
@@ -1251,6 +1259,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         singlemd.statement = true;
         singlemd.close = statementmd.close;
 
+        singlemd.allexit = statementmd.allexit;
         singlemd.allrtn = statementmd.allrtn;
         singlemd.anyrtn = statementmd.anyrtn;
         singlemd.allbreak = statementmd.allbreak;
