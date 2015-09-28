@@ -984,13 +984,115 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitBinary(BinaryContext ctx) {
+    public Void visitBinary(final BinaryContext ctx) {
         final PMetadata compmd = getPMetadata(ctx);
         final Object constpost = compmd.getConstPost();
         final PBranch pbranch = pbranches.get(ctx);
 
         if (constpost == null) {
+            final ExpressionContext expr0 = ctx.expression(0);
+            final ExpressionContext expr1 = ctx.expression(1);
 
+            visit(expr0);
+            visit(expr1);
+
+            final PSort psort = compmd.getFromPType().getPSort();
+
+            switch (psort) {
+                case INT:
+                    if (ctx.MUL() != null) {
+                        execute.visitInsn(Opcodes.IMUL);
+                    } else if (ctx.DIV() != null) {
+                        execute.visitInsn(Opcodes.IDIV);
+                    } else if (ctx.REM() != null) {
+                        execute.visitInsn(Opcodes.IREM);
+                    } else if (ctx.ADD() != null) {
+                        execute.visitInsn(Opcodes.IADD);
+                    } else if (ctx.SUB() != null) {
+                        execute.visitInsn(Opcodes.ISUB);
+                    } else if (ctx.LSH() != null) {
+                        execute.visitInsn(Opcodes.ISHL);
+                    } else if (ctx.USH() != null) {
+                        execute.visitInsn(Opcodes.IUSHR);
+                    } else if (ctx.RSH() != null) {
+                        execute.visitInsn(Opcodes.ISHR);
+                    } else if (ctx.BWAND() != null) {
+                        execute.visitInsn(Opcodes.IAND);
+                    } else if (ctx.BWXOR() != null) {
+                        execute.visitInsn(Opcodes.IXOR);
+                    } else if (ctx.BWOR() != null) {
+                        execute.visitInsn(Opcodes.IOR);
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+
+                    break;
+                case LONG:
+                    if (ctx.MUL() != null) {
+                        execute.visitInsn(Opcodes.LMUL);
+                    } else if (ctx.DIV() != null) {
+                        execute.visitInsn(Opcodes.LDIV);
+                    } else if (ctx.REM() != null) {
+                        execute.visitInsn(Opcodes.LREM);
+                    } else if (ctx.ADD() != null) {
+                        execute.visitInsn(Opcodes.LADD);
+                    } else if (ctx.SUB() != null) {
+                        execute.visitInsn(Opcodes.LSUB);
+                    } else if (ctx.LSH() != null) {
+                        execute.visitInsn(Opcodes.LSHL);
+                    } else if (ctx.USH() != null) {
+                        execute.visitInsn(Opcodes.LUSHR);
+                    } else if (ctx.RSH() != null) {
+                        execute.visitInsn(Opcodes.LSHR);
+                    } else if (ctx.BWAND() != null) {
+                        execute.visitInsn(Opcodes.LAND);
+                    } else if (ctx.BWXOR() != null) {
+                        execute.visitInsn(Opcodes.LXOR);
+                    } else if (ctx.BWOR() != null) {
+                        execute.visitInsn(Opcodes.LOR);
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+
+                    break;
+                case FLOAT:
+                    if (ctx.MUL() != null) {
+                        execute.visitInsn(Opcodes.FMUL);
+                    } else if (ctx.DIV() != null) {
+                        execute.visitInsn(Opcodes.FDIV);
+                    } else if (ctx.REM() != null) {
+                        execute.visitInsn(Opcodes.FREM);
+                    } else if (ctx.ADD() != null) {
+                        execute.visitInsn(Opcodes.FADD);
+                    } else if (ctx.SUB() != null) {
+                        execute.visitInsn(Opcodes.FSUB);
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+
+                    break;
+                case DOUBLE:
+                    if (ctx.MUL() != null) {
+                        execute.visitInsn(Opcodes.DMUL);
+                    } else if (ctx.DIV() != null) {
+                        execute.visitInsn(Opcodes.DDIV);
+                    } else if (ctx.REM() != null) {
+                        execute.visitInsn(Opcodes.DREM);
+                    } else if (ctx.ADD() != null) {
+                        execute.visitInsn(Opcodes.DADD);
+                    } else if (ctx.SUB() != null) {
+                        execute.visitInsn(Opcodes.DSUB);
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+
+                    break;
+                default:
+                    throw new IllegalStateException(); // TODO: message
+            }
+
+            checkWritePCast(compmd);
+            checkWritePBranch(pbranch);
         } else {
             writePConstant(constpost);
             checkWritePBranch(pbranch);
@@ -1045,6 +1147,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                 case BYTE:
                 case SHORT:
                 case CHAR:
+                    throw new IllegalStateException(); // TODO: message
                 case INT:
                     if (eq) {
                         execute.visitJumpInsn(Opcodes.IF_ICMPEQ, ajump);
@@ -1273,7 +1376,30 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitConditional(ConditionalContext ctx) {
+    public Void visitConditional(final ConditionalContext ctx) {
+        final PMetadata conditionalmd = getPMetadata(ctx);
+        final PBranch pbranch = pbranches.get(ctx);
+
+        final ExpressionContext expr0 = ctx.expression(0);
+        final ExpressionContext expr1 = ctx.expression(1);
+        final ExpressionContext expr2 = ctx.expression(2);
+
+        final PBranch localpbranch = new PBranch(ctx);
+        localpbranch.afalse = new Label();
+        localpbranch.aend = new Label();
+        pbranches.put(expr0, localpbranch);
+
+        visit(expr0);
+        visit(expr1);
+        execute.visitJumpInsn(Opcodes.GOTO, localpbranch.aend);
+        execute.visitLabel(localpbranch.afalse);
+        visit(expr2);
+        execute.visitLabel(localpbranch.aend);
+
+        if (pbranch == null) {
+            checkWritePCast(conditionalmd);
+        }
+
         return null;
     }
 
