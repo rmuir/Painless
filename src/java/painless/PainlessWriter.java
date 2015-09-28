@@ -482,7 +482,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     @Override
     public Void visitWhile(final WhileContext ctx) {
         final PMetadata whildmd = getPMetadata(ctx);
-        final Object constant = whildmd.getConstant();
+        final Object constant = whildmd.getConstPost();
 
         final ExpressionContext ectx = ctx.expression();
         final BlockContext bctx = ctx.block();
@@ -514,7 +514,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     @Override
     public Void visitDo(final DoContext ctx) {
         final PMetadata domd = getPMetadata(ctx);
-        final Object constant = domd.getConstant();
+        final Object constant = domd.getConstPost();
 
         final ExpressionContext ectx = ctx.expression();
         final BlockContext bctx = ctx.block();

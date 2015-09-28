@@ -704,30 +704,6 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         }
     }
 
-    private Object invokeTransform(final PType pfrom, final PType pto, final Object object, final boolean explicit) {
-        final PCast pcast = new PCast(pfrom, pto);
-
-        if (ptypes.isPDisallowed(pcast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        PTransform ptransform = null;
-
-        if (explicit) {
-            ptransform = ptypes.getPExplicit(pcast);
-        }
-
-        if (ptransform == null) {
-            ptransform = ptypes.getPImplicit(pcast);
-        }
-
-        if (ptransform == null) {
-            return null;
-        }
-
-        return invokeTransform(ptransform, object);
-    }
-
     private Object invokeTransform(final PTransform ptransform, final Object object) {
         final PMethod pmethod = ptransform.getPMethod();
         final Method jmethod = pmethod.getJMethod();
@@ -1297,6 +1273,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         final DecltypeContext dctx = ctx.decltype();
         final PMetadata decltypemd = createPMetadata(dctx);
+        declarationmd.anyptype = true;
         visit(dctx);
 
         final PType declptype = decltypemd.fromptype;
@@ -1331,6 +1308,10 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitDecltype(final DecltypeContext ctx) {
         final PMetadata decltypemd = getPMetadata(ctx);
+
+        if (!decltypemd.anyptype) {
+            throw new IllegalStateException(); // TODO: message
+        }
 
         final String pnamestr = ctx.getText();
         decltypemd.fromptype = getPTypeFromCanonicalPName(ptypes, pnamestr);
@@ -1592,6 +1573,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         final DecltypeContext dctx = ctx.decltype();
         final PMetadata decltypemd = createPMetadata(dctx);
+        decltypemd.anyptype = true;
         visit(dctx);
 
         final PType declptype = decltypemd.fromptype;
@@ -1991,24 +1973,25 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         PMetadata extstartmd = createPMetadata(ectx0);
         extstartmd.write = true;
         extstartmd.pop = assignmentmd.pop;
+        extstartmd.anyptype = true;
         visit(ectx0);
 
         if (extstartmd.pexternal == null) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalStateException(); // TODO: message
         }
 
         if (extstartmd.pexternal.isReadOnly()) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        assignmentmd.castptypes = new PType[] {extstartmd.castptypes[0]};
-
         final ExpressionContext ectx1 = ctx.expression();
         final PMetadata expressionmd = createPMetadata(ectx1);
+        expressionmd.toptype = extstartmd.pexternal.getPType();
         visit(ectx1);
-        markCast(expressionmd, extstartmd.pexternal.getPType(), false);
 
+        assignmentmd.fromptype = extstartmd.fromptype;
         assignmentmd.statement = true;
+        markCast(assignmentmd);
 
         return null;
     }
@@ -2045,7 +2028,8 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         }
 
         extstartmd.statement = extstartmd.pexternal.isCall();
-        extstartmd.castptypes = new PType[] {pop ? voidptype : extstartmd.pexternal.getPType()};
+        extstartmd.fromptype = pop ? pstandard.pvoid : extstartmd.pexternal.getPType();
+        markCast(extstartmd);
 
         return null;
     }
@@ -2126,12 +2110,13 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         final DecltypeContext dctx = ctx.decltype();
         final PMetadata decltypemd = createPMetadata(dctx);
+        decltypemd.anyptype = true;
         visit(dctx);
 
         final PType pfrom = extcastmd0.pexternal.getPType();
-        final PType pto = decltypemd.declptype;
+        final PType pto = decltypemd.fromptype;
 
-        final Object object = checkLegalCast(pfrom, pto, true);
+        final Object object = getLegalCast(pfrom, pto, true);
 
         if (object instanceof PCast) {
             extcastmd0.pexternal.addSegment(SType.CAST, object);
@@ -2148,8 +2133,8 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         final ExpressionContext ectx0 = ctx.expression();
         final PMetadata expressionmd = createPMetadata(ectx0);
+        expressionmd.toptype = pstandard.pint;
         visit(ectx0);
-        markCast(expressionmd, intptype, false);
 
         extarraymd0.pexternal.addSegment(SType.ARRAY, ectx0);
 
@@ -2212,7 +2197,6 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitExtcall(final ExtcallContext ctx) {
         final PMetadata extcallmd = getPMetadata(ctx);
-
         final PType declptype = extcallmd.pexternal.getPType();
         final PClass pclass = declptype.getPClass();
 
@@ -2222,40 +2206,42 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         final String pname = ctx.ID().getText();
         final boolean statik = extcallmd.pexternal.isStatic();
-
-        final ArgumentsContext actx = ctx.arguments();
-        final PMetadata argumentsmd = createPMetadata(actx);
         final List<ExpressionContext> arguments = ctx.arguments().expression();
-        argumentsmd.pexternal = extcallmd.pexternal;
-        argumentsmd.castnodes = new ParseTree[arguments.size()];
-        arguments.toArray(argumentsmd.castnodes);
+        PType[] argumentsptypes;
 
         if (statik && "makearray".equals(pname)) {
             extcallmd.pexternal.addSegment(SType.AMAKE, arguments.size());
-
-            PType[] ptypes = new PType[arguments.size()];
-            Arrays.fill(ptypes, intptype);
-            argumentsmd.castptypes = ptypes;
+            argumentsptypes = new PType[arguments.size()];
+            Arrays.fill(argumentsptypes, pstandard.pint);
         } else {
             final PConstructor pconstructor = statik ? pclass.getPConstructor(pname) : null;
             final PMethod pmethod = statik ? pclass.getPFunction(pname) : pclass.getPMethod(pname);
 
             if (pconstructor != null) {
                 extcallmd.pexternal.addSegment(SType.CONSTRUCTOR, pconstructor);
-                argumentsmd.castptypes = new PType[arguments.size()];
-                pconstructor.getPArguments().toArray(argumentsmd.castptypes);
+                argumentsptypes = new PType[pconstructor.getPArguments().size()];
+                pconstructor.getPArguments().toArray(argumentsptypes);
             } else if (pmethod != null) {
                 extcallmd.pexternal.addSegment(SType.METHOD, pmethod);
-                argumentsmd.castptypes = new PType[arguments.size()];
-                pmethod.getPArguments().toArray(argumentsmd.castptypes);
+                argumentsptypes = new PType[pmethod.getPArguments().size()];
+                pmethod.getPArguments().toArray(argumentsptypes);
             } else {
                 throw new IllegalArgumentException(); // TODO: message
             }
-
-            visit(actx);
         }
 
-        visit(actx);
+        if (arguments.size() != argumentsptypes.length) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        for (int argument = 0; argument < arguments.size(); ++argument) {
+            final ParseTree ectx = arguments.get(argument);
+            final PMetadata expressionmd = createPMetadata(ectx);
+            expressionmd.toptype = argumentsptypes[argument];
+            visit(ectx);
+
+            extcallmd.pexternal.addSegment(SType.ARGUMENT, ectx);
+        }
 
         final ExtdotContext ectx0 = ctx.extdot();
         final ExtarrayContext ectx1 = ctx.extarray();
@@ -2290,7 +2276,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         } else {
             if (ptype.getPSort() == PSort.ARRAY) {
                 if ("length".equals(pname)) {
-                    extmembermd.pexternal.addSegment(SType.ALENGTH, intptype);
+                    extmembermd.pexternal.addSegment(SType.ALENGTH, pstandard.pint);
                 } else {
                     throw new IllegalArgumentException(); // TODO: message
                 }
@@ -2330,29 +2316,6 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
     @Override
     public Void visitArguments(final ArgumentsContext ctx) {
-        final PMetadata argumentsmd = getPMetadata(ctx);
-        final ParseTree[] nodes = argumentsmd.castnodes;
-        final PType[] ptypes = argumentsmd.castptypes;
-
-        if (nodes == null || ptypes == null) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        if (nodes.length != ptypes.length) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        final int arguments = nodes.length;
-
-        for (int argument = 0; argument < arguments; ++argument) {
-            final ParseTree ectx = nodes[argument];
-            final PMetadata nodemd = createPMetadata(ectx);
-            visit(ectx);
-            markCast(nodemd, ptypes[argument], false);
-
-            argumentsmd.pexternal.addSegment(SType.ARGUMENT, ectx);
-        }
-
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 }
