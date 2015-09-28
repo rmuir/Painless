@@ -113,6 +113,12 @@ public interface PainlessVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitDecltype(PainlessParser.DecltypeContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link PainlessParser#declvar}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitDeclvar(PainlessParser.DeclvarContext ctx);
+	/**
 	 * Visit a parse tree produced by the {@code ext}
 	 * labeled alternative in {@link PainlessParser#expression}.
 	 * @param ctx the parse tree

@@ -26,11 +26,15 @@ empty
     ;
 
 declaration
-    : decltype ID ( ASSIGN expression )? ( COMMA ID ( ASSIGN expression )? )*
+    : decltype declvar ( COMMA declvar )*
     ;
 
 decltype
     : TYPE (LBRACE RBRACE)*
+    ;
+
+declvar
+    : ID ( ASSIGN expression )?
     ;
 
 expression

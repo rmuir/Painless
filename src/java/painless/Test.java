@@ -6,10 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 public class Test {
-    public void stest(boolean b, Map m, List l) {
-
-        if ((b ? m : 3) == (!b ? new ArrayList() : new HashMap())) {
-
-        }
+    public Object stest() {
+        boolean x = true; x = false; if (x) return !x; return null;
     }
 }

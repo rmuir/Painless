@@ -262,7 +262,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         return null;
     }
 
-    private void addPVariable(final String name, final PType ptype) {
+    private PVariable addPVariable(final String name, final PType ptype) {
         if (getPVariable(name) != null) {
             throw new IllegalArgumentException();
         }
@@ -279,6 +279,8 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         final int update = ascopes.pop() + 1;
         ascopes.push(update);
+
+        return pvariable;
     }
 
     private PMetadata createPMetadata(final ParseTree source) {
@@ -797,8 +799,6 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             if (pfrom0.getPClass().isPGeneric() && !pfrom1.getPClass().isPGeneric()) {
                 pcast0 = new PCast(pfrom0, pfrom1);
                 pcast1 = new PCast(pfrom1, pfrom0);
-
-
             } else if (!pfrom0.getPClass().isPGeneric() && pfrom1.getPClass().isPGeneric()) {
                 pcast0 = new PCast(pfrom1, pfrom0);
                 pcast1 = new PCast(pfrom0, pfrom1);
@@ -888,7 +888,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     }
 
     @Override
-    public Void visitIf(IfContext ctx) {
+    public Void visitIf(final IfContext ctx) {
         final PMetadata ifmd = getPMetadata(ctx);
 
         incrementScope();
@@ -904,7 +904,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         final BlockContext bctx0 = ctx.block(0);
         final PMetadata blockmd0 = createPMetadata(bctx0);
-        visit(ctx.block(0));
+        visit(bctx0);
         ifmd.anyrtn = blockmd0.anyrtn;
         ifmd.anybreak = blockmd0.anybreak;
         ifmd.anycontinue = blockmd0.anycontinue;
@@ -912,8 +912,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         if (ctx.ELSE() != null) {
             final BlockContext bctx1 = ctx.block(1);
             final PMetadata blockmd1 = createPMetadata(bctx1);
-            visit(ctx.block(1));
-
+            visit(bctx1);
             ifmd.close = blockmd0.close && blockmd1.close;
             ifmd.allrtn = blockmd0.allrtn && blockmd1.allrtn;
             ifmd.anyrtn |= blockmd1.anyrtn;
@@ -1271,33 +1270,15 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     public Void visitDeclaration(final DeclarationContext ctx) {
         final PMetadata declarationmd = getPMetadata(ctx);
 
-        final DecltypeContext dctx = ctx.decltype();
-        final PMetadata decltypemd = createPMetadata(dctx);
-        declarationmd.anyptype = true;
-        visit(dctx);
+        final DecltypeContext dctx0 = ctx.decltype();
+        final PMetadata decltypemd = createPMetadata(dctx0);
+        decltypemd.anyptype = true;
+        visit(dctx0);
 
-        final PType declptype = decltypemd.fromptype;
-
-        if (declptype == null) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        for (int child = 0; child < ctx.getChildCount(); ++child) {
-            final ParseTree cctx = ctx.getChild(child);
-
-            if (cctx instanceof TerminalNode) {
-                final TerminalNode tctx = (TerminalNode)cctx;
-
-                if (tctx.getSymbol().getType() == PainlessLexer.ID) {
-                    final String name = tctx.getText();
-                    addPVariable(name, declptype);
-                }
-            } else if (cctx instanceof ExpressionContext) {
-                final ExpressionContext ectx = (ExpressionContext)cctx;
-                final PMetadata expressionmd = createPMetadata(ectx);
-                expressionmd.toptype = declptype;
-                visit(ectx);
-            }
+        for (final DeclvarContext dctx1 : ctx.declvar()) {
+            PMetadata declvarmd = createPMetadata(dctx1);
+            declvarmd.toptype = decltypemd.fromptype;
+            visit(dctx1);
         }
 
         declarationmd.statement = true;
@@ -1315,6 +1296,24 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         final String pnamestr = ctx.getText();
         decltypemd.fromptype = getPTypeFromCanonicalPName(ptypes, pnamestr);
+
+        return null;
+    }
+
+    @Override
+    public Void visitDeclvar(final DeclvarContext ctx) {
+        final PMetadata declvarmd = getPMetadata(ctx);
+
+        final String name = ctx.ID().getText();
+        declvarmd.constpost = addPVariable(name, declvarmd.toptype);
+
+        final ExpressionContext ectx = ctx.expression();
+
+        if (ectx != null) {
+            final PMetadata expressionmd = createPMetadata(ectx);
+            expressionmd.toptype = declvarmd.toptype;
+            visit(ectx);
+        }
 
         return null;
     }
@@ -1883,7 +1882,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     }
 
     @Override
-    public Void visitBool(BoolContext ctx) {
+    public Void visitBool(final BoolContext ctx) {
         final PMetadata boolmd = getPMetadata(ctx);
 
         final ExpressionContext ectx0 = ctx.expression(0);
@@ -1913,7 +1912,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     }
 
     @Override
-    public Void visitConditional(ConditionalContext ctx) {
+    public Void visitConditional(final ConditionalContext ctx) {
         final PMetadata conditionalmd = getPMetadata(ctx);
 
         final ExpressionContext ectx0 = ctx.expression(0);
@@ -1968,11 +1967,11 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitAssignment(final AssignmentContext ctx) {
         final PMetadata assignmentmd = getPMetadata(ctx);
+        final boolean pop = assignmentmd.pop;
 
         final ExtstartContext ectx0 = ctx.extstart();
-        PMetadata extstartmd = createPMetadata(ectx0);
+        final PMetadata extstartmd = createPMetadata(ectx0);
         extstartmd.write = true;
-        extstartmd.pop = assignmentmd.pop;
         extstartmd.anyptype = true;
         visit(ectx0);
 
@@ -1989,7 +1988,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         expressionmd.toptype = extstartmd.pexternal.getPType();
         visit(ectx1);
 
-        assignmentmd.fromptype = extstartmd.fromptype;
+        assignmentmd.fromptype = pop ? pstandard.pvoid : extstartmd.fromptype;
         assignmentmd.statement = true;
         markCast(assignmentmd);
 

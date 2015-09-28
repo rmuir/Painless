@@ -6,7 +6,7 @@ public final class Painless {
         //PainlessExecutable executable = compile("test", "bool b = true; while (true) { while (true) {if (b) break; b = !b;} break;}");
         //PainlessExecutable executable = compile("test", "int x = 0; while (true) {x = x + 1; if (x >= 5) continue; if (x <= 6) {break;}}");
         //PainlessExecutable executable = compile("test", "for (int x = 0; x < 5; x = x + 1);");
-        PainlessExecutable executable = compile("test", "return null;");
+        PainlessExecutable executable = compile("test", "bool x = true; x = false; if (x) return !x;");
         //PainlessExecutable executable = compile("test", "bool b; b = false; if (b) return null; else return 5;");
         //PainlessExecutable executable = compile("test", "bool x, y; x = false; y = true; return x || y;");
         final long end = System.currentTimeMillis() - start;
