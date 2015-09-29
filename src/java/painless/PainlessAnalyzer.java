@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.antlr.v4.runtime.tree.ParseTree;
-import org.antlr.v4.runtime.tree.TerminalNode;
 
 import static painless.PainlessExternal.*;
 import static painless.PainlessParser.*;
@@ -75,7 +74,6 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         private boolean allcontinue;
         private boolean anycontinue;
 
-        private boolean write;
         private boolean pop;
         private PExternal pexternal;
 
@@ -105,7 +103,6 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             allcontinue = false;
             anycontinue = false;
 
-            write = false;
             pop = false;
             pexternal = null;
 
@@ -152,10 +149,6 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         boolean getAnyContinue() {
             return anycontinue;
-        }
-
-        boolean getWrite() {
-            return write;
         }
 
         boolean getPop() {
@@ -281,7 +274,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         }
 
         final PVariable pvariable = new PVariable(name, ptype, aslot);
-        pvariables.push(pvariable);
+        pvariables.add(pvariable);
 
         final int update = ascopes.pop() + 1;
         ascopes.push(update);
@@ -1976,12 +1969,11 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitAssignment(final AssignmentContext ctx) {
         final PMetadata assignmentmd = getPMetadata(ctx);
-        final boolean pop = assignmentmd.pop;
 
         final ExtstartContext ectx0 = ctx.extstart();
         final PMetadata extstartmd = createPMetadata(ectx0);
-        extstartmd.write = true;
         extstartmd.anyptype = true;
+        extstartmd.pop = assignmentmd.pop;
         visit(ectx0);
 
         if (extstartmd.pexternal == null) {
@@ -1997,7 +1989,9 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         expressionmd.toptype = extstartmd.pexternal.getPType();
         visit(ectx1);
 
-        assignmentmd.fromptype = pop ? pstandard.pvoid : extstartmd.fromptype;
+        extstartmd.pexternal.addSegment(SType.WRITE, ectx1);
+
+        assignmentmd.fromptype = extstartmd.fromptype;
         assignmentmd.statement = true;
         markCast(assignmentmd);
 
@@ -2144,7 +2138,8 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         expressionmd.toptype = pstandard.pint;
         visit(ectx0);
 
-        extarraymd0.pexternal.addSegment(SType.ARRAY, ectx0);
+        extarraymd0.pexternal.addSegment(SType.NODE, ectx0);
+        extarraymd0.pexternal.addSegment(SType.ARRAY, null);
 
         final ExtdotContext ectx1 = ctx.extdot();
         final ExtarrayContext ectx2 = ctx.extarray();
@@ -2253,7 +2248,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             expressionmd.toptype = argumentsptypes[argument];
             visit(ectx);
 
-            extcallmd.pexternal.addSegment(SType.ARGUMENT, ectx);
+            extcallmd.pexternal.addSegment(SType.NODE, ectx);
         }
 
         extcallmd.pexternal.addSegment(stype, svalue);
@@ -2291,7 +2286,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         } else {
             if (ptype.getPSort() == PSort.ARRAY) {
                 if ("length".equals(pname)) {
-                    extmembermd.pexternal.addSegment(SType.ALENGTH, pstandard.pint);
+                    extmembermd.pexternal.addSegment(SType.ALENGTH, null);
                 } else {
                     throw new IllegalArgumentException(); // TODO: message
                 }

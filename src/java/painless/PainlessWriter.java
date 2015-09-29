@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-import com.sun.org.apache.bcel.internal.generic.IF_ICMPEQ;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
@@ -1408,27 +1407,8 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     public Void visitAssignment(final AssignmentContext ctx) {
         final PMetadata assignmentmd = getPMetadata(ctx);
         final PBranch pbranch = pbranches.get(ctx);
-        final boolean pop = assignmentmd.getPop();
 
-        final ExpressionContext ectx1 = ctx.expression();
-        final ExtstartContext ectx0 = ctx.extstart();
-
-        final PMetadata extstartmd = getPMetadata(ectx0);
-        final PExternal pexternal = extstartmd.getPExternal();
-
-        visit(ectx1);
-
-        if (!pop) {
-            final int asize = pexternal.getPType().getPSort().getASize();
-
-            if (asize == 1) {
-                execute.visitInsn(Opcodes.DUP);
-            } else if (asize == 2) {
-                execute.visitInsn(Opcodes.DUP2);
-            }
-        }
-
-        visit(ectx0);
+        visit(ctx.extstart());
 
         checkWritePCast(assignmentmd);
         checkWritePBranch(pbranch);
@@ -1440,25 +1420,23 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     public Void visitExtstart(ExtstartContext ctx) {
         final PMetadata extstartmd = getPMetadata(ctx);
         final PBranch pbranch = pbranches.get(ctx);
+        final boolean pop = extstartmd.getPop();
         final PExternal pexternal = extstartmd.getPExternal();
-        boolean write = extstartmd.getWrite();
-        boolean pop = extstartmd.getPop();
-
         final Iterator<PSegment> psegments = pexternal.getIterator();
 
         while (psegments.hasNext()) {
             final PSegment psegment = psegments.next();
             final SType stype = psegment.getSType();
             final Object svalue = psegment.getSValue();
-            final boolean store = write && pexternal.isLast(psegment);
+            final boolean write = psegment.equals(pexternal.getWriteSegment());
 
             switch (stype) {
                 case TYPE: {
                     break;
                 } case VARIABLE: {
                     final PVariable pvariable = (PVariable)svalue;
-                    final int aslot = pvariable.getASlot();
                     final PSort psort = pvariable.getPType().getPSort();
+                    final int aslot = pvariable.getASlot();
 
                     switch (psort) {
                         case BOOL:
@@ -1466,19 +1444,39 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                         case SHORT:
                         case CHAR:
                         case INT:
-                            execute.visitVarInsn(store ? Opcodes.ISTORE : Opcodes.ILOAD, aslot);
+                            if (write && !pop) {
+                                execute.visitInsn(Opcodes.DUP);
+                            }
+
+                            execute.visitVarInsn(write ? Opcodes.ISTORE : Opcodes.ILOAD, aslot);
                             break;
                         case LONG:
-                            execute.visitVarInsn(store ? Opcodes.LSTORE : Opcodes.LLOAD, aslot);
+                            if (write && !pop) {
+                                execute.visitInsn(Opcodes.DUP2);
+                            }
+
+                            execute.visitVarInsn(write ? Opcodes.LSTORE : Opcodes.LLOAD, aslot);
                             break;
                         case FLOAT:
-                            execute.visitVarInsn(store ? Opcodes.FSTORE : Opcodes.FLOAD, aslot);
+                            if (write && !pop) {
+                                execute.visitInsn(Opcodes.DUP);
+                            }
+
+                            execute.visitVarInsn(write ? Opcodes.FSTORE : Opcodes.FLOAD, aslot);
                             break;
                         case DOUBLE:
-                            execute.visitVarInsn(store ? Opcodes.DSTORE : Opcodes.DLOAD, aslot);
+                            if (write && !pop) {
+                                execute.visitInsn(Opcodes.DUP2);
+                            }
+
+                            execute.visitVarInsn(write ? Opcodes.DSTORE : Opcodes.DLOAD, aslot);
                             break;
                         default:
-                            execute.visitVarInsn(store ? Opcodes.ASTORE : Opcodes.ALOAD, aslot);
+                            if (write && !pop) {
+                                execute.visitInsn(Opcodes.DUP);
+                            }
+
+                            execute.visitVarInsn(write ? Opcodes.ASTORE : Opcodes.ALOAD, aslot);
                     }
 
                     break;
@@ -1519,18 +1517,16 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                     int opcode;
 
                     if (Modifier.isStatic(pfield.getJField().getModifiers())) {
-                        opcode = store ? Opcodes.PUTSTATIC : Opcodes.GETSTATIC;
+                        opcode = write ? Opcodes.PUTSTATIC : Opcodes.GETSTATIC;
                     } else {
-                        opcode = store ? Opcodes.PUTFIELD : Opcodes.GETFIELD;
+                        opcode = write ? Opcodes.PUTFIELD : Opcodes.GETFIELD;
                     }
 
                     execute.visitFieldInsn(opcode, jinternal, jname, adescriptor);
 
                     break;
                 } case ARRAY: {
-                    final PSort psort = psegment.getPType().getPSort();
-                    final ParseTree ectx = (ParseTree)svalue;
-                    visit(ectx);
+                    final PSort psort = ((PType)svalue).getPSort();
 
                     switch (psort) {
                         case BOOL:
@@ -1538,24 +1534,29 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                         case SHORT:
                         case CHAR:
                         case INT:
-                            execute.visitInsn(store ? Opcodes.IASTORE : Opcodes.IALOAD);
+                            execute.visitInsn(write ? Opcodes.IASTORE : Opcodes.IALOAD);
                             break;
                         case LONG:
-                            execute.visitInsn(store ? Opcodes.LASTORE : Opcodes.LALOAD);
+                            execute.visitInsn(write ? Opcodes.LASTORE : Opcodes.LALOAD);
                             break;
                         case FLOAT:
-                            execute.visitInsn(store ? Opcodes.FASTORE : Opcodes.FALOAD);
+                            execute.visitInsn(write ? Opcodes.FASTORE : Opcodes.FALOAD);
                             break;
                         case DOUBLE:
-                            execute.visitInsn(store ? Opcodes.DASTORE : Opcodes.DALOAD);
+                            execute.visitInsn(write ? Opcodes.DASTORE : Opcodes.DALOAD);
                             break;
                         default:
-                            execute.visitInsn(store ? Opcodes.AASTORE : Opcodes.AALOAD);
+                            execute.visitInsn(write ? Opcodes.AASTORE : Opcodes.AALOAD);
                             break;
                     }
 
                     break;
-                } case ARGUMENT: {
+                } case WRITE: {
+                    final ParseTree ectx = (ParseTree)svalue;
+                    visit(ectx);
+
+                    break;
+                } case NODE: {
                     final ParseTree ectx = (ParseTree)svalue;
                     visit(ectx);
 
@@ -1572,6 +1573,43 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                     break;
                 }
                 case AMAKE: {
+                    final PType ptype = (PType)svalue;
+
+                    if (ptype.getPDimensions() > 1) {
+                        final String adescriptor = ptype.getADescriptor();
+                        execute.visitMultiANewArrayInsn(adescriptor, ptype.getPDimensions());
+                    } else {
+                        PSort psort = getPTypeWithArrayDimensions(ptype.getPClass(), 0).getPSort();
+
+                        switch (psort) {
+                            case VOID:
+                                throw new IllegalStateException(); // TODO: message
+                            case BOOL:
+                                execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_BOOLEAN);
+                                break;
+                            case SHORT:
+                                execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_SHORT);
+                                break;
+                            case CHAR:
+                                execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_CHAR);
+                                break;
+                            case INT:
+                                execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_INT);
+                                break;
+                            case LONG:
+                                execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_LONG);
+                                break;
+                            case FLOAT:
+                                execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_FLOAT);
+                                break;
+                            case DOUBLE:
+                                execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_DOUBLE);
+                                break;
+                            default:
+                                final String jinternal = ptype.getPClass().getJInternal();
+                                execute.visitTypeInsn(Opcodes.ANEWARRAY, jinternal);
+                        }
+                    }
 
                     break;
                 } case ALENGTH: {
@@ -1583,7 +1621,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
             }
         }
 
-        if (!write) {
+        if (!pexternal.isWrite()) {
             if (pop) {
                 final int asize = pexternal.getPType().getPSort().getASize();
 

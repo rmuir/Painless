@@ -1,14 +1,24 @@
 package painless;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 public class Test {
+    static class T {
+        int x[] = new int[1];
+    }
+
     public Object stest() {
-        HashMap<String, Object> sm = new HashMap<>();
-        sm.put("1", 1);
-        return sm.get("1");
+        //int[][] x = new int[1][1];
+        //x[0][0] = 5;
+        //return x[0][0];
+
+        //int[] x = new int[1];
+        //x[0] = 5;
+        //return x[0];
+
+        byte y;
+        int[][][][] x = new int[1][1][1][1];
+
+        y = (byte)(x[0][0][0][0] = 5);
+
+        return null;
     }
 }

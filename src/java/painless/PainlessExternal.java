@@ -18,7 +18,8 @@ public class PainlessExternal {
         METHOD,
         FIELD,
         ARRAY,
-        ARGUMENT,
+        NODE,
+        WRITE,
         CAST,
         TRANSFORM,
         AMAKE,
@@ -27,21 +28,15 @@ public class PainlessExternal {
 
     static class PSegment {
         private final SType stype;
-        private final PType ptype;
         private final Object svalue;
 
-        private PSegment(final SType stype, final PType ptype, final Object svalue) {
+        private PSegment(final SType stype, final Object svalue) {
             this.stype = stype;
-            this.ptype = ptype;
             this.svalue = svalue;
         }
 
         SType getSType() {
             return stype;
-        }
-
-        PType getPType() {
-            return ptype;
         }
 
         Object getSValue() {
@@ -56,6 +51,7 @@ public class PainlessExternal {
         private boolean call;
         private boolean member;
         private boolean readonly;
+        private boolean write;
 
         private PType ptype;
 
@@ -66,6 +62,7 @@ public class PainlessExternal {
             call = false;
             member = false;
             readonly = false;
+            write = false;
 
             ptype = null;
         }
@@ -77,23 +74,15 @@ public class PainlessExternal {
                         throw new IllegalArgumentException(); // TODO: message
                     }
 
-                    if (!psegments.isEmpty()) {
-                        throw new IllegalArgumentException(); // TODO: message
-                    }
-
                     statik = true;
 
                     ptype = (PType)svalue;
 
-                    psegments.push(new PSegment(stype, ptype, svalue));
+                    psegments.add(new PSegment(stype, svalue));
 
                     break;
                 case VARIABLE:
                     if (!(svalue instanceof PVariable)) {
-                        throw new IllegalArgumentException(); // TODO: message
-                    }
-
-                    if (!psegments.isEmpty()) {
                         throw new IllegalArgumentException(); // TODO: message
                     }
 
@@ -104,7 +93,7 @@ public class PainlessExternal {
 
                     ptype = ((PVariable)svalue).getPType();
 
-                    psegments.add(new PSegment(stype, ptype, svalue));
+                    psegments.add(new PSegment(stype, svalue));
 
                     break;
                 case CONSTRUCTOR:
@@ -120,7 +109,9 @@ public class PainlessExternal {
                     member = false;
                     readonly = true;
 
-                    psegments.add(new PSegment(stype, ptype, svalue));
+                    ptype = getPTypeWithArrayDimensions(((PConstructor)svalue).getPOwner(), 0);
+
+                    psegments.add(new PSegment(stype, svalue));
 
                     break;
                 case METHOD:
@@ -138,7 +129,7 @@ public class PainlessExternal {
 
                     ptype = ((PMethod)svalue).getPReturn();
 
-                    psegments.add(new PSegment(stype, ptype, svalue));
+                    psegments.add(new PSegment(stype, svalue));
 
                     break;
                 case FIELD:
@@ -156,11 +147,11 @@ public class PainlessExternal {
 
                     ptype = ((PField)svalue).getPType();
 
-                    psegments.add(new PSegment(stype, ptype, svalue));
+                    psegments.add(new PSegment(stype, svalue));
 
                     break;
                 case ARRAY: {
-                    if (!(svalue instanceof ParseTree)) {
+                    if (svalue != null) {
                         throw new IllegalArgumentException(); // TODO: message
                     }
 
@@ -178,10 +169,10 @@ public class PainlessExternal {
 
                     ptype = getPTypeWithArrayDimensions(ptype.getPClass(), ptype.getPDimensions() - 1);
 
-                    psegments.add(new PSegment(stype, ptype, svalue));
+                    psegments.add(new PSegment(stype, ptype));
 
                     break;
-                } case ARGUMENT:
+                } case NODE: {
                     if (!(svalue instanceof ParseTree)) {
                         throw new IllegalArgumentException(); // TODO: message
                     }
@@ -190,12 +181,31 @@ public class PainlessExternal {
                         throw new IllegalArgumentException(); // TODO: message
                     }
 
-                    ptype = null;
-
-                    psegments.add(new PSegment(stype, ptype, svalue));
+                    psegments.add(new PSegment(stype, svalue));
 
                     break;
-                case CAST:
+                } case WRITE: {
+                    if (!(svalue instanceof ParseTree)) {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+
+                    if (psegments.isEmpty()) {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+
+                    PSegment psegment = psegments.removeLast();
+
+                    if (psegment.stype != SType.VARIABLE &&
+                            psegment.stype != SType.FIELD && psegment.stype != SType.ARRAY) {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+
+                    psegments.add(new PSegment(stype, svalue));
+                    psegments.add(psegment);
+                    write = true;
+
+                    break;
+                } case CAST:
                     if (!(svalue instanceof PCast)) {
                         throw new IllegalArgumentException(); // TODO: message
                     }
@@ -208,7 +218,7 @@ public class PainlessExternal {
 
                     ptype = ((PCast)svalue).getPTo();
 
-                    psegments.add(new PSegment(stype, ptype, svalue));
+                    psegments.add(new PSegment(stype, svalue));
 
                     break;
                 case TRANSFORM:
@@ -224,7 +234,7 @@ public class PainlessExternal {
 
                     ptype = ((PTransform)svalue).getPCast().getPTo();
 
-                    psegments.add(new PSegment(stype, ptype, svalue));
+                    psegments.add(new PSegment(stype, svalue));
 
                     break;
                 case AMAKE: {
@@ -242,15 +252,15 @@ public class PainlessExternal {
 
                     ptype = getPTypeWithArrayDimensions(ptype.getPClass(), (int)svalue);
 
-                    psegments.add(new PSegment(stype, ptype, svalue));
+                    psegments.add(new PSegment(stype, ptype));
 
                     break;
                 } case ALENGTH:
-                    if (!(svalue instanceof PType)) {
+                    if (svalue != null) {
                         throw new IllegalArgumentException(); // TODO: message
                     }
 
-                    if (((PType)svalue).getPDimensions() == 0) {
+                    if (ptype.getPDimensions() == 0) {
                         throw new IllegalArgumentException(); // TODO: message
                     }
 
@@ -258,9 +268,7 @@ public class PainlessExternal {
                     member = true;
                     readonly = true;
 
-                    ptype = (PType)svalue;
-
-                    psegments.add(new PSegment(stype, ptype, svalue));
+                    psegments.add(new PSegment(stype, null));
             }
         }
 
@@ -268,8 +276,8 @@ public class PainlessExternal {
             return psegments.iterator();
         }
 
-        boolean isLast(final PSegment psegment) {
-            return psegment.equals(psegments.peek());
+        PSegment getWriteSegment() {
+            return write ? psegments.getLast() : null;
         }
 
         boolean isStatic() {
@@ -286,6 +294,10 @@ public class PainlessExternal {
 
         boolean isReadOnly() {
             return readonly;
+        }
+
+        boolean isWrite() {
+            return write;
         }
 
         PType getPType() {
