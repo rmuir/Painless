@@ -266,7 +266,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             throw new IllegalArgumentException();
         }
 
-        final PVariable previous = pvariables.peek();
+        final PVariable previous = pvariables.peekLast();
         int aslot = 0;
 
         if (previous != null) {

@@ -277,7 +277,7 @@ public class PainlessExternal {
         }
 
         PSegment getWriteSegment() {
-            return write ? psegments.getLast() : null;
+            return write ? psegments.peekLast() : null;
         }
 
         boolean isStatic() {
