@@ -29,11 +29,11 @@ final class PainlessCompiler {
         final PTypes ptypes = loadFromProperties();
         final ParseTree root = createParseTree(source);
         final Deque<PArgument> parguments = new ArrayDeque<>();
-        parguments.push(new PArgument("this", getPTypeFromCanonicalPName(ptypes, "exec")));
-        parguments.push(new PArgument("input", getPTypeFromCanonicalPName(ptypes, "smap")));
+        parguments.add(new PArgument("this", getPTypeFromCanonicalPName(ptypes, "exec")));
+        parguments.add(new PArgument("input", getPTypeFromCanonicalPName(ptypes, "smap")));
 
         final Map<ParseTree, PMetadata> pmetadata = PainlessAnalyzer.analyze(ptypes, root, parguments);
-        final byte[] bytes = PainlessWriter.write(ptypes, source, root, pmetadata);
+        final byte[] bytes = PainlessWriter.write(source, root, pmetadata);
         final PainlessExecutable executable = createExecutable(name, source, parent, bytes);
 
         return executable;

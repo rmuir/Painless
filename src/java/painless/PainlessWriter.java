@@ -43,14 +43,12 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     final static String BASE_CLASS_INTERNAL = PainlessExecutable.class.getName().replace('.', '/');
     final static String CLASS_INTERNAL = BASE_CLASS_INTERNAL + "$CompiledPainlessExecutable";
 
-    static byte[] write(final PTypes ptypes, final String source,
-                        final ParseTree tree, final Map<ParseTree, PMetadata> pmetadata) {
-        PainlessWriter writer = new PainlessWriter(ptypes, source, tree, pmetadata);
+    static byte[] write(final String source, final ParseTree tree, final Map<ParseTree, PMetadata> pmetadata) {
+        PainlessWriter writer = new PainlessWriter(source, tree, pmetadata);
 
         return writer.getBytes();
     }
 
-    private final PTypes ptypes;
     private final Map<ParseTree, PMetadata> pmetadata;
 
     private final HashMap<ParseTree, PBranch> pbranches;
@@ -59,9 +57,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     private ClassWriter writer;
     private MethodVisitor execute;
 
-    private PainlessWriter(final PTypes ptypes, final String source,
-                           final ParseTree root, final Map<ParseTree, PMetadata> pmetadata) {
-        this.ptypes = ptypes;
+    private PainlessWriter(final String source, final ParseTree root, final Map<ParseTree, PMetadata> pmetadata) {
         this.pmetadata = pmetadata;
 
         this.pbranches = new HashMap<>();
@@ -275,7 +271,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         if (Modifier.isStatic(modifiers)) {
             execute.visitMethodInsn(Opcodes.INVOKESTATIC,
                     powner.getJInternal(), jmethod.getName(), pmethod.getADescriptor(), jmethod.isDefault());
-        } else if (Modifier.isInterface(modifiers)) {
+        } else if (Modifier.isAbstract(modifiers)) {
             execute.visitMethodInsn(Opcodes.INVOKEINTERFACE,
                     powner.getJInternal(), jmethod.getName(), pmethod.getADescriptor(), jmethod.isDefault());
         } else {
@@ -1488,13 +1484,13 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
                     if (Modifier.isStatic(modifiers)) {
                         execute.visitMethodInsn(Opcodes.INVOKESTATIC,
-                                jinternal, jmethod.getName(), pmethod.getADescriptor(), jmethod.isDefault());
-                    } else if (Modifier.isInterface(modifiers)) {
+                                jinternal, jmethod.getName(), pmethod.getADescriptor(), false);
+                    } else if (Modifier.isAbstract(modifiers)) {
                         execute.visitMethodInsn(Opcodes.INVOKEINTERFACE,
-                                jinternal, jmethod.getName(), pmethod.getADescriptor(), jmethod.isDefault());
+                                jinternal, jmethod.getName(), pmethod.getADescriptor(), true);
                     } else {
                         execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                                jinternal, jmethod.getName(), pmethod.getADescriptor(), jmethod.isDefault());
+                                jinternal, jmethod.getName(), pmethod.getADescriptor(), false);
                     }
 
                     break;
