@@ -1166,9 +1166,9 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                     execute.visitInsn(Opcodes.LCMP);
 
                     if (eq) {
-                        execute.visitJumpInsn(Opcodes.IFNE, ajump);
-                    } else if (ne) {
                         execute.visitJumpInsn(Opcodes.IFEQ, ajump);
+                    } else if (ne) {
+                        execute.visitJumpInsn(Opcodes.IFNE, ajump);
                     } else if (lt) {
                         execute.visitJumpInsn(Opcodes.IFLT, ajump);
                     } else if (lte) {
@@ -1185,10 +1185,10 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                 case FLOAT:
                     if (eq) {
                         execute.visitInsn(Opcodes.FCMPL);
-                        execute.visitJumpInsn(Opcodes.IFNE, ajump);
+                        execute.visitJumpInsn(Opcodes.IFEQ, ajump);
                     } else if (ne) {
                         execute.visitInsn(Opcodes.FCMPL);
-                        execute.visitJumpInsn(Opcodes.IFEQ, ajump);
+                        execute.visitJumpInsn(Opcodes.IFNE, ajump);
                     } else if (lt) {
                         execute.visitInsn(Opcodes.FCMPG);
                         execute.visitJumpInsn(Opcodes.IFLT, ajump);
@@ -1200,7 +1200,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                         execute.visitJumpInsn(Opcodes.IFGT, ajump);
                     } else if (gte) {
                         execute.visitInsn(Opcodes.FCMPL);
-                        execute.visitJumpInsn(Opcodes.IFGT, ajump);
+                        execute.visitJumpInsn(Opcodes.IFGE, ajump);
                     } else {
                         throw new IllegalStateException(); // TODO: message
                     }
@@ -1209,10 +1209,10 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                 case DOUBLE:
                     if (eq) {
                         execute.visitInsn(Opcodes.DCMPL);
-                        execute.visitJumpInsn(Opcodes.IFNE, ajump);
+                        execute.visitJumpInsn(Opcodes.IFEQ, ajump);
                     } else if (ne) {
                         execute.visitInsn(Opcodes.DCMPL);
-                        execute.visitJumpInsn(Opcodes.IFEQ, ajump);
+                        execute.visitJumpInsn(Opcodes.IFNE, ajump);
                     } else if (lt) {
                         execute.visitInsn(Opcodes.DCMPG);
                         execute.visitJumpInsn(Opcodes.IFLT, ajump);
@@ -1224,7 +1224,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                         execute.visitJumpInsn(Opcodes.IFGT, ajump);
                     } else if (gte) {
                         execute.visitInsn(Opcodes.DCMPL);
-                        execute.visitJumpInsn(Opcodes.IFGT, ajump);
+                        execute.visitJumpInsn(Opcodes.IFGE, ajump);
                     } else {
                         throw new IllegalStateException(); // TODO: message
                     }
@@ -1235,13 +1235,13 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                         if (expressionmd1.getIsNull()) {
                             execute.visitJumpInsn(Opcodes.IFNULL, ajump);
                         } else {
-                            execute.visitJumpInsn(Opcodes.IF_ACMPNE, ajump);
+                            execute.visitJumpInsn(Opcodes.IF_ACMPEQ, ajump);
                         }
                     } else if (ne) {
                         if (expressionmd1.getIsNull()) {
                             execute.visitJumpInsn(Opcodes.IFNONNULL, ajump);
                         } else {
-                            execute.visitJumpInsn(Opcodes.IF_ACMPEQ, ajump);
+                            execute.visitJumpInsn(Opcodes.IF_ACMPNE, ajump);
                         }
                     } else {
                         throw new IllegalStateException(); // TODO: message

@@ -25,11 +25,14 @@ public final class Painless {
         input.put("inner", inner);
 
         PainlessExecutable executable = compile("test",
-                "$list list = (($list)((smap)input.get(\"inner\")).get(\"list\"));\n" +
+                "\n$list list = (($list)((smap)input.get(\"inner\")).get(\"list\"));\n" +
                 "int size = list.size();\n" +
-                "int total;" +
+                "int total;\n" +
                 "\n" +
                 "for (int count = 0; count < size; count = count + 1) {\n" +
+                "    if (null == list.get(count))\n" +
+                "        break;\n" +
+                "    \n" +
                 "    total = total + (int)list.get(count);\n" +
                 "}\n" +
                 "\n" +
