@@ -1438,44 +1438,34 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                     final PSort psort = pvariable.getPType().getPSort();
                     final int aslot = pvariable.getASlot();
 
+                    if (write && !pop) {
+                        if (psort.getASize() == 1) {
+                            execute.visitInsn(Opcodes.DUP);
+                        } else if (psort.getASize() == 2) {
+                            execute.visitInsn(Opcodes.DUP2);
+                        }
+                    }
+
                     switch (psort) {
+                        case VOID:
+                            throw new IllegalStateException();
                         case BOOL:
                         case BYTE:
                         case SHORT:
                         case CHAR:
                         case INT:
-                            if (write && !pop) {
-                                execute.visitInsn(Opcodes.DUP);
-                            }
-
                             execute.visitVarInsn(write ? Opcodes.ISTORE : Opcodes.ILOAD, aslot);
                             break;
                         case LONG:
-                            if (write && !pop) {
-                                execute.visitInsn(Opcodes.DUP2);
-                            }
-
                             execute.visitVarInsn(write ? Opcodes.LSTORE : Opcodes.LLOAD, aslot);
                             break;
                         case FLOAT:
-                            if (write && !pop) {
-                                execute.visitInsn(Opcodes.DUP);
-                            }
-
                             execute.visitVarInsn(write ? Opcodes.FSTORE : Opcodes.FLOAD, aslot);
                             break;
                         case DOUBLE:
-                            if (write && !pop) {
-                                execute.visitInsn(Opcodes.DUP2);
-                            }
-
                             execute.visitVarInsn(write ? Opcodes.DSTORE : Opcodes.DLOAD, aslot);
                             break;
                         default:
-                            if (write && !pop) {
-                                execute.visitInsn(Opcodes.DUP);
-                            }
-
                             execute.visitVarInsn(write ? Opcodes.ASTORE : Opcodes.ALOAD, aslot);
                     }
 
@@ -1510,11 +1500,20 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                     break;
                 } case FIELD: {
                     final PField pfield = (PField)svalue;
+                    final PSort psort = pfield.getPType().getPSort();
                     final String jinternal = pfield.getPOwner().getJInternal();
                     final String jname = pfield.getJField().getName();
                     final String adescriptor = pfield.getPType().getADescriptor();
 
                     int opcode;
+
+                    if (write && !pop) {
+                        if (psort.getASize() == 1) {
+                            execute.visitInsn(Opcodes.DUP_X1);
+                        } else if (psort.getASize() == 2) {
+                            execute.visitInsn(Opcodes.DUP2_X1);
+                        }
+                    }
 
                     if (Modifier.isStatic(pfield.getJField().getModifiers())) {
                         opcode = write ? Opcodes.PUTSTATIC : Opcodes.GETSTATIC;
@@ -1527,6 +1526,14 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                     break;
                 } case ARRAY: {
                     final PSort psort = ((PType)svalue).getPSort();
+
+                    if (write && !pop) {
+                        if (psort.getASize() == 1) {
+                            execute.visitInsn(Opcodes.DUP_X2);
+                        } else if (psort.getASize() == 2) {
+                            execute.visitInsn(Opcodes.DUP2_X2);
+                        }
+                    }
 
                     switch (psort) {
                         case BOOL:

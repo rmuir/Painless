@@ -15,7 +15,7 @@ public class Test {
         //return x[0];
 
         byte y;
-        int[][][][] x = new int[1][1][1][1];
+        long[][][][] x = new long[1][1][1][1];
 
         y = (byte)(x[0][0][0][0] = 5);
 
