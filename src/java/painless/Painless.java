@@ -25,7 +25,16 @@ public final class Painless {
         input.put("inner", inner);
 
         PainlessExecutable executable = compile("test",
-                "return (($list)((smap)input.get(\"inner\")).get(\"list\")).get(0);");
+                "$list list = (($list)((smap)input.get(\"inner\")).get(\"list\"));\n" +
+                "int size = list.size();\n" +
+                "int total;" +
+                "\n" +
+                "for (int count = 0; count < size; count = count + 1) {\n" +
+                "    total = total + (int)list.get(count);\n" +
+                "}\n" +
+                "\n" +
+                "return total;"
+        );
 
         final long end = System.currentTimeMillis() - start;
         Object value = executable.execute(input);
