@@ -1,14 +1,6 @@
 package painless;
 
 public class PainlessUtility {
-    public static Integer booleanToInteger(boolean value) {
-        return new Integer(value ? 1 : 0);
-    }
-
-    public static Integer charToInteger(char value) {
-        return new Integer(value);
-    }
-
     public static boolean numberToBoolean(Number value) {
         return value.longValue() != 0;
     }
@@ -45,6 +37,10 @@ public class PainlessUtility {
         return value ? 1 : 0;
     }
 
+    public static Integer booleanToInteger(boolean value) {
+        return new Integer(value ? 1 : 0);
+    }
+
     public static byte booleanToByte(Boolean value) {
         return (byte)(value ? 1 : 0);
     }
@@ -73,6 +69,10 @@ public class PainlessUtility {
         return value ? 1 : 0;
     }
 
+    public static boolean byteToBoolean(byte value) {
+        return value != 0;
+    }
+
     public static boolean byteToBoolean(Byte value) {
         return value != 0;
     }
@@ -81,11 +81,99 @@ public class PainlessUtility {
         return (char)value.byteValue();
     }
 
+    public static boolean shortToBoolean(short value) {
+        return value != 0;
+    }
+
     public static boolean shortToBoolean(Short value) {
         return value != 0;
     }
 
     public static char shortToChar(Short value) {
         return (char)value.shortValue();
+    }
+
+    public static boolean charToBoolean(char value) {
+        return value != 0;
+    }
+
+    public static Integer charToInteger(char value) {
+        return new Integer(value);
+    }
+
+    public static boolean characterToBoolean(Character value) {
+        return value != 0;
+    }
+
+    public static byte characterToByte(Character value) {
+        return (byte)value.charValue();
+    }
+
+    public static short characterToShort(Character value) {
+        return (short)value.charValue();
+    }
+
+    public static int characterToInt(Character value) {
+        return (int)value.charValue();
+    }
+
+    public static long characterToLong(Character value) {
+        return (long)value.charValue();
+    }
+
+    public static float characterToFloat(Character value) {
+        return (float)value.charValue();
+    }
+
+    public static double characterToDouble(Character value) {
+        return (double)value.charValue();
+    }
+
+    public static boolean intToBoolean(int value) {
+        return value != 0;
+    }
+
+    public static boolean integerToBoolean(Integer value) {
+        return value != 0;
+    }
+
+    public static char integerToChar(Integer value) {
+        return (char)value.intValue();
+    }
+
+    public static boolean longToBoolean(long value) {
+        return value != 0;
+    }
+
+    public static boolean longToBoolean(Long value) {
+        return value != 0;
+    }
+
+    public static char longToChar(Long value) {
+        return (char)value.longValue();
+    }
+
+    public static boolean floatToBoolean(float value) {
+        return value != 0;
+    }
+
+    public static boolean floatToBoolean(Float value) {
+        return value != 0;
+    }
+
+    public static char floatToChar(Float value) {
+        return (char)value.floatValue();
+    }
+
+    public static boolean doubleToBoolean(double value) {
+        return value != 0;
+    }
+
+    public static boolean doubleToBoolean(Double value) {
+        return value != 0;
+    }
+
+    public static char doubleToChar(Double value) {
+        return (char)value.doubleValue();
     }
 }
