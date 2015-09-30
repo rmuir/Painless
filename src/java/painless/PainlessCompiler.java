@@ -27,7 +27,7 @@ final class PainlessCompiler {
 
     static PainlessExecutable compile(String name, String source, ClassLoader parent) {
         final PTypes ptypes = loadFromProperties();
-        final ParseTree root = createParseTree(source);
+        final ParseTree root = createParseTree(source, ptypes);
         final Deque<PArgument> parguments = new ArrayDeque<>();
         parguments.add(new PArgument("this", getPTypeFromCanonicalPName(ptypes, "exec")));
         parguments.add(new PArgument("input", getPTypeFromCanonicalPName(ptypes, "smap")));
@@ -39,10 +39,12 @@ final class PainlessCompiler {
         return executable;
     }
 
-    private static ParseTree createParseTree(String source) {
+    private static ParseTree createParseTree(String source, PTypes ptypes) {
         final ANTLRInputStream stream = new ANTLRInputStream(source);
         final PainlessLexer lexer = new PainlessLexer(stream);
         final PainlessParser parser = new PainlessParser(new CommonTokenStream(lexer));
+
+        parser.setTypes(ptypes.getPNames());
 
         return parser.source();
     }

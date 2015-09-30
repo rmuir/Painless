@@ -25,23 +25,20 @@ public final class Painless {
         input.put("inner", inner);
 
         PainlessExecutable executable = compile("test",
-                "\n$list list = (($list)((smap)input.get(\"inner\")).get(\"list\"));\n" +
-                "int size = list.size();\n" +
-                "int total;\n" +
+                "\nlist nums = ((list)((smap)input.get(\"inner\")).get(\"list\"));\n" +
+                "int size = nums.size();\n" +
+                "double[] rtn = double.makearray(size);\n" +
                 "\n" +
                 "for (int count = 0; count < size; count = count + 1) {\n" +
-                "    if (null == list.get(count))\n" +
-                "        break;\n" +
-                "    \n" +
-                "    total = total + (int)list.get(count);\n" +
+                "    rtn[count] = (int)nums.get(count) == 7 ? 1 : 0;\n" +
                 "}\n" +
                 "\n" +
-                "return total;"
+                "return rtn;"
         );
 
         final long end = System.currentTimeMillis() - start;
         Object value = executable.execute(input);
-        System.out.println(value);
+        System.out.println(((double[])value)[2]);
         System.out.println(end);
     }
 

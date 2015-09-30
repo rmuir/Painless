@@ -1,5 +1,8 @@
 // Generated from src/java/painless/Painless.g4 by ANTLR 4.5
 package painless;
+
+    import java.util.Set;
+
 import org.antlr.v4.runtime.misc.NotNull;
 import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 

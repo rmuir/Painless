@@ -1,5 +1,25 @@
 grammar Painless;
 
+@parser::header {
+    import java.util.Set;
+}
+
+@parser::members {
+    private Set<String> types = null;
+
+    void setTypes(Set<String> types) {
+        this.types = types;
+    }
+
+    boolean isType() {
+        if (types == null) {
+            throw new IllegalStateException();
+        }
+
+        return types.contains(getCurrentToken().getText());
+    }
+}
+
 source
     : statement+ EOF
     ;
@@ -30,11 +50,11 @@ declaration
     ;
 
 decltype
-    : TYPE (LBRACE RBRACE)*
+    : {isType()}? ID (LBRACE RBRACE)*
     ;
 
 declvar
-    : ID ( ASSIGN expression )?
+    : {!isType()}? ID ( ASSIGN expression )?
     ;
 
 expression
@@ -73,9 +93,9 @@ extprec:   LP ( extprec | extcast | exttype | extmember) RP ( extdot | extarray 
 extcast:   LP decltype RP ( extprec | extcast | exttype | extmember );
 extarray:  LBRACE expression RBRACE ( extdot | extarray )?;
 extdot:    DOT ( extcall | extmember );
-exttype:   TYPE extdot;
-extcall:   ID arguments ( extdot | extarray )?;
-extmember: ID (extdot | extarray )?;
+exttype:   {isType()}? ID extdot;
+extcall:   {!isType()}? ID arguments ( extdot | extarray )?;
+extmember: {!isType()}? ID (extdot | extarray )?;
 
 arguments
     : ( LP ( expression ( COMMA expression )* )? RP )
@@ -140,21 +160,5 @@ FALSE: 'false';
 NULL: 'null';
 
 VOID: 'void';
-
-TYPE
-    : 'bool'
-    | 'byte'
-    | 'short'
-    | 'int'
-    | 'long'
-    | 'float'
-    | 'double'
-    | 'char'
-    | 'string'
-    | 'object'
-    | 'smap'
-    | 'exec'
-    | '$' [_a-zA-Z] [_a-zA-Z0-9]*
-    ;
 
 ID: [_a-zA-Z] [_a-zA-Z0-9]*;

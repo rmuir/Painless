@@ -482,12 +482,16 @@ class PainlessTypes {
             pimplicits = new HashMap<>();
         }
 
-        PClass getPClass(final String pname) {
-            return pclasses.get(pname);
+        Set<String> getPNames() {
+            return Collections.unmodifiableSet(pclasses.keySet());
         }
 
         PStandard getPStandard() {
             return pstandard;
+        }
+
+        PClass getPClass(final String pname) {
+            return pclasses.get(pname);
         }
 
         boolean isPDisallowed(final PCast pcast) {

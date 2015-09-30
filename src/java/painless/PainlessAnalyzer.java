@@ -2180,7 +2180,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitExttype(final ExttypeContext ctx) {
         final PMetadata exttypemd = getPMetadata(ctx);
-        final String ptypestr = ctx.TYPE().getText();
+        final String ptypestr = ctx.ID().getText();
         final PType ptype = getPTypeFromCanonicalPName(ptypes, ptypestr);
 
         if (ptype == null) {
