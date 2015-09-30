@@ -257,9 +257,9 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     private void writePTransform(final PTransform ptransform) {
         final PMethod pmethod = ptransform.getPMethod();
-        final java.lang.reflect.Method jmethod = pmethod.getJMethod();
-        final int modifiers = jmethod.getModifiers();
+        final Method jmethod = pmethod.getJMethod();
         final PClass powner = pmethod.getPOwner();
+        final Class jowner = powner.getJClass();
 
         final PType pcastfrom = ptransform.getJCastFrom();
         final PType pcastto = ptransform.getJCastTo();
@@ -268,15 +268,15 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
             execute.visitTypeInsn(Opcodes.CHECKCAST, pcastfrom.getJInternal());
         }
 
-        if (Modifier.isStatic(modifiers)) {
+        if (Modifier.isStatic(jmethod.getModifiers())) {
             execute.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    powner.getJInternal(), jmethod.getName(), pmethod.getADescriptor(), jmethod.isDefault());
-        } else if (Modifier.isAbstract(modifiers)) {
-            execute.visitMethodInsn(Opcodes.INVOKEINTERFACE,
-                    powner.getJInternal(), jmethod.getName(), pmethod.getADescriptor(), jmethod.isDefault());
+                    powner.getJInternal(), jmethod.getName(), pmethod.getADescriptor(), false);
+        } else if (Modifier.isInterface(jowner.getModifiers())) {
+          execute.visitMethodInsn(Opcodes.INVOKEINTERFACE,
+                  powner.getJInternal(), jmethod.getName(), pmethod.getADescriptor(), true);
         } else {
             execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                    powner.getJInternal(), jmethod.getName(), pmethod.getADescriptor(), jmethod.isDefault());
+                    powner.getJInternal(), jmethod.getName(), pmethod.getADescriptor(), false);
         }
 
         if (pcastto != null) {
@@ -1478,14 +1478,14 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                     break;
                 } case METHOD: {
                     final PMethod pmethod = (PMethod)svalue;
-                    final int modifiers = pmethod.getJMethod().getModifiers();
                     final String jinternal = pmethod.getPOwner().getJInternal();
                     final Method jmethod = pmethod.getJMethod();
+                    final Class jowner = pmethod.getPOwner().getJClass();
 
-                    if (Modifier.isStatic(modifiers)) {
+                    if (Modifier.isStatic(jmethod.getModifiers())) {
                         execute.visitMethodInsn(Opcodes.INVOKESTATIC,
                                 jinternal, jmethod.getName(), pmethod.getADescriptor(), false);
-                    } else if (Modifier.isAbstract(modifiers)) {
+                    } else if (Modifier.isInterface(jowner.getModifiers())) {
                         execute.visitMethodInsn(Opcodes.INVOKEINTERFACE,
                                 jinternal, jmethod.getName(), pmethod.getADescriptor(), true);
                     } else {

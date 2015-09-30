@@ -94,7 +94,7 @@ extcast:   LP decltype RP ( extprec | extcast | exttype | extmember );
 extarray:  LBRACE expression RBRACE ( extdot | extarray )?;
 extdot:    DOT ( extcall | extmember );
 exttype:   {isType()}? ID extdot;
-extcall:   {!isType()}? ID arguments ( extdot | extarray )?;
+extcall:   ID arguments ( extdot | extarray )?;
 extmember: {!isType()}? ID (extdot | extarray )?;
 
 arguments

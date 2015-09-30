@@ -26,15 +26,30 @@ final class PainlessCompiler {
     }
 
     static PainlessExecutable compile(String name, String source, ClassLoader parent) {
+        long start = System.currentTimeMillis();
         final PTypes ptypes = loadFromProperties();
+        long end = System.currentTimeMillis() - start;
+        System.out.println("types: " + end);
+        start = System.currentTimeMillis();
         final ParseTree root = createParseTree(source, ptypes);
+        end = System.currentTimeMillis() - start;
+        System.out.println("tree: " + end);
         final Deque<PArgument> parguments = new ArrayDeque<>();
         parguments.add(new PArgument("this", getPTypeFromCanonicalPName(ptypes, "exec")));
         parguments.add(new PArgument("input", getPTypeFromCanonicalPName(ptypes, "smap")));
 
+        start = System.currentTimeMillis();
         final Map<ParseTree, PMetadata> pmetadata = PainlessAnalyzer.analyze(ptypes, root, parguments);
+        end = System.currentTimeMillis() - start;
+        System.out.println("analyze: " + end);
+        start = System.currentTimeMillis();
         final byte[] bytes = PainlessWriter.write(source, root, pmetadata);
+        end = System.currentTimeMillis() - start;
+        System.out.println("write: " + end);
+        start = System.currentTimeMillis();
         final PainlessExecutable executable = createExecutable(name, source, parent, bytes);
+        end = System.currentTimeMillis() - start;
+        System.out.println("create: " + end);
 
         return executable;
     }

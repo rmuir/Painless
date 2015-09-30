@@ -719,7 +719,7 @@ class PainlessTypes {
 
     private static void loadPClass(final PTypes ptypes, final String pnamestr,
                                    final String jnamestr, final boolean generic) {
-        if (!pnamestr.matches("^[$_a-zA-Z][_a-zA-Z0-9]+$")) {
+        if (!pnamestr.matches("^[_a-zA-Z][_a-zA-Z0-9]+$")) {
             throw new IllegalArgumentException(); // TODO: message
         }
 

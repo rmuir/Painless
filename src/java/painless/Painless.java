@@ -7,7 +7,6 @@ import java.util.Map;
 
 public final class Painless {
     public static void main(String args[]) throws Exception {
-        final long start = System.currentTimeMillis();
         //PainlessExecutable executable = compile("test", "bool b = true; while (true) { while (true) {if (b) break; b = !b;} break;}");
         //PainlessExecutable executable = compile("test", "int x = 0; while (true) {x = x + 1; if (x >= 5) continue; if (x <= 6) {break;}}");
         //PainlessExecutable executable = compile("test", "for (int x = 0; x < 5; x = x + 1);");
@@ -22,24 +21,28 @@ public final class Painless {
         list.add(5);
         list.add(6);
         list.add(7);
+        list.add(8);
+        list.add(9);
+        list.add(10);
         input.put("inner", inner);
 
         PainlessExecutable executable = compile("test",
                 "\nlist nums = ((list)((smap)input.get(\"inner\")).get(\"list\"));\n" +
                 "int size = nums.size();\n" +
-                "double[] rtn = double.makearray(size);\n" +
+                "double total;\n" +
                 "\n" +
                 "for (int count = 0; count < size; count = count + 1) {\n" +
-                "    rtn[count] = (int)nums.get(count) == 7 ? 1 : 0;\n" +
+                "    total = total + ((number)nums.get(count)).double();\n" +
                 "}\n" +
                 "\n" +
-                "return rtn;"
+                "return total;"
         );
 
-        final long end = System.currentTimeMillis() - start;
+        final long start = System.currentTimeMillis();
         Object value = executable.execute(input);
-        System.out.println(((double[])value)[2]);
-        System.out.println(end);
+        final long end = System.currentTimeMillis() - start;
+        System.out.println("execute: " + end);
+        System.out.println(value);
     }
 
     public static PainlessExecutable compile(String name, String source) {

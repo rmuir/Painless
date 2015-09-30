@@ -21,6 +21,10 @@ public class Test {
 
         //y = (byte)(x[0][0][0][0] = 5);
 
+        Character b = new Character('a');
+
+        //char a = b*2;
+
         return input.get("test");
     }
 }
