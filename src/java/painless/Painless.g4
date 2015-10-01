@@ -66,6 +66,8 @@ expression
     |               FALSE                                                     # false
     |               NULL                                                      # null
     |               extstart                                                  # ext
+    |               extstart ( INCR | DECR )                                  # postinc
+    |               ( INCR | DECR ) extstart                                  # preinc
     |               ( BOOLNOT | BWNOT | ADD | SUB ) expression                # unary
     |               LP decltype RP expression                                 # cast
     |               expression ( MUL | DIV | REM ) expression                 # binary
@@ -145,6 +147,8 @@ BOOLAND: '&&';
 BOOLOR:  '||';
 COND:    '?';
 COLON:   ':';
+INCR:    '++';
+DECR:    '--';
 
 OCTAL: '0' [0-7]+ [lL]?;
 HEX: '0' [xX] [0-9a-fA-F]+ [lL]?;

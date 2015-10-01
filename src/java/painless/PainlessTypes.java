@@ -465,7 +465,7 @@ class PainlessTypes {
             pobject = getPTypeFromCanonicalPName( ptypes , PSort.OBJECT.getPName() );
             pstring = getPTypeFromCanonicalPName( ptypes , PSort.STRING.getPName() );
             pexec   = getPTypeFromCanonicalPName( ptypes , PSort.EXEC.getPName()   );
-            plist   = getPTypeFromCanonicalPName( ptypes , PSort.LIST.getPName()   );
+            plist   = getPTypeFromCanonicalPName(ptypes, PSort.LIST.getPName());
             pmap    = getPTypeFromCanonicalPName( ptypes , PSort.MAP.getPName()    );
             psmap   = getPTypeFromCanonicalPName( ptypes , PSort.SMAP.getPName()   );
         }
@@ -475,17 +475,19 @@ class PainlessTypes {
         private PStandard pstandard;
         private final Map<String, PClass> pclasses;
 
-        private final Set<PCast> pdisalloweds;
+        private final Set<PCast> pupcasts;
         private final Map<PCast, PTransform> pexplicits;
         private final Map<PCast, PTransform> pimplicits;
+        private final Set<PCast> pdisalloweds;
 
         private PTypes() {
             pstandard = null;
             pclasses = new HashMap<>();
 
-            pdisalloweds = new HashSet<>();
+            pupcasts = new HashSet<>();
             pexplicits = new HashMap<>();
             pimplicits = new HashMap<>();
+            pdisalloweds = new HashSet<>();
         }
 
         Set<String> getPNames() {
@@ -500,8 +502,8 @@ class PainlessTypes {
             return pclasses.get(pname);
         }
 
-        boolean isPDisallowed(final PCast pcast) {
-            return pdisalloweds.contains(pcast);
+        boolean isPUpcast(final PCast pcast) {
+            return pupcasts.contains(pcast);
         }
 
         PTransform getPExplicit(final PCast pcast) {
@@ -510,6 +512,10 @@ class PainlessTypes {
 
         PTransform getPImplicit(final PCast pcast) {
             return pimplicits.get(pcast);
+        }
+
+        boolean isPDisallowed(final PCast pcast) {
+            return pdisalloweds.contains(pcast);
         }
     }
 
@@ -541,7 +547,8 @@ class PainlessTypes {
                 boolean valid = key.startsWith("constructor") ||
                                 key.startsWith("function")    || key.startsWith("method")     ||
                                 key.startsWith("static")      || key.startsWith("member")     ||
-                                key.startsWith("transform")   || key.startsWith("disallow");
+                                key.startsWith("upcast")     || key.startsWith("transform")  ||
+                                key.startsWith("disallow");
 
                 if (!valid) {
                     throw new IllegalArgumentException(); // TODO: message
@@ -568,7 +575,9 @@ class PainlessTypes {
         for (String key : properties.stringPropertyNames()) {
             final String property = properties.getProperty(key);
 
-            if (key.startsWith("transform")) {
+            if (key.startsWith("upcast")) {
+                loadPUpcastFromProperty(ptypes, property);
+            } else if (key.startsWith("transform")) {
                 loadPTransformFromProperty(ptypes, property);
             } else if (key.startsWith("disallow")) {
                 loadPDisallowFromProperty(ptypes, property);
@@ -703,6 +712,19 @@ class PainlessTypes {
         final String ptostr = split[1];
 
         loadPDisallow(ptypes, pfromstr, ptostr);
+    }
+
+    private static void loadPUpcastFromProperty(final PTypes ptypes, final String property) {
+        final String[] split = property.split("\\s+");
+
+        if (split.length != 2) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String pfromstr = split[0];
+        final String ptostr = split[1];
+
+        loadPUpcast(ptypes, pfromstr, ptostr);
     }
 
     private static void loadPClass(final PTypes ptypes, final String pnamestr,
@@ -918,6 +940,41 @@ class PainlessTypes {
         }
     }
 
+    private static void loadPUpcast(final PTypes ptypes, final String pfromstr, final String ptostr) {
+        final PType pfrom = getPTypeFromCanonicalPName(ptypes, pfromstr);
+        final PType pto = getPTypeFromCanonicalPName(ptypes, ptostr);
+
+        if (pfrom.equals(pto)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final PCast pcast = new PCast(pfrom, pto);
+
+        if (ptypes.pdisalloweds.contains(pcast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (ptypes.pupcasts.contains(pcast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (ptypes.pexplicits.containsKey(pcast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (ptypes.pimplicits.containsKey(pcast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        try {
+            pto.getJClass().asSubclass(pfrom.getJClass());
+        } catch (ClassCastException exception) {
+            throw new IllegalArgumentException();
+        }
+
+        ptypes.pupcasts.add(pcast);
+    }
+
     private static void loadPTransform(final PTypes ptypes, final String ptypestr,
                                        final String pfromstr, final String ptostr, final String pownerstr,
                                        final String pstaticstr, final String pmethodstr) {
@@ -937,6 +994,10 @@ class PainlessTypes {
         final PCast pcast = new PCast(pfrom, pto);
 
         if (ptypes.pdisalloweds.contains(pcast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (ptypes.pupcasts.contains(pcast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
@@ -1048,6 +1109,10 @@ class PainlessTypes {
         final PCast pcast = new PCast(pfrom, pto);
 
         if (ptypes.pdisalloweds.contains(pcast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (ptypes.pupcasts.contains(pcast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 

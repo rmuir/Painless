@@ -13,37 +13,42 @@ public final class Painless {
         //PainlessExecutable executable = compile("test", "bool x = true; x = false; if (x) return !x;");
         //PainlessExecutable executable = compile("test", "long[][] x = long.makearray(1, 1); long y; y = x[0][0] = 5; return y;");
         //PainlessExecutable executable = compile("test", "bool b; b = false; if (b) return null; else return 5;");
-        //PainlessExecutable executable = compile("test", "bool x, y; x = false; y = true; return x || y;");
+        PainlessExecutable executable = compile("test", "byte x = 0; x++; --x; return x;");
         Map<String, Object> input = new HashMap<>();
         Map<String, Object> inner = new HashMap<>();
         List<Object> list = new ArrayList<>();
         inner.put("list", list);
-        list.add(0);
-        list.add(0);
-        list.add(0);
-        list.add(0);
-        list.add(0);
-        list.add(0);
+        list.add(1);
+        list.add(2);
+        list.add(3);
+        list.add(4);
+        list.add(5);
+        list.add(6);
         input.put("inner", inner);
-        int x = 0;
 
-        PainlessExecutable executable = compile("test",
-                "\nlist nums = (list)input[\"inner\"][\"list\"];\n" +
-                "int size = nums.size();\n" +
-                "int total;\n" +
-                "\n" +
-                "for (int count = 0; count < size; count = count + 1) {\n" +
-                "    total = total + (int)nums.get(count);\n" +
-                "}\n" +
-                "\n" +
-                "return total;"
-        );
+        //for (int count = 0; count < 10; ++count) {
+            /*PainlessExecutable executable = compile("test",
+                    "\nlist nums = input[\"inner\"][\"list\"];\n" +
+                            "int size = nums.size();\n" +
+                            "int total;\n" +
+                            "\n" +
+                            "for (int count = 0; count < size; count = count + 1) {\n" +
+                            "    total = total + (int)nums.get(count);\n" +
+                            "}\n" +
+                            "\n" +
+                            "return total;"
+            );*/
 
-        final long start = System.currentTimeMillis();
-        Object value = executable.execute(input);
-        final long end = System.currentTimeMillis() - start;
-        System.out.println("execute: " + end);
-        System.out.println(value);
+        //PainlessExecutable executable = compile("test",
+        //            "list nums = input[\"inner\"][\"list\"]; int size = nums.size(); nums[size] = \"idiot\"; return nums[size];"
+        //    );
+
+            final long start = System.currentTimeMillis();
+            Object value = executable.execute(input);
+            final long end = System.currentTimeMillis() - start;
+            System.out.println("execute: " + end);
+            System.out.println(value);
+        //}
     }
 
     public static PainlessExecutable compile(String name, String source) {

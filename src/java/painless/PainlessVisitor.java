@@ -192,6 +192,20 @@ public interface PainlessVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitPrecedence(PainlessParser.PrecedenceContext ctx);
 	/**
+	 * Visit a parse tree produced by the {@code preinc}
+	 * labeled alternative in {@link PainlessParser#expression}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitPreinc(PainlessParser.PreincContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code postinc}
+	 * labeled alternative in {@link PainlessParser#expression}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitPostinc(PainlessParser.PostincContext ctx);
+	/**
 	 * Visit a parse tree produced by the {@code cast}
 	 * labeled alternative in {@link PainlessParser#expression}.
 	 * @param ctx the parse tree

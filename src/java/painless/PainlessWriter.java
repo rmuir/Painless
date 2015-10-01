@@ -87,6 +87,14 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         }
     }
 
+    private void checkWritePCast(final Object object) {
+        if (object instanceof PCast) {
+            writePCast((PCast)object);
+        } else if (object instanceof PTransform) {
+            writePTransform((PTransform)object);
+        }
+    }
+
     private void writePCast(final PCast pcast) {
         final PType fromptype = pcast.getPFrom();
         final PType toptype = pcast.getPTo();
@@ -1418,6 +1426,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         final PBranch pbranch = pbranches.get(ctx);
         final boolean pop = extstartmd.getPop();
         final PExternal pexternal = extstartmd.getPExternal();
+        final PIncrememnt pincrememnt = extstartmd.getPIncrement();
         final Iterator<PSegment> psegments = pexternal.getIterator();
 
         while (psegments.hasNext()) {
@@ -1450,7 +1459,13 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                         case SHORT:
                         case CHAR:
                         case INT:
-                            execute.visitVarInsn(write ? Opcodes.ISTORE : Opcodes.ILOAD, aslot);
+                            if (pincrememnt != null) {
+                                checkWritePCast(pincrememnt.getPreCast());
+                                execute.visitIincInsn(aslot, pincrememnt.getIncrement());
+                                checkWritePCast(pincrememnt.getPostCast());
+                            } else {
+                                execute.visitVarInsn(write ? Opcodes.ISTORE : Opcodes.ILOAD, aslot);
+                            }
                             break;
                         case LONG:
                             execute.visitVarInsn(write ? Opcodes.LSTORE : Opcodes.LLOAD, aslot);
@@ -1476,7 +1491,8 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                             pconstructor.getADescriptor(), false);
 
                     break;
-                } case METHOD: {
+                } case METHOD:
+                  case SHORTCUT: {
                     final PMethod pmethod = (PMethod)svalue;
                     final String jinternal = pmethod.getPOwner().getJInternal();
                     final Method jmethod = pmethod.getJMethod();
@@ -1619,73 +1635,13 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                     execute.visitInsn(Opcodes.ARRAYLENGTH);
 
                     break;
-                } case MAPCALL: {
-                    final PType ptype = (PType)svalue;
-                    final Class jclass = ptype.getJClass();
-                    final String jinternal = ptype.getJInternal();
-                    boolean cast = true;
-                    boolean iface = Modifier.isInterface(jclass.getModifiers());
-
-                    try {
-                        jclass.asSubclass(Map.class);
-                        cast = false;
-                    } catch (ClassCastException exception) {
-                        // Do nothing
-                    }
-
-                    if (cast) {
-                        execute.visitTypeInsn(Opcodes.CHECKCAST, "java/util/Map");
-                        iface = true;
-                    }
-
-                    final String jname = write ? "put" : "get";
-                    final String adescriptor = write ?
-                            "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"
-                            : "(Ljava/lang/Object;)Ljava/lang/Object;";
-
-                    if (iface) {
-                        execute.visitMethodInsn(Opcodes.INVOKEINTERFACE, jinternal, jname, adescriptor, true);
-                    } else {
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, jinternal, jname, adescriptor, false);
-                    }
-
-                    break;
-                } case LISTCALL: {
-                    final PType ptype = (PType)svalue;
-                    final Class jclass = ptype.getJClass();
-                    final String jinternal = ptype.getJInternal();
-                    boolean cast = true;
-                    boolean iface = Modifier.isInterface(jclass.getModifiers());
-
-                    try {
-                        jclass.asSubclass(Map.class);
-                        cast = false;
-                    } catch (ClassCastException exception) {
-                        // Do nothing
-                    }
-
-                    if (cast) {
-                        execute.visitTypeInsn(Opcodes.CHECKCAST, "java/util/List");
-                        iface = true;
-                    }
-
-                    final String jname = write ? "add" : "get";
-                    final String adescriptor = write ? "(ILjava/lang/Object;)V" : "(I)Ljava/lang/Object;";
-
-                    if (iface) {
-                        execute.visitMethodInsn(Opcodes.INVOKEINTERFACE, jinternal, jname, adescriptor, true);
-                    } else {
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, jinternal, jname, adescriptor, false);
-                    }
-
-                    break;
                 } default: {
                     throw new IllegalStateException(); // TODO: message
                 }
             }
         }
 
-        if (!pexternal.isWrite()) {
+        if (!pexternal.isWrite() && pincrememnt == null) {
             if (pop) {
                 final int asize = pexternal.getPType().getPSort().getASize();
 
