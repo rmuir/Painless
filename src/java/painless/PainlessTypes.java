@@ -29,6 +29,8 @@ class PainlessTypes {
         OBJECT ( 1 , false , false , true  , "object" , Object.class             ),
         STRING ( 1 , false , true  , true  , "string" , String.class             ),
         EXEC   ( 1 , false , false , true  , "exec"   , PainlessExecutable.class ),
+        LIST   ( 1 , false , false , true  , "list"   , List.class               ),
+        MAP    ( 1 , false , false , true  , "map"    , Map.class                ),
         SMAP   ( 1 , false , false , true  , "smap"   , Map.class                ),
         ARRAY  ( 1 , false , false , true  , null     , null                     );
 
@@ -446,22 +448,26 @@ class PainlessTypes {
         final PType pobject;
         final PType pstring;
         final PType pexec;
+        final PType plist;
+        final PType pmap;
         final PType psmap;
 
         private PStandard(final PTypes ptypes) {
-            pvoid = getPTypeFromCanonicalPName(   ptypes , PSort.VOID.getPName()   );
-            pbool = getPTypeFromCanonicalPName(   ptypes , PSort.BOOL.getPName()   );
-            pbyte = getPTypeFromCanonicalPName(   ptypes , PSort.BYTE.getPName()   );
-            pshort = getPTypeFromCanonicalPName(  ptypes , PSort.SHORT.getPName()  );
-            pchar = getPTypeFromCanonicalPName(   ptypes , PSort.CHAR.getPName()   );
-            pint = getPTypeFromCanonicalPName(    ptypes , PSort.INT.getPName()    );
-            plong = getPTypeFromCanonicalPName(   ptypes , PSort.LONG.getPName()   );
-            pfloat = getPTypeFromCanonicalPName(  ptypes , PSort.FLOAT.getPName()  );
+            pvoid   = getPTypeFromCanonicalPName( ptypes , PSort.VOID.getPName()   );
+            pbool   = getPTypeFromCanonicalPName( ptypes , PSort.BOOL.getPName()   );
+            pbyte   = getPTypeFromCanonicalPName( ptypes , PSort.BYTE.getPName()   );
+            pshort  = getPTypeFromCanonicalPName( ptypes , PSort.SHORT.getPName()  );
+            pchar   = getPTypeFromCanonicalPName( ptypes , PSort.CHAR.getPName()   );
+            pint    = getPTypeFromCanonicalPName( ptypes , PSort.INT.getPName()    );
+            plong   = getPTypeFromCanonicalPName( ptypes , PSort.LONG.getPName()   );
+            pfloat  = getPTypeFromCanonicalPName( ptypes , PSort.FLOAT.getPName()  );
             pdouble = getPTypeFromCanonicalPName( ptypes , PSort.DOUBLE.getPName() );
             pobject = getPTypeFromCanonicalPName( ptypes , PSort.OBJECT.getPName() );
             pstring = getPTypeFromCanonicalPName( ptypes , PSort.STRING.getPName() );
-            pexec = getPTypeFromCanonicalPName(   ptypes , PSort.EXEC.getPName()   );
-            psmap = getPTypeFromCanonicalPName(   ptypes , PSort.SMAP.getPName()   );
+            pexec   = getPTypeFromCanonicalPName( ptypes , PSort.EXEC.getPName()   );
+            plist   = getPTypeFromCanonicalPName( ptypes , PSort.LIST.getPName()   );
+            pmap    = getPTypeFromCanonicalPName( ptypes , PSort.MAP.getPName()    );
+            psmap   = getPTypeFromCanonicalPName( ptypes , PSort.SMAP.getPName()   );
         }
     }
 
@@ -532,8 +538,8 @@ class PainlessTypes {
             } else if (key.startsWith("generic")) {
                 loadPClassFromProperty(ptypes, property, true);
             } else {
-                boolean valid = key.startsWith("constructor") || key.startsWith("function")   ||
-                                key.startsWith("method")      || key.startsWith("cross")      ||
+                boolean valid = key.startsWith("constructor") ||
+                                key.startsWith("function")    || key.startsWith("method")     ||
                                 key.startsWith("static")      || key.startsWith("member")     ||
                                 key.startsWith("transform")   || key.startsWith("disallow");
 
@@ -562,9 +568,7 @@ class PainlessTypes {
         for (String key : properties.stringPropertyNames()) {
             final String property = properties.getProperty(key);
 
-            if (key.startsWith("cross")) {
-                loadPCrossFromProperty(ptypes, property);
-            } else if (key.startsWith("transform")) {
+            if (key.startsWith("transform")) {
                 loadPTransformFromProperty(ptypes, property);
             } else if (key.startsWith("disallow")) {
                 loadPDisallowFromProperty(ptypes, property);
@@ -669,22 +673,6 @@ class PainlessTypes {
         final String jnamestr = split[3];
 
         loadPField(ptypes, pownerstr, pnamestr, ptypestr, jnamestr, statik);
-    }
-
-    private static void loadPCrossFromProperty(final PTypes ptypes, final String property) {
-        final String[] split = property.split("\\s+");
-
-        if (split.length != 5) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        final String ptypestr = split[0];
-        final String pcrossstr = split[1];
-        final String pnamestr = split[2];
-        final String pownerstr = split[3];
-        final String pstaticstr = split[4];
-
-        loadPCross(ptypes, ptypestr, pcrossstr, pnamestr, pownerstr, pstaticstr);
     }
 
     private static void loadPTransformFromProperty(final PTypes ptypes, final String property) {
@@ -927,41 +915,6 @@ class PainlessTypes {
             }
 
             powner.pmembers.put(pnamestr, pfield);
-        }
-    }
-
-    private static void loadPCross(final PTypes ptypes, final String ptypestr, final String pcrossstr,
-                                   final String pnamestr, final String pownerstr, final String pstaticstr) {
-        final PClass powner = ptypes.pclasses.get(pownerstr);
-
-        if (powner == null) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        final PClass pcross = ptypes.pclasses.get(pcrossstr);
-
-        if (pcross == null) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        if ("function".equals(ptypestr)) {
-            final PMethod pfunction = powner.pfunctions.get(pstaticstr);
-
-            if (pfunction == null) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
-
-            pcross.pfunctions.put(pnamestr, pfunction);
-        } else if ("static".equals(ptypestr)) {
-            final PField pstatic = powner.pstatics.get(pstaticstr);
-
-            if (pstatic == null) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
-
-            pcross.pstatics.put(pnamestr, pstatic);
-        } else {
-            throw new IllegalArgumentException(); // TODO: message
         }
     }
 

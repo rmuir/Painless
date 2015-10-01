@@ -30,11 +30,11 @@ public class PainlessParser extends Parser {
 	public static final int
 		RULE_source = 0, RULE_statement = 1, RULE_block = 2, RULE_empty = 3, RULE_declaration = 4, 
 		RULE_decltype = 5, RULE_declvar = 6, RULE_expression = 7, RULE_extstart = 8, 
-		RULE_extprec = 9, RULE_extcast = 10, RULE_extarray = 11, RULE_extdot = 12, 
+		RULE_extprec = 9, RULE_extcast = 10, RULE_extbrace = 11, RULE_extdot = 12, 
 		RULE_exttype = 13, RULE_extcall = 14, RULE_extmember = 15, RULE_arguments = 16;
 	public static final String[] ruleNames = {
 		"source", "statement", "block", "empty", "declaration", "decltype", "declvar", 
-		"expression", "extstart", "extprec", "extcast", "extarray", "extdot", 
+		"expression", "extstart", "extprec", "extcast", "extbrace", "extdot", 
 		"exttype", "extcall", "extmember", "arguments"
 	};
 
@@ -1473,8 +1473,8 @@ public class PainlessParser extends Parser {
 		public ExtdotContext extdot() {
 			return getRuleContext(ExtdotContext.class,0);
 		}
-		public ExtarrayContext extarray() {
-			return getRuleContext(ExtarrayContext.class,0);
+		public ExtbraceContext extbrace() {
+			return getRuleContext(ExtbraceContext.class,0);
 		}
 		public ExtprecContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
@@ -1535,7 +1535,7 @@ public class PainlessParser extends Parser {
 			case 2:
 				{
 				setState(215);
-				extarray();
+				extbrace();
 				}
 				break;
 			}
@@ -1633,7 +1633,7 @@ public class PainlessParser extends Parser {
 		return _localctx;
 	}
 
-	public static class ExtarrayContext extends ParserRuleContext {
+	public static class ExtbraceContext extends ParserRuleContext {
 		public TerminalNode LBRACE() { return getToken(PainlessParser.LBRACE, 0); }
 		public ExpressionContext expression() {
 			return getRuleContext(ExpressionContext.class,0);
@@ -1642,23 +1642,23 @@ public class PainlessParser extends Parser {
 		public ExtdotContext extdot() {
 			return getRuleContext(ExtdotContext.class,0);
 		}
-		public ExtarrayContext extarray() {
-			return getRuleContext(ExtarrayContext.class,0);
+		public ExtbraceContext extbrace() {
+			return getRuleContext(ExtbraceContext.class,0);
 		}
-		public ExtarrayContext(ParserRuleContext parent, int invokingState) {
+		public ExtbraceContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
-		@Override public int getRuleIndex() { return RULE_extarray; }
+		@Override public int getRuleIndex() { return RULE_extbrace; }
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof PainlessVisitor ) return ((PainlessVisitor<? extends T>)visitor).visitExtarray(this);
+			if ( visitor instanceof PainlessVisitor ) return ((PainlessVisitor<? extends T>)visitor).visitExtbrace(this);
 			else return visitor.visitChildren(this);
 		}
 	}
 
-	public final ExtarrayContext extarray() throws RecognitionException {
-		ExtarrayContext _localctx = new ExtarrayContext(_ctx, getState());
-		enterRule(_localctx, 22, RULE_extarray);
+	public final ExtbraceContext extbrace() throws RecognitionException {
+		ExtbraceContext _localctx = new ExtbraceContext(_ctx, getState());
+		enterRule(_localctx, 22, RULE_extbrace);
 		try {
 			enterOuterAlt(_localctx, 1);
 			{
@@ -1679,7 +1679,7 @@ public class PainlessParser extends Parser {
 			case 2:
 				{
 				setState(231);
-				extarray();
+				extbrace();
 				}
 				break;
 			}
@@ -1800,8 +1800,8 @@ public class PainlessParser extends Parser {
 		public ExtdotContext extdot() {
 			return getRuleContext(ExtdotContext.class,0);
 		}
-		public ExtarrayContext extarray() {
-			return getRuleContext(ExtarrayContext.class,0);
+		public ExtbraceContext extbrace() {
+			return getRuleContext(ExtbraceContext.class,0);
 		}
 		public ExtcallContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
@@ -1835,7 +1835,7 @@ public class PainlessParser extends Parser {
 			case 2:
 				{
 				setState(246);
-				extarray();
+				extbrace();
 				}
 				break;
 			}
@@ -1857,8 +1857,8 @@ public class PainlessParser extends Parser {
 		public ExtdotContext extdot() {
 			return getRuleContext(ExtdotContext.class,0);
 		}
-		public ExtarrayContext extarray() {
-			return getRuleContext(ExtarrayContext.class,0);
+		public ExtbraceContext extbrace() {
+			return getRuleContext(ExtbraceContext.class,0);
 		}
 		public ExtmemberContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
@@ -1892,7 +1892,7 @@ public class PainlessParser extends Parser {
 			case 2:
 				{
 				setState(252);
-				extarray();
+				extbrace();
 				}
 				break;
 			}

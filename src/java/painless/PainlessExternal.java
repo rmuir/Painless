@@ -22,8 +22,12 @@ public class PainlessExternal {
         WRITE,
         CAST,
         TRANSFORM,
+
         AMAKE,
-        ALENGTH
+        ALENGTH,
+
+        MAPCALL,
+        LISTCALL
     }
 
     static class PSegment {
@@ -45,6 +49,8 @@ public class PainlessExternal {
     }
 
     static class PExternal {
+        private final PTypes ptypes;
+
         private final Deque<PSegment> psegments;
 
         private boolean statik;
@@ -55,14 +61,16 @@ public class PainlessExternal {
 
         private PType ptype;
 
-        PExternal() {
+        PExternal(final PTypes ptypes, final boolean write) {
+            this.ptypes = ptypes;
+
             psegments = new ArrayDeque<>();
 
             statik = false;
             call = false;
             member = false;
             readonly = false;
-            write = false;
+            this.write = write;
 
             ptype = null;
         }
@@ -185,6 +193,10 @@ public class PainlessExternal {
 
                     break;
                 } case WRITE: {
+                    if (!write) {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+
                     if (!(svalue instanceof ParseTree)) {
                         throw new IllegalArgumentException(); // TODO: message
                     }
@@ -202,7 +214,6 @@ public class PainlessExternal {
 
                     psegments.add(new PSegment(stype, svalue));
                     psegments.add(psegment);
-                    write = true;
 
                     break;
                 } case CAST:
@@ -269,6 +280,36 @@ public class PainlessExternal {
                     readonly = true;
 
                     psegments.add(new PSegment(stype, null));
+                case MAPCALL: {
+                    if (svalue != null) {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+
+                    call = true;
+                    member = false;
+                    readonly = false;
+
+                    psegments.add(new PSegment(stype, ptype));
+
+                    ptype = ptypes.getPStandard().pobject;
+
+                    break;
+                } case LISTCALL: {
+                    if (svalue != null) {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+
+                    call = true;
+                    member = false;
+                    readonly = false;
+
+                    psegments.add(new PSegment(stype, ptype));
+
+                    ptype = ptypes.getPStandard().pobject;
+
+                    break;
+                } default:
+                    throw new IllegalStateException(); // TODO: message
             }
         }
 

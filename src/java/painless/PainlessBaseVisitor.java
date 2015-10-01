@@ -259,7 +259,7 @@ public class PainlessBaseVisitor<T> extends AbstractParseTreeVisitor<T> implemen
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitExtarray(PainlessParser.ExtarrayContext ctx) { return visitChildren(ctx); }
+	@Override public T visitExtbrace(PainlessParser.ExtbraceContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *

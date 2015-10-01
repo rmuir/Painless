@@ -1619,8 +1619,69 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                     execute.visitInsn(Opcodes.ARRAYLENGTH);
 
                     break;
-                } default:
+                } case MAPCALL: {
+                    final PType ptype = (PType)svalue;
+                    final Class jclass = ptype.getJClass();
+                    final String jinternal = ptype.getJInternal();
+                    boolean cast = true;
+                    boolean iface = Modifier.isInterface(jclass.getModifiers());
+
+                    try {
+                        jclass.asSubclass(Map.class);
+                        cast = false;
+                    } catch (ClassCastException exception) {
+                        // Do nothing
+                    }
+
+                    if (cast) {
+                        execute.visitTypeInsn(Opcodes.CHECKCAST, "java/util/Map");
+                        iface = true;
+                    }
+
+                    final String jname = write ? "put" : "get";
+                    final String adescriptor = write ?
+                            "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"
+                            : "(Ljava/lang/Object;)Ljava/lang/Object;";
+
+                    if (iface) {
+                        execute.visitMethodInsn(Opcodes.INVOKEINTERFACE, jinternal, jname, adescriptor, true);
+                    } else {
+                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, jinternal, jname, adescriptor, false);
+                    }
+
+                    break;
+                } case LISTCALL: {
+                    final PType ptype = (PType)svalue;
+                    final Class jclass = ptype.getJClass();
+                    final String jinternal = ptype.getJInternal();
+                    boolean cast = true;
+                    boolean iface = Modifier.isInterface(jclass.getModifiers());
+
+                    try {
+                        jclass.asSubclass(Map.class);
+                        cast = false;
+                    } catch (ClassCastException exception) {
+                        // Do nothing
+                    }
+
+                    if (cast) {
+                        execute.visitTypeInsn(Opcodes.CHECKCAST, "java/util/List");
+                        iface = true;
+                    }
+
+                    final String jname = write ? "add" : "get";
+                    final String adescriptor = write ? "(ILjava/lang/Object;)V" : "(I)Ljava/lang/Object;";
+
+                    if (iface) {
+                        execute.visitMethodInsn(Opcodes.INVOKEINTERFACE, jinternal, jname, adescriptor, true);
+                    } else {
+                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, jinternal, jname, adescriptor, false);
+                    }
+
+                    break;
+                } default: {
                     throw new IllegalStateException(); // TODO: message
+                }
             }
         }
 
@@ -1653,7 +1714,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     }
 
     @Override
-    public Void visitExtarray(final ExtarrayContext ctx) {
+    public Void visitExtbrace(final ExtbraceContext ctx) {
         throw new UnsupportedOperationException(); // TODO: message
     }
 

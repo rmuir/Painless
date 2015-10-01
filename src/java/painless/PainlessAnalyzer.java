@@ -75,6 +75,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         private boolean anycontinue;
 
         private boolean pop;
+        private boolean write;
         private PExternal pexternal;
 
         private Object constpre;
@@ -104,6 +105,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
             anycontinue = false;
 
             pop = false;
+            write = false;
             pexternal = null;
 
             constpre = null;
@@ -153,6 +155,10 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
 
         boolean getPop() {
             return pop;
+        }
+
+        boolean getWrite() {
+            return write;
         }
 
         PExternal getPExternal() {
@@ -310,7 +316,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         }
 
         if (pmetadata.toptype != null) {
-            final Object object = getLegalCast(pmetadata.fromptype, pmetadata.toptype, pmetadata.explicit);
+            final Object object = getLegalCast(pmetadata.fromptype, pmetadata.toptype, pmetadata.explicit, true);
 
             if (object instanceof PCast) {
                 pmetadata.pcast = (PCast)object;
@@ -326,14 +332,14 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         }
     }
 
-    private Object getLegalCast(final PType pfrom, final PType pto, final boolean explicit) {
+    private Object getLegalCast(final PType pfrom, final PType pto, final boolean explicit, final boolean disallow) {
         if (pfrom.equals(pto)) {
             return null;
         }
 
         final PCast pcast = new PCast(pfrom, pto);
 
-        if (ptypes.isPDisallowed(pcast)) {
+        if (disallow && ptypes.isPDisallowed(pcast)) {
             throw new ClassCastException(); // TODO: message
         }
 
@@ -1974,6 +1980,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PMetadata extstartmd = createPMetadata(ectx0);
         extstartmd.anyptype = true;
         extstartmd.pop = assignmentmd.pop;
+        extstartmd.write = true;
         visit(ectx0);
 
         if (extstartmd.pexternal == null) {
@@ -2002,7 +2009,8 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     public Void visitExtstart(final ExtstartContext ctx) {
         final PMetadata extstartmd = getPMetadata(ctx);
         final boolean pop = extstartmd.pop;
-        extstartmd.pexternal = new PExternal();
+        final boolean write = extstartmd.write;
+        extstartmd.pexternal = new PExternal(ptypes, write);
 
         final ExtprecContext ectx0 = ctx.extprec();
         final ExtcastContext ectx1 = ctx.extcast();
@@ -2066,7 +2074,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         }
 
         final ExtdotContext ectx4 = ctx.extdot();
-        final ExtarrayContext ectx5 = ctx.extarray();
+        final ExtbraceContext ectx5 = ctx.extbrace();
 
         if (ectx4 != null) {
             final PMetadata extdotmd = createPMetadata(ectx4);
@@ -2118,7 +2126,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         final PType pfrom = extcastmd0.pexternal.getPType();
         final PType pto = decltypemd.fromptype;
 
-        final Object object = getLegalCast(pfrom, pto, true);
+        final Object object = getLegalCast(pfrom, pto, true, true);
 
         if (object instanceof PCast) {
             extcastmd0.pexternal.addSegment(SType.CAST, object);
@@ -2130,27 +2138,71 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     }
 
     @Override
-    public Void visitExtarray(final ExtarrayContext ctx) {
-        final PMetadata extarraymd0 = getPMetadata(ctx);
+    public Void visitExtbrace(final ExtbraceContext ctx) {
+        final PMetadata extbrace = getPMetadata(ctx);
+        final PExternal pexternal = extbrace.getPExternal();
+        final PType ptype = pexternal.getPType();
 
         final ExpressionContext ectx0 = ctx.expression();
         final PMetadata expressionmd = createPMetadata(ectx0);
-        expressionmd.toptype = pstandard.pint;
-        visit(ectx0);
-
-        extarraymd0.pexternal.addSegment(SType.NODE, ectx0);
-        extarraymd0.pexternal.addSegment(SType.ARRAY, null);
 
         final ExtdotContext ectx1 = ctx.extdot();
-        final ExtarrayContext ectx2 = ctx.extarray();
+        final ExtbraceContext ectx2 = ctx.extbrace();
+        final boolean write = ectx1 == null && ectx2 == null && pexternal.isWrite();
+
+        if (ptype.getPDimensions() > 0) {
+            expressionmd.toptype = pstandard.pint;
+            visit(ectx0);
+
+            pexternal.addSegment(SType.NODE, ectx0);
+            pexternal.addSegment(SType.ARRAY, null);
+        } else {
+            expressionmd.anyptype = true;
+            visit(ectx0);
+
+            final PSort psort = expressionmd.getFromPType().getPSort();
+            final boolean numeric = psort.isPNumeric();
+            expressionmd.toptype = numeric ? pstandard.pint : expressionmd.toptype;
+            markCast(expressionmd);
+
+            final Object object = getLegalCast(ptype, numeric ? pstandard.plist : pstandard.pmap, true, false);
+
+            if (object instanceof PCast) {
+                pexternal.addSegment(SType.CAST, object);
+            } else if (object instanceof PTransform) {
+                pexternal.addSegment(SType.TRANSFORM, object);
+            }
+
+            pexternal.addSegment(SType.NODE, ectx0);
+
+            if (numeric) {
+                final PClass pclass = object == null ? ptype.getPClass() : pstandard.plist.getPClass();
+                final PMethod pmethod = write ? pclass.getPMethod("add") : pclass.getPMethod("get");
+
+                if (pmethod == null) {
+                    throw new IllegalArgumentException(); // TOOD: message
+                }
+
+                pexternal.addSegment(SType.METHOD, pmethod);
+            } else {
+                final PClass pclass = object == null ? ptype.getPClass() : pstandard.pmap.getPClass();
+                final PMethod pmethod = write ? pclass.getPMethod("put") : pclass.getPMethod("get");
+
+                if (pmethod == null) {
+                    throw new IllegalArgumentException(); // TOOD: message
+                }
+
+                pexternal.addSegment(SType.METHOD, pmethod);
+            }
+        }
 
         if (ectx1 != null) {
             final PMetadata extdotmd = createPMetadata(ectx1);
-            extdotmd.pexternal = extarraymd0.pexternal;
+            extdotmd.pexternal = extbrace.pexternal;
             visit(ectx1);
         } else if (ectx2 != null) {
             final PMetadata extarraymd1 = createPMetadata(ectx2);
-            extarraymd1.pexternal = extarraymd0.pexternal;
+            extarraymd1.pexternal = extbrace.pexternal;
             visit(ectx2);
         }
 
@@ -2254,7 +2306,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         extcallmd.pexternal.addSegment(stype, svalue);
 
         final ExtdotContext ectx0 = ctx.extdot();
-        final ExtarrayContext ectx1 = ctx.extarray();
+        final ExtbraceContext ectx1 = ctx.extbrace();
 
         if (ectx0 != null) {
             final PMetadata extdotmd = createPMetadata(ectx0);
@@ -2309,7 +2361,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         }
 
         final ExtdotContext ectx0 = ctx.extdot();
-        final ExtarrayContext ectx1 = ctx.extarray();
+        final ExtbraceContext ectx1 = ctx.extbrace();
 
         if (ectx0 != null) {
             final PMetadata extdotmd = createPMetadata(ectx0);

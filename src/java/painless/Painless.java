@@ -18,21 +18,22 @@ public final class Painless {
         Map<String, Object> inner = new HashMap<>();
         List<Object> list = new ArrayList<>();
         inner.put("list", list);
-        list.add(5);
-        list.add(6);
-        list.add(7);
-        list.add(8);
-        list.add(9);
-        list.add(10);
+        list.add(0);
+        list.add(0);
+        list.add(0);
+        list.add(0);
+        list.add(0);
+        list.add(0);
         input.put("inner", inner);
+        int x = 0;
 
         PainlessExecutable executable = compile("test",
-                "\nlist nums = ((list)((smap)input.get(\"inner\")).get(\"list\"));\n" +
+                "\nlist nums = (list)input[\"inner\"][\"list\"];\n" +
                 "int size = nums.size();\n" +
-                "double total;\n" +
+                "int total;\n" +
                 "\n" +
                 "for (int count = 0; count < size; count = count + 1) {\n" +
-                "    total = total + ((number)nums.get(count)).double();\n" +
+                "    total = total + (int)nums.get(count);\n" +
                 "}\n" +
                 "\n" +
                 "return total;"

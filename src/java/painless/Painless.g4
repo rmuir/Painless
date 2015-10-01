@@ -89,13 +89,13 @@ extstart
    | extmember
    ;
 
-extprec:   LP ( extprec | extcast | exttype | extmember) RP ( extdot | extarray )?;
+extprec:   LP ( extprec | extcast | exttype | extmember) RP ( extdot | extbrace )?;
 extcast:   LP decltype RP ( extprec | extcast | exttype | extmember );
-extarray:  LBRACE expression RBRACE ( extdot | extarray )?;
+extbrace:  LBRACE expression RBRACE ( extdot | extbrace )?;
 extdot:    DOT ( extcall | extmember );
 exttype:   {isType()}? ID extdot;
-extcall:   ID arguments ( extdot | extarray )?;
-extmember: {!isType()}? ID (extdot | extarray )?;
+extcall:   ID arguments ( extdot | extbrace )?;
+extmember: {!isType()}? ID (extdot | extbrace )?;
 
 arguments
     : ( LP ( expression ( COMMA expression )* )? RP )
