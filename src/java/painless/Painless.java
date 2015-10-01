@@ -13,7 +13,7 @@ public final class Painless {
         //PainlessExecutable executable = compile("test", "bool x = true; x = false; if (x) return !x;");
         //PainlessExecutable executable = compile("test", "long[][] x = long.makearray(1, 1); long y; y = x[0][0] = 5; return y;");
         //PainlessExecutable executable = compile("test", "bool b; b = false; if (b) return null; else return 5;");
-        PainlessExecutable executable = compile("test", "byte x = 0; x++; --x; return x;");
+        PainlessExecutable executable = compile("test", "char c = 9; return c;");
         Map<String, Object> input = new HashMap<>();
         Map<String, Object> inner = new HashMap<>();
         List<Object> list = new ArrayList<>();

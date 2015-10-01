@@ -465,7 +465,7 @@ class PainlessTypes {
             pobject = getPTypeFromCanonicalPName( ptypes , PSort.OBJECT.getPName() );
             pstring = getPTypeFromCanonicalPName( ptypes , PSort.STRING.getPName() );
             pexec   = getPTypeFromCanonicalPName( ptypes , PSort.EXEC.getPName()   );
-            plist   = getPTypeFromCanonicalPName(ptypes, PSort.LIST.getPName());
+            plist   = getPTypeFromCanonicalPName( ptypes , PSort.LIST.getPName()   );
             pmap    = getPTypeFromCanonicalPName( ptypes , PSort.MAP.getPName()    );
             psmap   = getPTypeFromCanonicalPName( ptypes , PSort.SMAP.getPName()   );
         }

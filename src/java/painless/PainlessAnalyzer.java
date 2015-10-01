@@ -1425,12 +1425,16 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
                 }
             } else {
                 try {
+                    final PType ptype = numericmd.getToPType();
+                    final PSort psort = ptype == null ? PSort.INT : ptype.getPSort();
                     final int value = Integer.parseInt(svalue, radix);
                     numericmd.constpre = value;
 
-                    if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
+                    if (psort == PSort.BYTE && value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
                         numericmd.fromptype = pstandard.pbyte;
-                    } else if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
+                    } else if (psort == PSort.CHAR && value >= Character.MIN_VALUE && value <= Character.MAX_VALUE) {
+                        numericmd.fromptype = pstandard.pchar;
+                    } else if (psort == PSort.SHORT && value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
                         numericmd.fromptype = pstandard.pshort;
                     } else {
                         numericmd.fromptype = pstandard.pint;

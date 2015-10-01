@@ -1,8 +1,8 @@
 package painless;
 
 public class Test {
-    public void stest() {
-        char c = 0;
-        ++b;
+    public int stest() {
+        int i = 0;
+        return i++;
     }
 }
