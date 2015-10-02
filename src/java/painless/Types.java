@@ -13,28 +13,28 @@ import java.util.Set;
 
 class Types {
     enum TypeMetadata {
-        VOID(   "void"   , 0 , false , false , false ),
-        BOOL(   "bool"   , 1 , false , true  , false ),
-        BYTE(   "byte"   , 1 , true  , true  , false ),
-        SHORT(  "short"  , 1 , true  , true  , false ),
-        CHAR(   "char"   , 1 , true  , true  , false ),
-        INT(    "int"    , 1 , true  , true  , false ),
-        LONG(   "long"   , 2 , true  , true  , false ),
-        FLOAT(  "float"  , 1 , true  , true  , false ),
-        DOUBLE( "double" , 2 , true  , true  , false ),
-        OBJECT( "object" , 1 , false , false , true  ),
-        STRING( "string" , 1 , false , true  , true  ),
-        ARRAY(  "[]"     , 1 , false , false , true  );
+        VOID(   void.class    , 0 , false , false , false ),
+        BOOL(   boolean.class , 1 , false , true  , false ),
+        BYTE(   byte.class    , 1 , true  , true  , false ),
+        SHORT(  short.class   , 1 , true  , true  , false ),
+        CHAR(   char.class    , 1 , true  , true  , false ),
+        INT(    int.class     , 1 , true  , true  , false ),
+        LONG(   long.class    , 2 , true  , true  , false ),
+        FLOAT(  float.class   , 1 , true  , true  , false ),
+        DOUBLE( double.class  , 2 , true  , true  , false ),
+        OBJECT( null          , 1 , false , false , true  ),
+        STRING( String.class  , 1 , false , true  , true  ),
+        ARRAY(  null          , 1 , false , false , true  );
 
-        final String name;
+        final Class clazz;
         final int size;
         final boolean numeric;
         final boolean constant;
         final boolean object;
 
-        TypeMetadata(final String name, final int size, final boolean numeric,
+        TypeMetadata(final Class clazz, final int size, final boolean numeric,
                      final boolean constant, final boolean object) {
-            this.name = name;
+            this.clazz = clazz;
             this.size = size;
             this.numeric = numeric;
             this.constant = constant;
@@ -255,84 +255,6 @@ class Types {
         }
     }
 
-    static class Standard {
-        final Type voidType;
-        final Type boolType;
-        final Type byteType;
-        final Type shortType;
-        final Type charType;
-        final Type intType;
-        final Type longType;
-        final Type floatType;
-        final Type doubleType;
-        final Type objectType;
-        final Type stringType;
-        final Type execType;
-        final Type listType;
-        final Type mapType;
-        final Type smapType;
-
-        private Standard(final Types types) {
-            validateExact(types, "void", void.class);
-            validateExact(types, "bool", boolean.class);
-            validateExact(types, "byte", byte.class);
-            validateExact(types, "short", short.class);
-            validateExact(types, "char", char.class);
-            validateExact(types, "int", int.class);
-            validateExact(types, "long", long.class);
-            validateExact(types, "float", float.class);
-            validateExact(types, "double", double.class);
-            validateExact(types, "object", Object.class);
-            validateExact(types, "string", String.class);
-            validateSubclass(types, "exec", Executable.class);
-            validateSubclass(types, "list", List.class);
-            validateSubclass(types, "map", Map.class);
-            validateSubclass(types, "smap", Map.class);
-
-            voidType = getTypeFromCanonicalName(types, "void");
-            boolType = getTypeFromCanonicalName(types, "bool");
-            byteType = getTypeFromCanonicalName(types, "byte");
-            shortType = getTypeFromCanonicalName(types, "short");
-            charType = getTypeFromCanonicalName(types, "char");
-            intType = getTypeFromCanonicalName(types, "int");
-            longType = getTypeFromCanonicalName(types, "long");
-            floatType = getTypeFromCanonicalName(types, "float");
-            doubleType = getTypeFromCanonicalName(types, "double");
-            objectType = getTypeFromCanonicalName(types, "object");
-            stringType = getTypeFromCanonicalName(types, "string");
-            execType = getTypeFromCanonicalName(types, "exec");
-            listType = getTypeFromCanonicalName(types, "list");
-            mapType = getTypeFromCanonicalName(types, "map");
-            smapType = getTypeFromCanonicalName(types, "smap");
-        }
-
-        private void validateExact(final Types types, final String name, final Class clazz) {
-            final Struct struct = types.structs.get(name);
-
-            if (struct == null) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
-
-            if (!clazz.equals(struct.clazz)) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
-        }
-
-        private void validateSubclass(final Types types, final String name, final Class clazz) {
-            final Struct struct = types.structs.get(name);
-
-            if (struct == null) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
-
-            try {
-                struct.clazz.asSubclass(clazz);
-            } catch (ClassCastException exception) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
-        }
-    }
-
     private static final String PROPERTIES_FILE = Types.class.getSimpleName() + ".properties";
 
     static Types loadFromProperties() {
@@ -399,7 +321,6 @@ class Types {
         }
 
         validateMethods(types);
-        buildNumericCasts(types);
 
         return new Types(types);
     }
@@ -938,33 +859,6 @@ class Types {
         types.disallowed.add(pcast);
     }
 
-    private static void buildNumericCasts(final Types types) {
-        types.numerics.add(new Cast(types.standard.byteType, types.standard.shortType));
-        types.numerics.add(new Cast(types.standard.byteType, types.standard.intType));
-        types.numerics.add(new Cast(types.standard.byteType, types.standard.longType));
-        types.numerics.add(new Cast(types.standard.byteType, types.standard.floatType));
-        types.numerics.add(new Cast(types.standard.byteType, types.standard.doubleType));
-
-        types.numerics.add(new Cast(types.standard.shortType, types.standard.intType));
-        types.numerics.add(new Cast(types.standard.shortType, types.standard.longType));
-        types.numerics.add(new Cast(types.standard.shortType, types.standard.floatType));
-        types.numerics.add(new Cast(types.standard.shortType, types.standard.doubleType));
-
-        types.numerics.add(new Cast(types.standard.charType, types.standard.intType));
-        types.numerics.add(new Cast(types.standard.charType, types.standard.longType));
-        types.numerics.add(new Cast(types.standard.charType, types.standard.floatType));
-        types.numerics.add(new Cast(types.standard.charType, types.standard.doubleType));
-
-        types.numerics.add(new Cast(types.standard.intType, types.standard.longType));
-        types.numerics.add(new Cast(types.standard.intType, types.standard.floatType));
-        types.numerics.add(new Cast(types.standard.intType, types.standard.doubleType));
-
-        types.numerics.add(new Cast(types.standard.longType, types.standard.floatType));
-        types.numerics.add(new Cast(types.standard.longType, types.standard.doubleType));
-
-        types.numerics.add(new Cast(types.standard.floatType, types.standard.doubleType));
-    }
-
     private static String[][] parseArgumentsStr(final String argumentstr) {
         if (!argumentstr.startsWith("(") || !argumentstr.endsWith(")")) {
             throw new IllegalArgumentException(); // TODO: message
@@ -1019,7 +913,11 @@ class Types {
             TypeMetadata metadata = TypeMetadata.OBJECT;
 
             for (TypeMetadata value : TypeMetadata.values()) {
-                if (value.name.equals(metadata.name)) {
+                if (value.clazz == null) {
+                    continue;
+                }
+
+                if (value.clazz.equals(metadata.clazz)) {
                     metadata = value;
 
                     break;
@@ -1253,10 +1151,7 @@ class Types {
     final Map<Cast, Transform> explicits;
     final Map<Cast, Transform> implicits;
     final Set<Cast> upcasts;
-    final Set<Cast> numerics;
     final Set<Cast> disallowed;
-
-    final Standard standard;
 
     private Types() {
         structs = new HashMap<>();
@@ -1264,10 +1159,7 @@ class Types {
         explicits = new HashMap<>();
         implicits = new HashMap<>();
         upcasts = new HashSet<>();
-        numerics = new HashSet<>();
         disallowed = new HashSet<>();
-
-        standard = null;
     }
 
     private Types(Types types) {
@@ -1282,9 +1174,6 @@ class Types {
         explicits = Collections.unmodifiableMap(types.explicits);
         implicits = Collections.unmodifiableMap(types.implicits);
         upcasts = Collections.unmodifiableSet(types.upcasts);
-        numerics = Collections.unmodifiableSet(types.numerics);
         disallowed = Collections.unmodifiableSet(types.disallowed);
-
-        standard = new Standard(this);
     }
 }

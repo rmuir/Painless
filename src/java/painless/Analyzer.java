@@ -27,430 +27,140 @@ class Analyzer extends PainlessBaseVisitor<Void> {
     private Analyzer(final Adapter adapter) {
         this.adapter = adapter;
         this.types = adapter.types;
-        this.standard = adapter.types.standard;
+        this.standard = adapter.standard;
 
         adapter.createStatementMetadata(adapter.root);
         visit(adapter.root);
     }
 
-    private void markCast(final ExpressionMetadata emd) {
-        if (emd.from == null) {
-            throw new IllegalStateException(); // TODO: message
-        }
-
-        if (emd.to != null) {
-            final Object object = getLegalCast(emd.to, emd.from, emd.explicit, false);
-
-            if (object instanceof Cast) {
-                emd.cast = (Cast)object;
-            } else if (object instanceof Transform) {
-                emd.transform = (Transform)object;
-            }
-
-            if (emd.to.metadata.constant) {
-                constCast(emd);
-            }
-        } else if (!emd.anyNumeric && emd.anyType) {
-            throw new IllegalStateException(); // TODO: message
-        }
-    }
-
-    private Object getLegalCast(final Type from, final Type to, final boolean force, final boolean ignore) {
-        final Cast cast = new Cast(from, to);
-
-        if (from.equals(to)) {
-            return cast;
-        }
-
-        if (!ignore && types.disallowed.contains(cast)) {
-            throw new ClassCastException(); // TODO: message
-        }
-
-        final Transform explicit = types.explicits.get(cast);
-
-        if (force && explicit != null) {
-            return explicit;
-        }
-
-        final Transform implicit = types.implicits.get(cast);
-
-        if (implicit != null) {
-            return implicit;
-        }
-
-        if (types.upcasts.contains(cast)) {
-            return cast;
-        }
-
-        if (from.metadata.numeric && to.metadata.numeric && (force || types.numerics.contains(cast))) {
-            return cast;
-        }
-
-        try {
-            from.clazz.asSubclass(to.clazz);
-
-            return null;
-        } catch (ClassCastException cce0) {
-            try {
-                if (force) {
-                    to.clazz.asSubclass(from.clazz);
-
-                    return cast;
-                } else {
-                    throw new ClassCastException(); // TODO: message
-                }
-            } catch (ClassCastException cce1) {
-                throw new ClassCastException(); // TODO: message
-            }
-        }
-    }
-
-    private void constCast(final ExpressionMetadata emd) {
-        if (emd.preConst != null) {
-            if (emd.transform != null) {
-                emd.postConst = invokeTransform(emd.transform, emd.preConst);
-            } else if (emd.cast != null) {
-                final TypeMetadata fromTMD = emd.cast.from.metadata;
-                final TypeMetadata toTMD = emd.cast.to.metadata;
-
-                if (fromTMD == toTMD) {
-                    emd.postConst = emd.preConst;
-                } else if (fromTMD.numeric && toTMD.numeric) {
-                    Number number;
-
-                    if (fromTMD == TypeMetadata.CHAR) {
-                        number = (int)(char)emd.preConst;
-                    } else {
-                        number = (Number)emd.preConst;
-                    }
-
-                    switch (toTMD) {
-                        case BYTE:
-                            emd.postConst = number.byteValue();
-
-                            break;
-                        case SHORT:
-                            emd.postConst = number.shortValue();
-
-                            break;
-                        case CHAR:
-                            emd.postConst = (char)number.longValue();
-
-                            break;
-                        case INT:
-                            emd.postConst = number.intValue();
-
-                            break;
-                        case LONG:
-                            emd.postConst = number.longValue();
-
-                            break;
-                        case FLOAT:
-                            emd.postConst = number.floatValue();
-
-                            break;
-                        case DOUBLE:
-                            emd.postConst = number.doubleValue();
-
-                            break;
-                        default:
-                            throw new IllegalStateException();
-                    }
-                } else {
-                    throw new IllegalStateException(); // TODO: message
-                }
-            } else {
-                throw new IllegalStateException(); // TODO: message
-            }
-        }
-    }
-
-    private Object invokeTransform(final Transform transform, final Object object) {
-        final Method method = transform.method;
-        final java.lang.reflect.Method jmethod = method.method;
-        final int modifiers = jmethod.getModifiers();
-
-        try {
-            if (java.lang.reflect.Modifier.isStatic(modifiers)) {
-                return jmethod.invoke(null, object);
-            } else {
-                return jmethod.invoke(object);
-            }
-        } catch (IllegalAccessException | IllegalArgumentException |
-                java.lang.reflect.InvocationTargetException | NullPointerException |
-                ExceptionInInitializerError exception) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-    }
-
-    private Type getUnaryNumericPromotion(final Type pfrom, boolean decimal) {
-        return getBinaryNumericPromotion(pfrom, null , decimal);
-    }
-
-    private Type getBinaryNumericPromotion(final Type from0, final Type from1, boolean decimal) {
-        final Deque<Type> upcast = new ArrayDeque<>();
-        final Deque<Type> available = new ArrayDeque<>();
-
-        upcast.addFirst(standard.doubleType);
-        upcast.addFirst(standard.floatType);
-        upcast.addFirst(standard.longType);
-        upcast.addFirst(standard.intType);
-
-        while (!upcast.isEmpty()) {
-            final Type to = upcast.removeFirst();
-            final Cast pcast0 = new Cast(from0, to);
-
-            if (types.disallowed.contains(pcast0)) continue;
-            if (upcast.contains(from0)) continue;
-            if (!from0.metadata.numeric && !types.implicits.containsKey(pcast0)) continue;
-
-            if (from1 != null) {
-                final Cast pcast1 = new Cast(from1, to);
-
-                if (types.disallowed.contains(pcast1)) continue;
-                if (upcast.contains(from1)) continue;
-                if (!from1.metadata.numeric && !types.implicits.containsKey(pcast1)) continue;
-            }
-
-            available.addLast(to);
-        }
-
-        if (decimal) {
-            available.remove(standard.doubleType);
-            available.remove(standard.floatType);
-        }
-
-        if (available.isEmpty()) {
-            return null;
-        }
-
-        if (from0.metadata.numeric && (from1 == null || from1.metadata.numeric)) {
-            return available.peekFirst();
-        }
-
-        return available.peekLast();
-    }
-
-    private Type getBinaryAnyPromotion(final Type from0, final Type from1) {
-        if (from0.equals(from1)) {
-            return from0;
-        }
-
-        final TypeMetadata tmd0 = from0.metadata;
-        final TypeMetadata tmd1 = from1.metadata;
-
-        if (tmd0 == TypeMetadata.BOOL || tmd1 == TypeMetadata.BOOL) {
-            final Cast cast = new Cast(tmd0 == TypeMetadata.BOOL ? from1 : from0, standard.boolType);
-
-            if (!types.disallowed.contains(cast) && types.implicits.containsKey(cast)) {
-                return standard.boolType;
-            }
-        }
-
-        if (tmd0.numeric || tmd1.numeric) {
-            Type type = getBinaryNumericPromotion(from0, from1, true);
-
-            if (type != null) {
-                return type;
-            }
-        }
-
-        if (from0.clazz.equals(from1.clazz)) {
-            Cast cast0 = null;
-            Cast cast1 = null;
-
-            if (from0.struct.generic && !from1.struct.generic) {
-                cast0 = new Cast(from0, from1);
-                cast1 = new Cast(from1, from0);
-            } else if (!from0.struct.generic && from1.struct.generic) {
-                cast0 = new Cast(from1, from0);
-                cast1 = new Cast(from0, from1);
-            }
-
-            if (cast0 != null && cast1 != null) {
-                if (!types.disallowed.contains(cast0) && types.implicits.containsKey(cast0)) {
-                    return cast0.to;
-                }
-
-                if (!types.disallowed.contains(cast1) && types.implicits.containsKey(cast1)) {
-                    return cast1.to;
-                }
-            }
-
-            return standard.objectType;
-        }
-
-        try {
-            from0.clazz.asSubclass(from1.clazz);
-            final Cast cast = new Cast(from0, from1);
-
-            if (!types.disallowed.contains(cast)) {
-                return from1;
-            }
-        } catch (ClassCastException cce0) {
-            // Do nothing.
-        }
-
-        try {
-            from1.clazz.asSubclass(from1.clazz);
-            final Cast cast = new Cast(from1, from0);
-
-            if (!types.disallowed.contains(cast)) {
-                return from0;
-            }
-        } catch (ClassCastException cce0) {
-            // Do nothing.
-        }
-
-        if (tmd0.object && tmd1.object) {
-            return standard.objectType;
-        }
-
-        return null;
-    }
-
-    /*@Override
+    @Override
     public Void visitSource(final SourceContext ctx) {
-        final PMetadata sourcemd = pmetadata.get(ctx);
-        PMetadata statementmd = null;
+        final StatementMetadata sourcesmd = adapter.getStatementMetadata(ctx);
 
-        incrementScope();
+        adapter.incrementScope();
 
-        for (final StatementContext sctx : ctx.statement()) {
-            if (sourcemd.close) {
+        for (final StatementContext statectx : ctx.statement()) {
+            if (sourcesmd.allExit) {
                 throw new IllegalArgumentException(); // TODO: message
             }
 
-            statementmd = createPMetadata(sctx);
-            visit(sctx);
+            final StatementMetadata statesmd = adapter.createStatementMetadata(statectx);
+            visit(statectx);
 
-            if (!statementmd.statement) {
+            sourcesmd.allExit = statesmd.allExit;
+            sourcesmd.allReturn = statesmd.allReturn;
+
+            if (statesmd.anyBreak) {
                 throw new IllegalArgumentException(); // TODO: message
             }
 
-            sourcemd.close = statementmd.close;
-
-            if (statementmd.anybreak) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
-
-            if (statementmd.anycontinue) {
+            if (statesmd.anyContinue) {
                 throw new IllegalArgumentException(); // TODO: message
             }
         }
 
-        if (statementmd == null) {
-            throw new IllegalStateException(); // TODO: message
-        }
-
-        sourcemd.allrtn = statementmd.allrtn;
-
-        decrementScope();
+        adapter.decrementScope();
 
         return null;
     }
 
     @Override
     public Void visitIf(final IfContext ctx) {
-        final PMetadata ifmd = getPMetadata(ctx);
+        final StatementMetadata ifsmd = adapter.getStatementMetadata(ctx);
 
-        incrementScope();
+        adapter.incrementScope();
 
-        final ExpressionContext ectx = ctx.expression();
-        final PMetadata expressionmd = createPMetadata(ectx);
-        expressionmd.toptype = pstandard.pbool;
-        visit(ectx);
+        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
+        expremd.to = standard.boolType;
+        visit(exprctx);
 
-        if (expressionmd.constpost != null) {
+        if (expremd.postConst != null) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        final BlockContext bctx0 = ctx.block(0);
-        final PMetadata blockmd0 = createPMetadata(bctx0);
-        visit(bctx0);
-        ifmd.anyrtn = blockmd0.anyrtn;
-        ifmd.anybreak = blockmd0.anybreak;
-        ifmd.anycontinue = blockmd0.anycontinue;
+        final BlockContext blockctx0 = ctx.block(0);
+        final StatementMetadata blocksmd0 = adapter.createStatementMetadata(blockctx0);
+        visit(blockctx0);
+
+        ifsmd.anyReturn = blocksmd0.anyReturn;
+        ifsmd.anyBreak = blocksmd0.anyBreak;
+        ifsmd.anyContinue = blocksmd0.anyContinue;
 
         if (ctx.ELSE() != null) {
-            final BlockContext bctx1 = ctx.block(1);
-            final PMetadata blockmd1 = createPMetadata(bctx1);
-            visit(bctx1);
-            ifmd.close = blockmd0.close && blockmd1.close;
-            ifmd.allexit = blockmd0.allexit && blockmd1.allexit;
-            ifmd.allrtn = blockmd0.allrtn && blockmd1.allrtn;
-            ifmd.anyrtn |= blockmd1.anyrtn;
-            ifmd.allbreak = blockmd0.allbreak && blockmd1.allbreak;
-            ifmd.anybreak |= blockmd1.anybreak;
-            ifmd.allcontinue = blockmd0.allcontinue && blockmd1.allcontinue;
-            ifmd.anycontinue |= blockmd1.anycontinue;
+            final BlockContext blockctx1 = ctx.block(1);
+            final StatementMetadata blocksmd1 = adapter.createStatementMetadata(blockctx1);
+            visit(blockctx1);
+
+            ifsmd.allExit = blocksmd0.allExit && blocksmd1.allExit;
+            ifsmd.allReturn = blocksmd0.allReturn && blocksmd1.allReturn;
+            ifsmd.anyReturn |= blocksmd1.anyReturn;
+            ifsmd.allBreak = blocksmd0.allBreak && blocksmd1.allBreak;
+            ifsmd.anyBreak |= blocksmd1.anyBreak;
+            ifsmd.allContinue = blocksmd0.allContinue && blocksmd1.allContinue;
+            ifsmd.anyContinue |= blocksmd1.anyContinue;
         }
 
-        ifmd.statement = true;
-
-        decrementScope();
+        adapter.decrementScope();
 
         return null;
     }
 
     @Override
     public Void visitWhile(final WhileContext ctx) {
-        final PMetadata whilemd = getPMetadata(ctx);
+        final StatementMetadata whilesmd = adapter.getStatementMetadata(ctx);
 
-        incrementScope();
+        adapter.incrementScope();
 
-        final ExpressionContext ectx = ctx.expression();
-        final PMetadata expressionmd = createPMetadata(ectx);
-        expressionmd.toptype = pstandard.pbool;
-        visit(ectx);
+        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
+        expremd.to = standard.boolType;
+        visit(exprctx);
 
-        final boolean emptyallowed = expressionmd.statement;
+        final boolean emptyallowed = expremd.statement;
         boolean exitrequired = false;
 
-        if (expressionmd.constpost != null) {
-            boolean constant = (boolean)expressionmd.constpost;
+        if (expremd.postConst != null) {
+            boolean constant = (boolean)expremd.postConst;
 
             if (!constant) {
                 throw new IllegalArgumentException(); // TODO: message
             }
 
             exitrequired = true;
-            whilemd.constpost = true;
         }
 
-        final BlockContext bctx = ctx.block();
+        final BlockContext blockctx = ctx.block();
 
-        if (bctx != null) {
-            PMetadata blockmd = createPMetadata(bctx);
-            visit(bctx);
+        if (blockctx != null) {
+            final StatementMetadata blocksmd = adapter.createStatementMetadata(blockctx);
+            visit(blockctx);
 
-            if (blockmd.allrtn) {
+            if (blocksmd.allReturn) {
                 throw new IllegalArgumentException(); // TODO: message
             }
 
-            if (blockmd.allbreak) {
+            if (blocksmd.allBreak) {
                 throw new IllegalArgumentException(); // TODO: message
             }
 
-            if (exitrequired && !blockmd.anyrtn && !blockmd.anybreak) {
+            if (exitrequired && !blocksmd.anyReturn && !blocksmd.anyBreak) {
                 throw new IllegalArgumentException(); // TODO: message
             }
 
-            if (exitrequired && blockmd.anyrtn && !blockmd.anybreak) {
-                whilemd.close = true;
+            if (exitrequired && blocksmd.anyReturn && !blocksmd.anyBreak) {
+                whilesmd.allExit = true;
             }
         } else if (!emptyallowed) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        whilemd.statement = true;
-
-        decrementScope();
+        adapter.decrementScope();
 
         return null;
     }
 
-    @Override
+    /*@Override
     public Void visitDo(final DoContext ctx) {
         final PMetadata domd = getPMetadata(ctx);
 
@@ -960,7 +670,7 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         visit(ectx);
 
         return null;
-    }
+    }*/
 
     /*@Override
     public Void visitPostinc(final PostincContext ctx) {

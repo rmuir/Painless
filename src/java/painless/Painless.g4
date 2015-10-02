@@ -26,7 +26,7 @@ source
 
 statement
     : IF LP expression RP block (ELSE block)?                                              # if
-    | WHILE LP expression RP block                                                         # while
+    | WHILE LP expression RP ( block | empty )                                             # while
     | DO block WHILE LP expression RP                                                      # do
     | FOR LP declaration? SEMICOLON expression? SEMICOLON expression? RP ( block | empty ) # for
     | declaration SEMICOLON                                                                # decl

@@ -41,12 +41,12 @@ final class Compiler {
 
         final Adapter adapter = new Adapter(types, root);
         adapter.incrementScope();
-        adapter.addVariable("this", types.standard.execType);
-        adapter.addVariable("input", types.standard.smapType);
+        adapter.addVariable("this", adapter.standard.execType);
+        adapter.addVariable("input", adapter.standard.smapType);
 
         start = System.currentTimeMillis();
 
-        //Analyzer.analyze(adapter);
+        Analyzer.analyze(adapter);
         adapter.decrementScope();
 
         end = System.currentTimeMillis() - start;
