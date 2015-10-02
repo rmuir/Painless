@@ -58,30 +58,31 @@ declvar
     ;
 
 expression
-    :               LP expression RP                                          # precedence
-    |               ( OCTAL | HEX | INTEGER | DECIMAL )                       # numeric
-    |               STRING                                                    # string
-    |               CHAR                                                      # char
-    |               TRUE                                                      # true
-    |               FALSE                                                     # false
-    |               NULL                                                      # null
-    |               extstart                                                  # ext
-    |               extstart ( INCR | DECR )                                  # postinc
-    |               ( INCR | DECR ) extstart                                  # preinc
-    |               ( BOOLNOT | BWNOT | ADD | SUB ) expression                # unary
-    |               LP decltype RP expression                                 # cast
-    |               expression ( MUL | DIV | REM ) expression                 # binary
-    |               expression ( ADD | SUB ) expression                       # binary
-    |               expression ( LSH | RSH | USH ) expression                 # binary
-    |               expression ( LT | LTE | GT | GTE ) expression             # comp
-    |               expression ( EQ | NE ) expression                         # comp
-    |               expression BWAND expression                               # binary
-    |               expression BWXOR expression                               # binary
-    |               expression BWOR expression                                # binary
-    |               expression BOOLAND expression                             # bool
-    |               expression BOOLOR expression                              # bool
-    | <assoc=right> expression COND expression COLON expression               # conditional
-    |               extstart ASSIGN expression                                # assignment
+    :               LP expression RP                                               # precedence
+    |               ( OCTAL | HEX | INTEGER | DECIMAL )                            # numeric
+    |               STRING                                                         # string
+    |               CHAR                                                           # char
+    |               TRUE                                                           # true
+    |               FALSE                                                          # false
+    |               NULL                                                           # null
+    |               extstart                                                       # ext
+    |               extstart ( INCR | DECR )                                       # postinc
+    |               ( INCR | DECR ) extstart                                       # preinc
+    |               ( BOOLNOT | BWNOT | ADD | SUB ) expression                     # unary
+    |               LP decltype RP expression                                      # cast
+    |               expression ( MUL | DIV | REM ) expression                      # binary
+    |               expression ( ADD | SUB ) expression                            # binary
+    |               expression ( LSH | RSH | USH ) expression                      # binary
+    |               expression ( LT | LTE | GT | GTE ) expression                  # comp
+    |               expression ( EQ | NE ) expression                              # comp
+    |               expression BWAND expression                                    # binary
+    |               expression BWXOR expression                                    # binary
+    |               expression BWOR expression                                     # binary
+    |               expression BOOLAND expression                                  # bool
+    |               expression BOOLOR expression                                   # bool
+    | <assoc=right> expression COND expression COLON expression                    # conditional
+    |               extstart ( ASSIGN | AADD | ASUB | AMUL | ADIV | AREM |
+                               AAND | AXOR | AOR | ALSH | ARSH | AUSH ) expression # assignment
     ;
 
 extstart
@@ -112,6 +113,17 @@ RBRACE:    ']';
 LP:        '(';
 RP:        ')';
 ASSIGN:    '=';
+AADD:      '+=';
+ASUB:      '-=';
+AMUL:      '*=';
+ADIV:      '/=';
+AREM:      '%=';
+AAND:      '&=';
+AXOR:      '^=';
+AOR:       '|=';
+ALSH:      '<<=';
+ARSH:      '>>=';
+AUSH:      '>>>=';
 DOT:       '.';
 COMMA:     ',';
 SEMICOLON: ';';

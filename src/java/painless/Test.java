@@ -2,7 +2,10 @@ package painless;
 
 public class Test {
     public int stest() {
-        int i = 0;
-        return i++;
+        long j = 0;
+        long l = 0;
+        l = j++;
+
+        return 0;
     }
 }

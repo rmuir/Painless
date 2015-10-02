@@ -15,9 +15,9 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 import static painless.PainlessAnalyzer.*;
-import static painless.PainlessExternal.*;
+import static painless.External.*;
 import static painless.PainlessParser.*;
-import static painless.PainlessTypes.*;
+import static painless.Types.*;
 
 class PainlessWriter extends PainlessBaseVisitor<Void>{
     private static class PBranch {
@@ -84,14 +84,6 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
             writePCast(pmetadata.getPCast());
         } else if (pmetadata.getPTransform() != null) {
             writePTransform(pmetadata.getPTransform());
-        }
-    }
-
-    private void checkWritePCast(final Object object) {
-        if (object instanceof PCast) {
-            writePCast((PCast)object);
-        } else if (object instanceof PTransform) {
-            writePTransform((PTransform)object);
         }
     }
 
@@ -266,7 +258,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     private void writePTransform(final PTransform ptransform) {
         final PMethod pmethod = ptransform.getPMethod();
         final Method jmethod = pmethod.getJMethod();
-        final PClass powner = pmethod.getPOwner();
+        final Struct powner = pmethod.getPOwner();
         final Class jowner = powner.getJClass();
 
         final PType pcastfrom = ptransform.getJCastFrom();
@@ -1424,32 +1416,23 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     public Void visitExtstart(ExtstartContext ctx) {
         final PMetadata extstartmd = getPMetadata(ctx);
         final PBranch pbranch = pbranches.get(ctx);
-        final boolean pop = extstartmd.getPop();
         final PExternal pexternal = extstartmd.getPExternal();
-        final PIncrememnt pincrememnt = extstartmd.getPIncrement();
         final Iterator<PSegment> psegments = pexternal.getIterator();
 
         while (psegments.hasNext()) {
             final PSegment psegment = psegments.next();
             final SType stype = psegment.getSType();
-            final Object svalue = psegment.getSValue();
-            final boolean write = psegment.equals(pexternal.getWriteSegment());
+            final Object svalue0 = psegment.getSValue0();
+            final Object svalue1 = psegment.getSValue1();
 
             switch (stype) {
                 case TYPE: {
                     break;
                 } case VARIABLE: {
-                    final PVariable pvariable = (PVariable)svalue;
+                    final PVariable pvariable = (PVariable)svalue0;
+                    final boolean write = (Boolean)svalue1;
                     final PSort psort = pvariable.getPType().getPSort();
                     final int aslot = pvariable.getASlot();
-
-                    if (write && !pop) {
-                        if (psort.getASize() == 1) {
-                            execute.visitInsn(Opcodes.DUP);
-                        } else if (psort.getASize() == 2) {
-                            execute.visitInsn(Opcodes.DUP2);
-                        }
-                    }
 
                     switch (psort) {
                         case VOID:
@@ -1459,13 +1442,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                         case SHORT:
                         case CHAR:
                         case INT:
-                            if (pincrememnt != null) {
-                                checkWritePCast(pincrememnt.getPreCast());
-                                execute.visitIincInsn(aslot, pincrememnt.getIncrement());
-                                checkWritePCast(pincrememnt.getPostCast());
-                            } else {
-                                execute.visitVarInsn(write ? Opcodes.ISTORE : Opcodes.ILOAD, aslot);
-                            }
+                            execute.visitVarInsn(write ? Opcodes.ISTORE : Opcodes.ILOAD, aslot);
                             break;
                         case LONG:
                             execute.visitVarInsn(write ? Opcodes.LSTORE : Opcodes.LLOAD, aslot);
@@ -1482,7 +1459,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
                     break;
                 } case CONSTRUCTOR: {
-                    final PConstructor pconstructor = (PConstructor)svalue;
+                    final Constructor pconstructor = (Constructor)svalue0;
                     final String jinternal = pconstructor.getPOwner().getJInternal();
 
                     execute.visitTypeInsn(Opcodes.NEW, jinternal);
@@ -1493,7 +1470,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                     break;
                 } case METHOD:
                   case SHORTCUT: {
-                    final PMethod pmethod = (PMethod)svalue;
+                    final PMethod pmethod = (PMethod)svalue0;
                     final String jinternal = pmethod.getPOwner().getJInternal();
                     final Method jmethod = pmethod.getJMethod();
                     final Class jowner = pmethod.getPOwner().getJClass();
@@ -1511,7 +1488,8 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
                     break;
                 } case FIELD: {
-                    final PField pfield = (PField)svalue;
+                    final PField pfield = (PField)svalue0;
+                    final Boolean write = (Boolean)svalue1;
                     final PSort psort = pfield.getPType().getPSort();
                     final String jinternal = pfield.getPOwner().getJInternal();
                     final String jname = pfield.getJField().getName();
@@ -1519,13 +1497,13 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
                     int opcode;
 
-                    if (write && !pop) {
+                    /*if (write && !pop) {
                         if (psort.getASize() == 1) {
                             execute.visitInsn(Opcodes.DUP_X1);
                         } else if (psort.getASize() == 2) {
                             execute.visitInsn(Opcodes.DUP2_X1);
                         }
-                    }
+                    }*/
 
                     if (Modifier.isStatic(pfield.getJField().getModifiers())) {
                         opcode = write ? Opcodes.PUTSTATIC : Opcodes.GETSTATIC;
@@ -1537,15 +1515,16 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
                     break;
                 } case ARRAY: {
-                    final PSort psort = ((PType)svalue).getPSort();
+                    final PSort psort = ((PType)svalue0).getPSort();
+                    final boolean write = (Boolean)svalue1;
 
-                    if (write && !pop) {
+                    /*if (write && !pop) {
                         if (psort.getASize() == 1) {
                             execute.visitInsn(Opcodes.DUP_X2);
                         } else if (psort.getASize() == 2) {
                             execute.visitInsn(Opcodes.DUP2_X2);
                         }
-                    }
+                    }*/
 
                     switch (psort) {
                         case BOOL:
@@ -1571,28 +1550,39 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
                     break;
                 } case WRITE: {
-                    final ParseTree ectx = (ParseTree)svalue;
+                    final ParseTree ectx = (ParseTree)svalue0;
                     visit(ectx);
 
                     break;
+                } case POP: {
+                    final PType ptype = (PType)svalue0;
+                    final int asize = ptype.getPSort().getASize();
+
+                    if (asize == 1) {
+                        execute.visitInsn(Opcodes.POP);
+                    } else if (asize == 2) {
+                        execute.visitInsn(Opcodes.POP2);
+                    }
+
+                    break;
                 } case NODE: {
-                    final ParseTree ectx = (ParseTree)svalue;
+                    final ParseTree ectx = (ParseTree)svalue0;
                     visit(ectx);
 
                     break;
                 } case CAST: {
-                    final PCast pcast = (PCast)svalue;
+                    final PCast pcast = (PCast)svalue0;
                     writePCast(pcast);
 
                     break;
                 } case TRANSFORM: {
-                    final PTransform ptransform = (PTransform)svalue;
+                    final PTransform ptransform = (PTransform)svalue0;
                     writePTransform(ptransform);
 
                     break;
                 }
                 case AMAKE: {
-                    final PType ptype = (PType)svalue;
+                    final PType ptype = (PType)svalue0;
 
                     if (ptype.getPDimensions() > 1) {
                         final String adescriptor = ptype.getADescriptor();
@@ -1641,20 +1631,8 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
             }
         }
 
-        if (!pexternal.isWrite() && pincrememnt == null) {
-            if (pop) {
-                final int asize = pexternal.getPType().getPSort().getASize();
-
-                if (asize == 1) {
-                    execute.visitInsn(Opcodes.POP);
-                } else if (asize == 2) {
-                    execute.visitInsn(Opcodes.POP2);
-                }
-            } else {
-                checkWritePCast(extstartmd);
-                checkWritePBranch(pbranch);
-            }
-        }
+        checkWritePCast(extstartmd);
+        checkWritePBranch(pbranch);
 
         return null;
     }

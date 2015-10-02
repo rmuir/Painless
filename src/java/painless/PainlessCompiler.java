@@ -12,7 +12,7 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
 
 import static painless.PainlessAnalyzer.*;
-import static painless.PainlessTypes.*;
+import static painless.Types.*;
 
 final class PainlessCompiler {
     private static class PainlessClassLoader extends ClassLoader {
@@ -61,7 +61,9 @@ final class PainlessCompiler {
 
         parser.setTypes(ptypes.getPNames());
 
-        return parser.source();
+        ParseTree root = parser.source();
+        System.out.println(root.toStringTree(parser));
+        return root;
     }
 
     private static PainlessExecutable createExecutable(String name, String source, ClassLoader parent, byte[] bytes) {

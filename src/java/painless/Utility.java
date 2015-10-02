@@ -1,6 +1,6 @@
 package painless;
 
-public class PainlessUtility {
+public class Utility {
     public static boolean numberToBoolean(Number value) {
         return value.longValue() != 0;
     }
@@ -38,7 +38,7 @@ public class PainlessUtility {
     }
 
     public static Integer booleanToInteger(boolean value) {
-        return new Integer(value ? 1 : 0);
+        return value ? 1 : 0;
     }
 
     public static byte booleanToByte(Boolean value) {
@@ -98,7 +98,7 @@ public class PainlessUtility {
     }
 
     public static Integer charToInteger(char value) {
-        return new Integer(value);
+        return (int)value;
     }
 
     public static boolean characterToBoolean(Character value) {
@@ -114,19 +114,19 @@ public class PainlessUtility {
     }
 
     public static int characterToInt(Character value) {
-        return (int)value.charValue();
+        return (int)value;
     }
 
     public static long characterToLong(Character value) {
-        return (long)value.charValue();
+        return (long)value;
     }
 
     public static float characterToFloat(Character value) {
-        return (float)value.charValue();
+        return (float)value;
     }
 
     public static double characterToDouble(Character value) {
-        return (double)value.charValue();
+        return (double)value;
     }
 
     public static boolean intToBoolean(int value) {
