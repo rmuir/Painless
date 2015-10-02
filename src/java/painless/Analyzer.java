@@ -1,491 +1,101 @@
 package painless;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 import org.antlr.v4.runtime.tree.ParseTree;
 
+import static painless.Adapter.*;
 import static painless.External.*;
 import static painless.PainlessParser.*;
 import static painless.Types.*;
 
-class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
-    static class PArgument {
-        private final String pname;
-        private final PType ptype;
-
-        PArgument(final String pname, final PType ptype) {
-            this.pname = pname;
-            this.ptype = ptype;
-        }
-
-        String getPName() {
-            return pname;
-        }
-
-        PType getPType() {
-            return ptype;
-        }
+class Analyzer extends PainlessBaseVisitor<Void> {
+    static void analyze(final Adapter adapter) {
+        new Analyzer(adapter);
     }
 
-    static class PVariable {
-        private final String pname;
-        private final PType ptype;
-        private final int aslot;
+    final Adapter adapter;
+    final Types types;
+    final Standard standard;
 
-        PVariable(final String pname, final PType ptype, final int aslot) {
-            this.pname = pname;
-            this.ptype = ptype;
-            this.aslot = aslot;
-        }
+    private Analyzer(final Adapter adapter) {
+        this.adapter = adapter;
+        this.types = adapter.types;
+        this.standard = adapter.types.standard;
 
-        String getPName() {
-            return pname;
-        }
-
-        PType getPType() {
-            return ptype;
-        }
-
-        int getASlot() {
-            return aslot;
-        }
+        adapter.createStatementMetadata(adapter.root);
+        visit(adapter.root);
     }
 
-    static class PMetadata {
-        private ParseTree source;
-
-        private boolean close;
-        private boolean statement;
-
-        private boolean allexit;
-        private boolean allrtn;
-        private boolean anyrtn;
-        private boolean allbreak;
-        private boolean anybreak;
-        private boolean allcontinue;
-        private boolean anycontinue;
-
-        private PExternal pexternal;
-
-        private Object constpre;
-        private Object constpost;
-        private boolean isnull;
-
-        private PType toptype;
-        private boolean anypnumeric;
-        private boolean anyptype;
-        private boolean explicit;
-        private PType fromptype;
-        private PCast pcast;
-        private PTransform ptransform;
-
-        PMetadata(final ParseTree source) {
-            this.source = source;
-
-            close = false;
-            statement = false;
-
-            allexit = false;
-            allrtn = false;
-            anyrtn = false;
-            allbreak = false;
-            anybreak = false;
-            allcontinue = false;
-            anycontinue = false;
-
-            pexternal = null;
-
-            constpre = null;
-            constpost = null;
-            isnull = false;
-
-            toptype = null;
-            anypnumeric = false;
-            anyptype = false;
-            explicit = false;
-            fromptype = null;
-            pcast = null;
-            ptransform = null;
-        }
-
-        ParseTree getSource() {
-            return source;
-        }
-
-        boolean getAllExit() {
-            return allexit;
-        }
-
-        boolean getAllReturn() {
-            return allrtn;
-        }
-
-        boolean getAnyReturn() {
-            return anyrtn;
-        }
-
-        boolean getAllBreak() {
-            return allbreak;
-        }
-
-        boolean getAnyBreak() {
-            return anybreak;
-        }
-
-        boolean getAllContinue() {
-            return allcontinue;
-        }
-
-        boolean getAnyContinue() {
-            return anycontinue;
-        }
-
-        PExternal getPExternal() {
-            return pexternal;
-        }
-
-        Object getConstPre() {
-            return constpre;
-        }
-
-        Object getConstPost() {
-            return constpost;
-        }
-
-        boolean getIsNull() {
-            return isnull;
-        }
-
-        PType getToPType() {
-            return toptype;
-        }
-
-        boolean getAnyPNumeric() {
-            return anypnumeric;
-        }
-
-        boolean getAnyPType() {
-            return anyptype;
-        }
-
-        boolean getExplicit() {
-            return explicit;
-        }
-
-        PType getFromPType() {
-            return fromptype;
-        }
-
-        PCast getPCast() {
-            return pcast;
-        }
-
-        PTransform getPTransform() {
-            return ptransform;
-        }
-    }
-
-    static Map<ParseTree, PMetadata> analyze(
-            final PTypes ptypes, final ParseTree root, final Deque<PArgument> arguments) {
-        return new PainlessAnalyzer(ptypes, root, arguments).pmetadata;
-    }
-
-    private final PTypes ptypes;
-    private final PStandard pstandard;
-
-    private final Deque<Integer> ascopes;
-    private final Deque<PVariable> pvariables;
-
-    private final Map<ParseTree, PMetadata> pmetadata;
-
-    private PainlessAnalyzer(final PTypes ptypes, final ParseTree root, final Deque<PArgument> parguments) {
-        this.ptypes = ptypes;
-        pstandard = ptypes.getPStandard();
-
-        ascopes = new ArrayDeque<>();
-        pvariables = new ArrayDeque<>();
-
-        pmetadata = new HashMap<>();
-
-        incrementScope();
-
-        for (final PArgument argument : parguments) {
-            addPVariable(argument.pname, argument.ptype);
-        }
-
-        createPMetadata(root);
-        visit(root);
-
-        decrementScope();
-    }
-
-    private void incrementScope() {
-        ascopes.push(0);
-    }
-
-    private void decrementScope() {
-        int remove = ascopes.pop();
-
-        while (remove > 0) {
-            pvariables.pop();
-            --remove;
-        }
-    }
-
-    private PVariable getPVariable(final String name) {
-        final Iterator<PVariable> itr = pvariables.descendingIterator();
-
-        while (itr.hasNext()) {
-            final PVariable variable = itr.next();
-
-            if (variable.pname.equals(name)) {
-                return variable;
-            }
-        }
-
-        return null;
-    }
-
-    private PVariable addPVariable(final String name, final PType ptype) {
-        if (getPVariable(name) != null) {
-            throw new IllegalArgumentException();
-        }
-
-        final PVariable previous = pvariables.peekLast();
-        int aslot = 0;
-
-        if (previous != null) {
-            aslot += previous.aslot + previous.ptype.getPSort().getASize();
-        }
-
-        final PVariable pvariable = new PVariable(name, ptype, aslot);
-        pvariables.add(pvariable);
-
-        final int update = ascopes.pop() + 1;
-        ascopes.push(update);
-
-        return pvariable;
-    }
-
-    private PMetadata createPMetadata(final ParseTree source) {
-        final PMetadata sourcemd = new PMetadata(source);
-        pmetadata.put(source, sourcemd);
-
-        return sourcemd;
-    }
-
-    private void passPMetadata(final ParseTree source, final PMetadata sourcemd) {
-        sourcemd.source = source;
-        pmetadata.put(source, sourcemd);
-    }
-
-    private PMetadata getPMetadata(final ParseTree source) {
-        final PMetadata sourcemd = pmetadata.get(source);
-
-        if (sourcemd == null) {
+    private void markCast(final ExpressionMetadata emd) {
+        if (emd.from == null) {
             throw new IllegalStateException(); // TODO: message
         }
 
-        return sourcemd;
-    }
+        if (emd.to != null) {
+            final Object object = getLegalCast(emd.to, emd.from, emd.explicit, false);
 
-    private void markCast(final PMetadata pmetadata) {
-        if (pmetadata.fromptype == null) {
-            throw new IllegalStateException(); // TODO: message
-        }
-
-        if (pmetadata.toptype != null) {
-            final Object object = getLegalCast(pmetadata.fromptype, pmetadata.toptype, pmetadata.explicit, true);
-
-            if (object instanceof PCast) {
-                pmetadata.pcast = (PCast)object;
-            } else if (object instanceof PTransform) {
-                pmetadata.ptransform = (PTransform)object;
+            if (object instanceof Cast) {
+                emd.cast = (Cast)object;
+            } else if (object instanceof Transform) {
+                emd.transform = (Transform)object;
             }
 
-            if (pmetadata.toptype.getPSort().isPBasic()) {
-                constCast(pmetadata);
+            if (emd.to.metadata.constant) {
+                constCast(emd);
             }
-        } else if (!pmetadata.anypnumeric && !pmetadata.anyptype) {
+        } else if (!emd.anyNumeric && emd.anyType) {
             throw new IllegalStateException(); // TODO: message
         }
     }
 
-    private Object getLegalCast(final PType pfrom, final PType pto, final boolean explicit, final boolean disallow) {
-        if (pfrom.equals(pto)) {
-            return null;
+    private Object getLegalCast(final Type from, final Type to, final boolean force, final boolean ignore) {
+        final Cast cast = new Cast(from, to);
+
+        if (from.equals(to)) {
+            return cast;
         }
 
-        final PCast pcast = new PCast(pfrom, pto);
-
-        if (disallow && ptypes.isPDisallowed(pcast)) {
+        if (!ignore && types.disallowed.contains(cast)) {
             throw new ClassCastException(); // TODO: message
         }
 
-        if (ptypes.isPUpcast(pcast)) {
-            return pcast;
+        final Transform explicit = types.explicits.get(cast);
+
+        if (force && explicit != null) {
+            return explicit;
         }
 
-        final PTransform pexplicit = ptypes.getPExplicit(pcast);
+        final Transform implicit = types.implicits.get(cast);
 
-        if (explicit && pexplicit != null) {
-            return pexplicit;
+        if (implicit != null) {
+            return implicit;
         }
 
-        final PTransform pimplicit = ptypes.getPImplicit(pcast);
-
-        if (pimplicit != null) {
-            return pimplicit;
+        if (types.upcasts.contains(cast)) {
+            return cast;
         }
 
-        final PSort fpsort = pfrom.getPSort();
-        final PSort tpsort = pto.getPSort();
-
-        if (fpsort.isPNumeric() && tpsort.isPNumeric()) {
-            switch (fpsort) {
-                case BYTE:
-                    switch (tpsort) {
-                        case CHAR:
-                            if (explicit) {
-                                return pcast;
-                            } else {
-                                throw new ClassCastException(); // TODO : message
-                            }
-                        case SHORT:
-                        case INT:
-                        case LONG:
-                        case FLOAT:
-                        case DOUBLE:
-                            return pcast;
-                        default:
-                            throw new IllegalStateException(); // TODO: message
-                    }
-                case SHORT:
-                    switch (tpsort) {
-                        case BYTE:
-                        case CHAR:
-                            if (explicit) {
-                                return pcast;
-                            } else {
-                                throw new ClassCastException(); // TODO : message
-                            }
-                        case INT:
-                        case LONG:
-                        case FLOAT:
-                        case DOUBLE:
-                            return pcast;
-                        default:
-                            throw new IllegalStateException(); // TODO: message
-                    }
-                case CHAR:
-                    switch (tpsort) {
-                        case BYTE:
-                        case SHORT:
-                            if (explicit) {
-                                return pcast;
-                            } else {
-                                throw new ClassCastException(); // TODO : message
-                            }
-                        case INT:
-                        case LONG:
-                        case FLOAT:
-                        case DOUBLE:
-                            return pcast;
-                        default:
-                            throw new IllegalStateException(); // TODO: message
-                    }
-                case INT:
-                    switch (tpsort) {
-                        case BYTE:
-                        case SHORT:
-                        case CHAR:
-                            if (explicit) {
-                                return pcast;
-                            } else {
-                                throw new ClassCastException(); // TODO : message
-                            }
-                        case LONG:
-                        case FLOAT:
-                        case DOUBLE:
-                            return pcast;
-                        default:
-                            throw new IllegalStateException(); // TODO: message
-                    }
-                case LONG:
-                    switch (tpsort) {
-                        case BYTE:
-                        case SHORT:
-                        case CHAR:
-                        case INT:
-                            if (explicit) {
-                                return pcast;
-                            } else {
-                                throw new ClassCastException(); // TODO : message
-                            }
-                        case FLOAT:
-                        case DOUBLE:
-                            return pcast;
-                        default:
-                            throw new IllegalStateException(); // TODO: message
-                    }
-                case FLOAT:
-                    switch (tpsort) {
-                        case BYTE:
-                        case SHORT:
-                        case CHAR:
-                        case INT:
-                        case LONG:
-                            if (explicit) {
-                                return pcast;
-                            } else {
-                                throw new ClassCastException(); // TODO : message
-                            }
-                        case DOUBLE:
-                            return pcast;
-                        default:
-                            throw new IllegalStateException(); // TODO: message
-                    }
-                case DOUBLE:
-                    switch (tpsort) {
-                        case BYTE:
-                        case SHORT:
-                        case CHAR:
-                        case INT:
-                        case LONG:
-                        case FLOAT:
-                            if (explicit) {
-                                return pcast;
-                            } else {
-                                throw new ClassCastException(); // TODO : message
-                            }
-                        default:
-                            throw new IllegalStateException(); // TODO: message
-                    }
-                    
-                default:
-                    throw new IllegalStateException(); // TODO: message
-            }
+        if (from.metadata.numeric && to.metadata.numeric && (force || types.numerics.contains(cast))) {
+            return cast;
         }
 
         try {
-            pfrom.getJClass().asSubclass(pto.getJClass());
+            from.clazz.asSubclass(to.clazz);
 
             return null;
         } catch (ClassCastException cce0) {
             try {
-                if (explicit) {
-                    pto.getJClass().asSubclass(pfrom.getJClass());
+                if (force) {
+                    to.clazz.asSubclass(from.clazz);
 
-                    return pcast;
+                    return cast;
                 } else {
                     throw new ClassCastException(); // TODO: message
                 }
@@ -495,355 +105,211 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         }
     }
 
-    private void constCast(final PMetadata pmetadata) {
-        if (pmetadata.constpre != null) {
-            if (pmetadata.ptransform != null) {
-                pmetadata.constpost = invokeTransform(pmetadata.ptransform, pmetadata.constpre);
-            } else if (pmetadata.pcast != null) {
-                final PSort pfsort = pmetadata.pcast.getPFrom().getPSort();
-                final PSort ptsort = pmetadata.pcast.getPTo().getPSort();
+    private void constCast(final ExpressionMetadata emd) {
+        if (emd.preConst != null) {
+            if (emd.transform != null) {
+                emd.postConst = invokeTransform(emd.transform, emd.preConst);
+            } else if (emd.cast != null) {
+                final TypeMetadata fromTMD = emd.cast.from.metadata;
+                final TypeMetadata toTMD = emd.cast.to.metadata;
 
-                switch (pfsort) {
-                    case BYTE:
-                        switch (ptsort) {
-                            case SHORT:
-                                pmetadata.constpost = (short)(byte)pmetadata.constpre;
-                                break;
-                            case CHAR:
-                                pmetadata.constpost = (char)(byte)pmetadata.constpre;
-                                break;
-                            case INT:
-                                pmetadata.constpost = (int)(byte)pmetadata.constpre;
-                                break;
-                            case LONG:
-                                pmetadata.constpost = (long)(byte)pmetadata.constpre;
-                                break;
-                            case FLOAT:
-                                pmetadata.constpost = (float)(byte)pmetadata.constpre;
-                                break;
-                            case DOUBLE:
-                                pmetadata.constpost = (double)(byte)pmetadata.constpre;
-                                break;
-                            case BYTE:
-                            case BOOL:
-                            case STRING:
-                            default:
-                                throw new IllegalStateException(); // TODO: message
-                        }
-                    case SHORT:
-                        switch (ptsort) {
-                            case BYTE:
-                                pmetadata.constpost = (byte)(short)pmetadata.constpre;
-                                break;
-                            case CHAR:
-                                pmetadata.constpost = (char)(short)pmetadata.constpre;
-                                break;
-                            case INT:
-                                pmetadata.constpost = (int)(short)pmetadata.constpre;
-                                break;
-                            case LONG:
-                                pmetadata.constpost = (long)(short)pmetadata.constpre;
-                                break;
-                            case FLOAT:
-                                pmetadata.constpost = (float)(short)pmetadata.constpre;
-                                break;
-                            case DOUBLE:
-                                pmetadata.constpost = (double)(short)pmetadata.constpre;
-                                break;
-                            case SHORT:
-                            case BOOL:
-                            case STRING:
-                            default:
-                                throw new IllegalStateException(); // TODO: message
-                        }
-                        break;
-                    case CHAR:
-                        switch (ptsort) {
-                            case BYTE:
-                                pmetadata.constpost = (byte)(char)pmetadata.constpre;
-                                break;
-                            case SHORT:
-                                pmetadata.constpost = (short)(char)pmetadata.constpre;
-                                break;
-                            case INT:
-                                pmetadata.constpost = (int)(char)pmetadata.constpre;
-                                break;
-                            case LONG:
-                                pmetadata.constpost = (long)(char)pmetadata.constpre;
-                                break;
-                            case FLOAT:
-                                pmetadata.constpost = (float)(char)pmetadata.constpre;
-                                break;
-                            case DOUBLE:
-                                pmetadata.constpost = (double)(char)pmetadata.constpre;
-                                break;
-                            case CHAR:
-                            case BOOL:
-                            case STRING:
-                            default:
-                                throw new IllegalStateException(); // TODO: message
-                        }
-                        break;
-                    case INT:
-                        switch (ptsort) {
-                            case BYTE:
-                                pmetadata.constpost = (byte)(int)pmetadata.constpre;
-                                break;
-                            case SHORT:
-                                pmetadata.constpost = (short)(int)pmetadata.constpre;
-                                break;
-                            case CHAR:
-                                pmetadata.constpost = (char)(int)pmetadata.constpre;
-                                break;
-                            case LONG:
-                                pmetadata.constpost = (long)(int)pmetadata.constpre;
-                                break;
-                            case FLOAT:
-                                pmetadata.constpost = (float)(int)pmetadata.constpre;
-                                break;
-                            case DOUBLE:
-                                pmetadata.constpost = (double)(int)pmetadata.constpre;
-                                break;
-                            case INT:
-                            case BOOL:
-                            case STRING:
-                            default:
-                                throw new IllegalStateException(); // TODO: message
-                        }
-                        break;
-                    case LONG:
-                        switch (ptsort) {
-                            case BYTE:
-                                pmetadata.constpost = (byte)(long)pmetadata.constpre;
-                                break;
-                            case SHORT:
-                                pmetadata.constpost = (short)(long)pmetadata.constpre;
-                                break;
-                            case CHAR:
-                                pmetadata.constpost = (char)(long)pmetadata.constpre;
-                                break;
-                            case INT:
-                                pmetadata.constpost = (int)(long)pmetadata.constpre;
-                                break;
-                            case FLOAT:
-                                pmetadata.constpost = (float)(long)pmetadata.constpre;
-                                break;
-                            case DOUBLE:
-                                pmetadata.constpost = (double)(long)pmetadata.constpre;
-                                break;
-                            case LONG:
-                            case BOOL:
-                            case STRING:
-                            default:
-                                throw new IllegalStateException(); // TODO: message
-                        }
-                        break;
-                    case FLOAT:
-                        switch (ptsort) {
-                            case BYTE:
-                                pmetadata.constpost = (byte)(float)pmetadata.constpre;
-                                break;
-                            case SHORT:
-                                pmetadata.constpost = (short)(float)pmetadata.constpre;
-                                break;
-                            case CHAR:
-                                pmetadata.constpost = (char)(float)pmetadata.constpre;
-                                break;
-                            case INT:
-                                pmetadata.constpost = (int)(float)pmetadata.constpre;
-                                break;
-                            case LONG:
-                                pmetadata.constpost = (long)(float)pmetadata.constpre;
-                                break;
-                            case DOUBLE:
-                                pmetadata.constpost = (double)(float)pmetadata.constpre;
-                                break;
-                            case FLOAT:
-                            case BOOL:
-                            case STRING:
-                            default:
-                                throw new IllegalStateException(); // TODO: message
-                        }
-                        break;
-                    case DOUBLE:
-                        switch (ptsort) {
-                            case BYTE:
-                                pmetadata.constpost = (byte)(double)pmetadata.constpre;
-                                break;
-                            case SHORT:
-                                pmetadata.constpost = (short)(double)pmetadata.constpre;
-                                break;
-                            case CHAR:
-                                pmetadata.constpost = (char)(double)pmetadata.constpre;
-                                break;
-                            case INT:
-                                pmetadata.constpost = (int)(double)pmetadata.constpre;
-                                break;
-                            case LONG:
-                                pmetadata.constpost = (long)(double)pmetadata.constpre;
-                                break;
-                            case FLOAT:
-                                pmetadata.constpost = (float)(double)pmetadata.constpre;
-                                break;
-                            case DOUBLE:
-                            case BOOL:
-                            case STRING:
-                            default:
-                                throw new IllegalStateException(); // TODO: message
-                        }
-                        break;
-                    case BOOL:
-                    case STRING:
-                    default:
-                        throw new IllegalStateException(); // TODO: message
+                if (fromTMD == toTMD) {
+                    emd.postConst = emd.preConst;
+                } else if (fromTMD.numeric && toTMD.numeric) {
+                    Number number;
+
+                    if (fromTMD == TypeMetadata.CHAR) {
+                        number = (int)(char)emd.preConst;
+                    } else {
+                        number = (Number)emd.preConst;
+                    }
+
+                    switch (toTMD) {
+                        case BYTE:
+                            emd.postConst = number.byteValue();
+
+                            break;
+                        case SHORT:
+                            emd.postConst = number.shortValue();
+
+                            break;
+                        case CHAR:
+                            emd.postConst = (char)number.longValue();
+
+                            break;
+                        case INT:
+                            emd.postConst = number.intValue();
+
+                            break;
+                        case LONG:
+                            emd.postConst = number.longValue();
+
+                            break;
+                        case FLOAT:
+                            emd.postConst = number.floatValue();
+
+                            break;
+                        case DOUBLE:
+                            emd.postConst = number.doubleValue();
+
+                            break;
+                        default:
+                            throw new IllegalStateException();
+                    }
+                } else {
+                    throw new IllegalStateException(); // TODO: message
                 }
             } else {
-                pmetadata.constpost = pmetadata.constpre;
+                throw new IllegalStateException(); // TODO: message
             }
         }
     }
 
-    private Object invokeTransform(final PTransform ptransform, final Object object) {
-        final PMethod pmethod = ptransform.getPMethod();
-        final Method jmethod = pmethod.getJMethod();
+    private Object invokeTransform(final Transform transform, final Object object) {
+        final Method method = transform.method;
+        final java.lang.reflect.Method jmethod = method.method;
         final int modifiers = jmethod.getModifiers();
 
         try {
-            if (Modifier.isStatic(modifiers)) {
+            if (java.lang.reflect.Modifier.isStatic(modifiers)) {
                 return jmethod.invoke(null, object);
             } else {
                 return jmethod.invoke(object);
             }
         } catch (IllegalAccessException | IllegalArgumentException |
-                InvocationTargetException | NullPointerException |
+                java.lang.reflect.InvocationTargetException | NullPointerException |
                 ExceptionInInitializerError exception) {
             throw new IllegalArgumentException(); // TODO: message
         }
     }
 
-    private PType getUnaryNumericPromotion(final PType pfrom, boolean decimal) {
+    private Type getUnaryNumericPromotion(final Type pfrom, boolean decimal) {
         return getBinaryNumericPromotion(pfrom, null , decimal);
     }
 
-    private PType getBinaryNumericPromotion(final PType pfrom0, final PType pfrom1, boolean decimal) {
-        final Deque<PType> upcast = new ArrayDeque<>();
-        final Deque<PType> downcast = new ArrayDeque<>();
+    private Type getBinaryNumericPromotion(final Type from0, final Type from1, boolean decimal) {
+        final Deque<Type> upcast = new ArrayDeque<>();
+        final Deque<Type> available = new ArrayDeque<>();
 
-        if (decimal) {
-            upcast.push(pstandard.pdouble);
-            upcast.push(pstandard.pfloat);
-        } else {
-            downcast.push(pstandard.pdouble);
-            downcast.push(pstandard.pfloat);
-        }
-
-        upcast.push(pstandard.plong);
-        upcast.push(pstandard.pint);
+        upcast.addFirst(standard.doubleType);
+        upcast.addFirst(standard.floatType);
+        upcast.addFirst(standard.longType);
+        upcast.addFirst(standard.intType);
 
         while (!upcast.isEmpty()) {
-            final PType pto = upcast.pop();
-            final PCast pcast0 = new PCast(pfrom0, pto);
-            boolean promote;
+            final Type to = upcast.removeFirst();
+            final Cast pcast0 = new Cast(from0, to);
 
-            promote = ptypes.isPDisallowed(pcast0); if (promote) continue;
-            promote = upcast.contains(pfrom0); if (promote) continue;
-            promote = downcast.contains(pfrom0) && ptypes.getPImplicit(pcast0) == null; if (promote) continue;
-            promote = !pfrom0.getPSort().isPNumeric() && ptypes.getPImplicit(pcast0) == null; if (promote) continue;
+            if (types.disallowed.contains(pcast0)) continue;
+            if (upcast.contains(from0)) continue;
+            if (!from0.metadata.numeric && !types.implicits.containsKey(pcast0)) continue;
 
-            if (pfrom1 != null) {
-                final PCast pcast1 = new PCast(pfrom1, pto);
+            if (from1 != null) {
+                final Cast pcast1 = new Cast(from1, to);
 
-                promote = ptypes.isPDisallowed(pcast1); if (promote) continue;
-                promote = upcast.contains(pfrom1); if (promote) continue;
-                promote = downcast.contains(pfrom1) && ptypes.getPImplicit(pcast1) == null; if (promote) continue;
-                promote = !pfrom1.getPSort().isPNumeric() && ptypes.getPImplicit(pcast1) == null; if (promote) continue;
+                if (types.disallowed.contains(pcast1)) continue;
+                if (upcast.contains(from1)) continue;
+                if (!from1.metadata.numeric && !types.implicits.containsKey(pcast1)) continue;
             }
 
-            return pto;
+            available.addLast(to);
         }
 
-        return null;
+        if (decimal) {
+            available.remove(standard.doubleType);
+            available.remove(standard.floatType);
+        }
+
+        if (available.isEmpty()) {
+            return null;
+        }
+
+        if (from0.metadata.numeric && (from1 == null || from1.metadata.numeric)) {
+            return available.peekFirst();
+        }
+
+        return available.peekLast();
     }
 
-    private PType getBinaryAnyPromotion(final PType pfrom0, final PType pfrom1) {
-        if (pfrom0.equals(pfrom1)) {
-            return pfrom0;
+    private Type getBinaryAnyPromotion(final Type from0, final Type from1) {
+        if (from0.equals(from1)) {
+            return from0;
         }
 
-        final PSort pfsort0 = pfrom0.getPSort();
-        final PSort pfsort1 = pfrom1.getPSort();
+        final TypeMetadata tmd0 = from0.metadata;
+        final TypeMetadata tmd1 = from1.metadata;
 
-        if (pfsort0 == PSort.BOOL || pfsort1 == PSort.BOOL) {
-            final PCast pcast = new PCast(pfsort0 == PSort.BOOL ? pfrom1 : pfrom0, pstandard.pbool);
+        if (tmd0 == TypeMetadata.BOOL || tmd1 == TypeMetadata.BOOL) {
+            final Cast cast = new Cast(tmd0 == TypeMetadata.BOOL ? from1 : from0, standard.boolType);
 
-            if (!ptypes.isPDisallowed(pcast) && ptypes.getPImplicit(pcast) != null) {
-                return pstandard.pbool;
+            if (!types.disallowed.contains(cast) && types.implicits.containsKey(cast)) {
+                return standard.boolType;
             }
         }
 
-        if (pfsort0.isPNumeric() || pfsort1.isPNumeric()) {
-            PType ptype = getBinaryNumericPromotion(pfrom0, pfrom1, true);
+        if (tmd0.numeric || tmd1.numeric) {
+            Type type = getBinaryNumericPromotion(from0, from1, true);
 
-            if (ptype != null) {
-                return ptype;
+            if (type != null) {
+                return type;
             }
         }
 
-        if (pfrom0.getJClass().equals(pfrom1.getJClass())) {
-            PCast pcast0 = null;
-            PCast pcast1 = null;
+        if (from0.clazz.equals(from1.clazz)) {
+            Cast cast0 = null;
+            Cast cast1 = null;
 
-            if (pfrom0.getPClass().isPGeneric() && !pfrom1.getPClass().isPGeneric()) {
-                pcast0 = new PCast(pfrom0, pfrom1);
-                pcast1 = new PCast(pfrom1, pfrom0);
-            } else if (!pfrom0.getPClass().isPGeneric() && pfrom1.getPClass().isPGeneric()) {
-                pcast0 = new PCast(pfrom1, pfrom0);
-                pcast1 = new PCast(pfrom0, pfrom1);
+            if (from0.struct.generic && !from1.struct.generic) {
+                cast0 = new Cast(from0, from1);
+                cast1 = new Cast(from1, from0);
+            } else if (!from0.struct.generic && from1.struct.generic) {
+                cast0 = new Cast(from1, from0);
+                cast1 = new Cast(from0, from1);
             }
 
-            if (pcast0 != null && pcast1 != null) {
-                if (!ptypes.isPDisallowed(pcast0) && ptypes.getPImplicit(pcast0) != null) {
-                    return pcast0.getPTo();
+            if (cast0 != null && cast1 != null) {
+                if (!types.disallowed.contains(cast0) && types.implicits.containsKey(cast0)) {
+                    return cast0.to;
                 }
 
-                if (!ptypes.isPDisallowed(pcast1) && ptypes.getPImplicit(pcast1) != null) {
-                    return pcast1.getPTo();
+                if (!types.disallowed.contains(cast1) && types.implicits.containsKey(cast1)) {
+                    return cast1.to;
                 }
             }
 
-            return pstandard.pobject;
+            return standard.objectType;
         }
 
         try {
-            pfrom0.getJClass().asSubclass(pfrom1.getJClass());
-            final PCast pcast = new PCast(pfrom0, pfrom1);
+            from0.clazz.asSubclass(from1.clazz);
+            final Cast cast = new Cast(from0, from1);
 
-            if (!ptypes.isPDisallowed(pcast)) {
-                return pfrom1;
+            if (!types.disallowed.contains(cast)) {
+                return from1;
             }
         } catch (ClassCastException cce0) {
             // Do nothing.
         }
 
         try {
-            pfrom1.getJClass().asSubclass(pfrom0.getJClass());
-            final PCast pcast = new PCast(pfrom1, pfrom0);
+            from1.clazz.asSubclass(from1.clazz);
+            final Cast cast = new Cast(from1, from0);
 
-            if (!ptypes.isPDisallowed(pcast)) {
-                return pfrom0;
+            if (!types.disallowed.contains(cast)) {
+                return from0;
             }
         } catch (ClassCastException cce0) {
             // Do nothing.
         }
 
-        if (pfsort0.isJObject() && pfsort1.isJObject()) {
-            return pstandard.pobject;
+        if (tmd0.object && tmd1.object) {
+            return standard.objectType;
         }
 
         return null;
     }
 
-    @Override
+    /*@Override
     public Void visitSource(final SourceContext ctx) {
         final PMetadata sourcemd = pmetadata.get(ctx);
         PMetadata statementmd = null;
@@ -1620,7 +1086,7 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
         markCast(preincmd);
 
         return null;
-    }*/
+    }
 
     @Override
     public Void visitUnary(final UnaryContext ctx) {
@@ -2512,5 +1978,5 @@ class PainlessAnalyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitArguments(final ArgumentsContext ctx) {
         throw new UnsupportedOperationException(); // TODO: message
-    }
+    }*/
 }

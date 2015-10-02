@@ -11,63 +11,77 @@ import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
 
-import static painless.PainlessAnalyzer.*;
+import static painless.Analyzer.*;
 import static painless.Types.*;
 
-final class PainlessCompiler {
-    private static class PainlessClassLoader extends ClassLoader {
-        PainlessClassLoader(ClassLoader parent) {
+final class Compiler {
+    private static class Loader extends ClassLoader {
+        Loader(ClassLoader parent) {
             super(parent);
         }
 
-        public Class<? extends PainlessExecutable> define(String name, byte[] bytes) {
-            return defineClass(name, bytes, 0, bytes.length).asSubclass(PainlessExecutable.class);
+        public Class<? extends Executable> define(String name, byte[] bytes) {
+            return defineClass(name, bytes, 0, bytes.length).asSubclass(Executable.class);
         }
     }
 
-    static PainlessExecutable compile(String name, String source, ClassLoader parent) {
+    static Executable compile(String name, String source, ClassLoader parent) {
         long start = System.currentTimeMillis();
-        final PTypes ptypes = loadFromProperties();
+
+        final Types types = loadFromProperties();
+
         long end = System.currentTimeMillis() - start;
         System.out.println("types: " + end);
         start = System.currentTimeMillis();
-        final ParseTree root = createParseTree(source, ptypes);
+
+        final ParseTree root = createParseTree(source, types);
+
         end = System.currentTimeMillis() - start;
         System.out.println("tree: " + end);
-        final Deque<PArgument> parguments = new ArrayDeque<>();
-        parguments.add(new PArgument("this", getPTypeFromCanonicalPName(ptypes, "exec")));
-        parguments.add(new PArgument("input", getPTypeFromCanonicalPName(ptypes, "smap")));
+
+        final Adapter adapter = new Adapter(types, root);
+        adapter.incrementScope();
+        adapter.addVariable("this", types.standard.execType);
+        adapter.addVariable("input", types.standard.smapType);
 
         start = System.currentTimeMillis();
-        final Map<ParseTree, PMetadata> pmetadata = PainlessAnalyzer.analyze(ptypes, root, parguments);
+
+        //Analyzer.analyze(adapter);
+        adapter.decrementScope();
+
         end = System.currentTimeMillis() - start;
         System.out.println("analyze: " + end);
         start = System.currentTimeMillis();
-        final byte[] bytes = PainlessWriter.write(source, root, pmetadata);
+
+        //final byte[] bytes = Writer.write(source, root, pmetadata);
+
         end = System.currentTimeMillis() - start;
         System.out.println("write: " + end);
         start = System.currentTimeMillis();
-        final PainlessExecutable executable = createExecutable(name, source, parent, bytes);
+
+        //final Executable executable = createExecutable(name, source, parent, bytes);
+
         end = System.currentTimeMillis() - start;
         System.out.println("create: " + end);
 
-        return executable;
+        //return executable;
+        return null;
     }
 
-    private static ParseTree createParseTree(String source, PTypes ptypes) {
+    private static ParseTree createParseTree(String source, Types types) {
         final ANTLRInputStream stream = new ANTLRInputStream(source);
         final PainlessLexer lexer = new PainlessLexer(stream);
         final PainlessParser parser = new PainlessParser(new CommonTokenStream(lexer));
 
-        parser.setTypes(ptypes.getPNames());
+        parser.setTypes(types.structs.keySet());
 
         ParseTree root = parser.source();
         System.out.println(root.toStringTree(parser));
         return root;
     }
 
-    private static PainlessExecutable createExecutable(String name, String source, ClassLoader parent, byte[] bytes) {
-        try {
+    private static Executable createExecutable(String name, String source, ClassLoader parent, byte[] bytes) {
+        /*try {
             try {
                 FileOutputStream f = new FileOutputStream(new File("/Users/jdconrad/lang/generated/out.class"), false);
                 f.write(bytes);
@@ -76,16 +90,18 @@ final class PainlessCompiler {
                 throw new RuntimeException(e);
             }
 
-            final PainlessClassLoader loader = new PainlessClassLoader(parent);
-            final Class<? extends PainlessExecutable> clazz = loader.define(PainlessWriter.CLASS_NAME, bytes);
-            final Constructor<? extends PainlessExecutable> constructor =
+            final Loader loader = new Loader(parent);
+            final Class<? extends Executable> clazz = loader.define(Writer.CLASS_NAME, bytes);
+            final Constructor<? extends Executable> constructor =
                     clazz.getConstructor(String.class, String.class);
 
             return constructor.newInstance(name, source);
         } catch (ReflectiveOperationException exception) {
             throw new IllegalStateException(exception);
-        }
+        }*/
+
+        return null;
     }
 
-    private PainlessCompiler() {}
+    private Compiler() {}
 }

@@ -7,11 +7,11 @@ import java.util.List;
 
 import org.antlr.v4.runtime.tree.ParseTree;
 
-import static painless.PainlessAnalyzer.*;
+import static painless.Analyzer.*;
 import static painless.Types.*;
 
 public class External {
-    enum SType {
+    /*enum SType {
         TYPE,
         VARIABLE,
         CONSTRUCTOR,
@@ -410,5 +410,5 @@ public class External {
         PType getPType() {
             return ptype;
         }
-    }
+    }*/
 }

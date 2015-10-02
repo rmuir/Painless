@@ -14,13 +14,13 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-import static painless.PainlessAnalyzer.*;
+import static painless.Analyzer.*;
 import static painless.External.*;
 import static painless.PainlessParser.*;
 import static painless.Types.*;
 
-class PainlessWriter extends PainlessBaseVisitor<Void>{
-    private static class PBranch {
+class Writer extends PainlessBaseVisitor<Void>{
+    /*private static class PBranch {
         private final ParseTree source;
 
         private Label abegin;
@@ -38,13 +38,13 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
         }
     }
 
-    final static String BASE_CLASS_NAME = PainlessExecutable.class.getName();
+    final static String BASE_CLASS_NAME = Executable.class.getName();
     final static String CLASS_NAME = BASE_CLASS_NAME + "$CompiledPainlessExecutable";
-    final static String BASE_CLASS_INTERNAL = PainlessExecutable.class.getName().replace('.', '/');
+    final static String BASE_CLASS_INTERNAL = Executable.class.getName().replace('.', '/');
     final static String CLASS_INTERNAL = BASE_CLASS_INTERNAL + "$CompiledPainlessExecutable";
 
     static byte[] write(final String source, final ParseTree tree, final Map<ParseTree, PMetadata> pmetadata) {
-        PainlessWriter writer = new PainlessWriter(source, tree, pmetadata);
+        Writer writer = new Writer(source, tree, pmetadata);
 
         return writer.getBytes();
     }
@@ -57,7 +57,7 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
     private ClassWriter writer;
     private MethodVisitor execute;
 
-    private PainlessWriter(final String source, final ParseTree root, final Map<ParseTree, PMetadata> pmetadata) {
+    private Writer(final String source, final ParseTree root, final Map<ParseTree, PMetadata> pmetadata) {
         this.pmetadata = pmetadata;
 
         this.pbranches = new HashMap<>();
@@ -1497,13 +1497,13 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
                     int opcode;
 
-                    /*if (write && !pop) {
+                    if (write && !pop) {
                         if (psort.getASize() == 1) {
                             execute.visitInsn(Opcodes.DUP_X1);
                         } else if (psort.getASize() == 2) {
                             execute.visitInsn(Opcodes.DUP2_X1);
                         }
-                    }*/
+                    }
 
                     if (Modifier.isStatic(pfield.getJField().getModifiers())) {
                         opcode = write ? Opcodes.PUTSTATIC : Opcodes.GETSTATIC;
@@ -1518,13 +1518,13 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
                     final PSort psort = ((PType)svalue0).getPSort();
                     final boolean write = (Boolean)svalue1;
 
-                    /*if (write && !pop) {
+                    if (write && !pop) {
                         if (psort.getASize() == 1) {
                             execute.visitInsn(Opcodes.DUP_X2);
                         } else if (psort.getASize() == 2) {
                             execute.visitInsn(Opcodes.DUP2_X2);
                         }
-                    }*/
+                    }
 
                     switch (psort) {
                         case BOOL:
@@ -1683,5 +1683,5 @@ class PainlessWriter extends PainlessBaseVisitor<Void>{
 
     private byte[] getBytes() {
         return writer.toByteArray();
-    }
+    }*/
 }

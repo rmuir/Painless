@@ -2,11 +2,11 @@ package painless;
 
 import java.util.Map;
 
-public abstract class PainlessExecutable {
+public abstract class Executable {
     private final String name;
     private final String source;
 
-    public PainlessExecutable(String name, String source) {
+    public Executable(String name, String source) {
         this.name = name;
         this.source = source;
     }

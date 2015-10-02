@@ -12,7 +12,7 @@ import java.util.Properties;
 import java.util.Set;
 
 class Types {
-    enum Metadata {
+    enum TypeMetadata {
         VOID(   "void"   , 0 , false , false , false ),
         BOOL(   "bool"   , 1 , false , true  , false ),
         BYTE(   "byte"   , 1 , true  , true  , false ),
@@ -32,8 +32,8 @@ class Types {
         final boolean constant;
         final boolean object;
 
-        Metadata(final String name, final int size,
-                 final boolean numeric, final boolean constant, final boolean object) {
+        TypeMetadata(final String name, final int size, final boolean numeric,
+                     final boolean constant, final boolean object) {
             this.name = name;
             this.size = size;
             this.numeric = numeric;
@@ -48,10 +48,10 @@ class Types {
         final String internal;
         final String descriptor;
         final int dimensions;
-        final Metadata metadata;
+        final TypeMetadata metadata;
 
-        Type(final Struct struct, final Class clazz, final String internal,
-             final String descriptor, final int dimensions, final Metadata metadata) {
+        Type(final Struct struct, final Class clazz, final String internal, final String descriptor,
+             final int dimensions, final TypeMetadata metadata) {
             this.struct = struct;
             this.clazz = clazz;
             this.internal = internal;
@@ -242,10 +242,10 @@ class Types {
     }
 
     static class Transform {
-        private final Cast cast;
-        private final Method method;
-        private final Type from;
-        private final Type to;
+        final Cast cast;
+        final Method method;
+        final Type from;
+        final Type to;
 
         private Transform(final Cast cast, Method method, final Type from, final Type to) {
             this.cast = cast;
@@ -284,7 +284,7 @@ class Types {
             validateExact(types, "double", double.class);
             validateExact(types, "object", Object.class);
             validateExact(types, "string", String.class);
-            validateSubclass(types, "exec", PainlessExecutable.class);
+            validateSubclass(types, "exec", Executable.class);
             validateSubclass(types, "list", List.class);
             validateSubclass(types, "map", Map.class);
             validateSubclass(types, "smap", Map.class);
@@ -359,9 +359,9 @@ class Types {
                 loadStructFromProperty(types, property, true);
             } else {
                 boolean valid = key.startsWith("constructor") ||
-                                key.startsWith("function")    || key.startsWith("method")     ||
-                                key.startsWith("static")      || key.startsWith("member")     ||
-                                key.startsWith("upcast")      || key.startsWith("transform")  ||
+                                key.startsWith("function")    || key.startsWith("method") ||
+                                key.startsWith("static")      || key.startsWith("member") ||
+                                key.startsWith("transform")   || key.startsWith("upcast") ||
                                 key.startsWith("disallow");
 
                 if (!valid) {
@@ -389,16 +389,17 @@ class Types {
         for (String key : properties.stringPropertyNames()) {
             final String property = properties.getProperty(key);
 
-            if (key.startsWith("upcast")) {
-                loadUpcastFromProperty(types, property);
-            } else if (key.startsWith("transform")) {
+            if (key.startsWith("transform")) {
                 loadTransformFromProperty(types, property);
+            } else if (key.startsWith("upcast")) {
+                loadUpcastFromProperty(types, property);
             } else if (key.startsWith("disallow")) {
                 loadDisallowFromProperty(types, property);
             }
         }
 
         validateMethods(types);
+        buildNumericCasts(types);
 
         return new Types(types);
     }
@@ -509,20 +510,7 @@ class Types {
         final String staticstr = split[4];
         final String methodstr = split[5];
 
-        loadPTransform(types, typestr, fromstr, tostr, ownerstr, staticstr, methodstr);
-    }
-
-    private static void loadDisallowFromProperty(final Types types, final String property) {
-        final String[] split = property.split("\\s+");
-
-        if (split.length != 2) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        final String fromstr = split[0];
-        final String tostr = split[1];
-
-        loadPDisallow(types, fromstr, tostr);
+        loadTransform(types, typestr, fromstr, tostr, ownerstr, staticstr, methodstr);
     }
 
     private static void loadUpcastFromProperty(final Types types, final String property) {
@@ -536,6 +524,19 @@ class Types {
         final String tostr = split[1];
 
         loadUpcast(types, fromstr, tostr);
+    }
+
+    private static void loadDisallowFromProperty(final Types types, final String property) {
+        final String[] split = property.split("\\s+");
+
+        if (split.length != 2) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String fromstr = split[0];
+        final String tostr = split[1];
+
+        loadDisallow(types, fromstr, tostr);
     }
 
     private static void loadStruct(final Types types, final String namestr,
@@ -750,44 +751,9 @@ class Types {
         }
     }
 
-    private static void loadUpcast(final Types types, final String fromstr, final String tostr) {
-        final Type from = getTypeFromCanonicalName(types, fromstr);
-        final Type to = getTypeFromCanonicalName(types, tostr);
-
-        if (from.equals(to)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        final Cast cast = new Cast(from, to);
-
-        if (types.disallowed.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        if (types.upcasts.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        if (types.explicits.containsKey(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        if (types.implicits.containsKey(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        try {
-            to.clazz.asSubclass(from.clazz);
-        } catch (ClassCastException expcetion) {
-            throw new IllegalArgumentException();
-        }
-
-        types.upcasts.add(cast);
-    }
-
-    private static void loadPTransform(final Types types, final String typestr,
-                                       final String fromstr, final String tostr, final String ownerstr,
-                                       final String staticstr, final String methodstr) {
+    private static void loadTransform(final Types types, final String typestr,
+                                      final String fromstr, final String tostr, final String ownerstr,
+                                      final String staticstr, final String methodstr) {
         final Struct owner = types.structs.get(ownerstr);
 
         if (owner == null) {
@@ -891,13 +857,13 @@ class Types {
 
         final Transform transform = new Transform(cast, method, castfrom, castto);
 
-        if ("exlicit".equals(typestr)) {
+        if ("explicit".equals(typestr)) {
             if (types.explicits.containsKey(cast)) {
                 throw new IllegalArgumentException(); // TODO: message
             }
 
             types.explicits.put(cast, transform);
-        } else if ("imlicit".equals(typestr)) {
+        } else if ("implicit".equals(typestr)) {
             if (types.implicits.containsKey(cast)) {
                 throw new IllegalArgumentException(); // TODO: message
             }
@@ -908,7 +874,42 @@ class Types {
         }
     }
 
-    private static void loadPDisallow(final Types types, final String fromstr, final String tostr) {
+    private static void loadUpcast(final Types types, final String fromstr, final String tostr) {
+        final Type from = getTypeFromCanonicalName(types, fromstr);
+        final Type to = getTypeFromCanonicalName(types, tostr);
+
+        if (from.equals(to)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final Cast cast = new Cast(from, to);
+
+        if (types.disallowed.contains(cast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (types.upcasts.contains(cast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (types.explicits.containsKey(cast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (types.implicits.containsKey(cast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        try {
+            to.clazz.asSubclass(from.clazz);
+        } catch (ClassCastException expcetion) {
+            throw new IllegalArgumentException();
+        }
+
+        types.upcasts.add(cast);
+    }
+
+    private static void loadDisallow(final Types types, final String fromstr, final String tostr) {
         final Type from = getTypeFromCanonicalName(types, fromstr);
         final Type to = getTypeFromCanonicalName(types, tostr);
 
@@ -935,6 +936,33 @@ class Types {
         }
 
         types.disallowed.add(pcast);
+    }
+
+    private static void buildNumericCasts(final Types types) {
+        types.numerics.add(new Cast(types.standard.byteType, types.standard.shortType));
+        types.numerics.add(new Cast(types.standard.byteType, types.standard.intType));
+        types.numerics.add(new Cast(types.standard.byteType, types.standard.longType));
+        types.numerics.add(new Cast(types.standard.byteType, types.standard.floatType));
+        types.numerics.add(new Cast(types.standard.byteType, types.standard.doubleType));
+
+        types.numerics.add(new Cast(types.standard.shortType, types.standard.intType));
+        types.numerics.add(new Cast(types.standard.shortType, types.standard.longType));
+        types.numerics.add(new Cast(types.standard.shortType, types.standard.floatType));
+        types.numerics.add(new Cast(types.standard.shortType, types.standard.doubleType));
+
+        types.numerics.add(new Cast(types.standard.charType, types.standard.intType));
+        types.numerics.add(new Cast(types.standard.charType, types.standard.longType));
+        types.numerics.add(new Cast(types.standard.charType, types.standard.floatType));
+        types.numerics.add(new Cast(types.standard.charType, types.standard.doubleType));
+
+        types.numerics.add(new Cast(types.standard.intType, types.standard.longType));
+        types.numerics.add(new Cast(types.standard.intType, types.standard.floatType));
+        types.numerics.add(new Cast(types.standard.intType, types.standard.doubleType));
+
+        types.numerics.add(new Cast(types.standard.longType, types.standard.floatType));
+        types.numerics.add(new Cast(types.standard.longType, types.standard.doubleType));
+
+        types.numerics.add(new Cast(types.standard.floatType, types.standard.doubleType));
     }
 
     private static String[][] parseArgumentsStr(final String argumentstr) {
@@ -988,9 +1016,9 @@ class Types {
             final String internal = struct.internal;
             final String descriptor = getDescriptorFromClass(clazz);
 
-            Metadata metadata = Metadata.OBJECT;
+            TypeMetadata metadata = TypeMetadata.OBJECT;
 
-            for (Metadata value : Metadata.values()) {
+            for (TypeMetadata value : TypeMetadata.values()) {
                 if (value.name.equals(metadata.name)) {
                     metadata = value;
 
@@ -1012,7 +1040,7 @@ class Types {
             final String internal = clazz.getName().replace('.', '/');
             final String descriptor = getDescriptorFromClass(clazz);
 
-            return new Type(struct, clazz, internal, descriptor, 0, Metadata.ARRAY);
+            return new Type(struct, clazz, internal, descriptor, 0, TypeMetadata.ARRAY);
         }
     }
 
@@ -1222,9 +1250,10 @@ class Types {
 
     final Map<String, Struct> structs;
 
-    final Set<Cast> upcasts;
     final Map<Cast, Transform> explicits;
     final Map<Cast, Transform> implicits;
+    final Set<Cast> upcasts;
+    final Set<Cast> numerics;
     final Set<Cast> disallowed;
 
     final Standard standard;
@@ -1232,9 +1261,10 @@ class Types {
     private Types() {
         structs = new HashMap<>();
 
-        upcasts = new HashSet<>();
         explicits = new HashMap<>();
         implicits = new HashMap<>();
+        upcasts = new HashSet<>();
+        numerics = new HashSet<>();
         disallowed = new HashSet<>();
 
         standard = null;
@@ -1249,9 +1279,10 @@ class Types {
 
         structs = Collections.unmodifiableMap(ummodifiable);
 
-        upcasts = Collections.unmodifiableSet(types.upcasts);
         explicits = Collections.unmodifiableMap(types.explicits);
         implicits = Collections.unmodifiableMap(types.implicits);
+        upcasts = Collections.unmodifiableSet(types.upcasts);
+        numerics = Collections.unmodifiableSet(types.numerics);
         disallowed = Collections.unmodifiableSet(types.disallowed);
 
         standard = new Standard(this);
