@@ -25,7 +25,7 @@ public class Adapter {
     }
 
     static class StatementMetadata {
-        final ParseTree source;
+        ParseTree source;
 
         boolean allExit;
         boolean allReturn;
@@ -35,8 +35,8 @@ public class Adapter {
         boolean allContinue;
         boolean anyContinue;
 
-        StatementMetadata(final ParseTree source) {
-            this.source = source;
+        StatementMetadata() {
+            source = null;
 
             allExit = false;
             allReturn = false;
@@ -49,7 +49,7 @@ public class Adapter {
     }
 
     static class ExpressionMetadata {
-        final ParseTree source;
+        ParseTree source;
 
         boolean statement;
 
@@ -67,8 +67,8 @@ public class Adapter {
         Cast cast;
         Transform transform;
 
-        ExpressionMetadata(final ParseTree source) {
-            this.source = source;
+        ExpressionMetadata() {
+            source = null;
 
             statement = false;
 
@@ -157,37 +157,51 @@ public class Adapter {
     }
 
     StatementMetadata createStatementMetadata(final ParseTree source) {
-        final StatementMetadata sourceSMD = new StatementMetadata(source);
-        statementMetadata.put(source, sourceSMD);
+        final StatementMetadata sourcesmd = new StatementMetadata();
+        sourcesmd.source = source;
+        statementMetadata.put(source, sourcesmd);
 
-        return sourceSMD;
+        return sourcesmd;
+    }
+
+    void updateStatementMetadata(final ParseTree source, final StatementMetadata statemd) {
+        statementMetadata.remove(statemd.source);
+        statemd.source = source;
+        statementMetadata.put(source, statemd);
     }
 
     StatementMetadata getStatementMetadata(final ParseTree source) {
-        final StatementMetadata sourceSMD = statementMetadata.get(source);
+        final StatementMetadata sourcesmd = statementMetadata.get(source);
 
-        if (sourceSMD == null) {
+        if (sourcesmd == null) {
             throw new IllegalStateException(); // TODO: message
         }
 
-        return sourceSMD;
+        return sourcesmd;
     }
 
     ExpressionMetadata createExpressionMetadata(final ParseTree source) {
-        final ExpressionMetadata sourceSMD = new ExpressionMetadata(source);
-        expressionMetadata.put(source, sourceSMD);
+        final ExpressionMetadata sourceemd = new ExpressionMetadata();
+        sourceemd.source = source;
+        expressionMetadata.put(source, sourceemd);
 
-        return sourceSMD;
+        return sourceemd;
     }
 
+    void updateExpressionMetadata(final ParseTree source, final ExpressionMetadata exprmd) {
+        expressionMetadata.remove(exprmd.source);
+        exprmd.source = source;
+        expressionMetadata.put(source, exprmd);
+    }
+    
     ExpressionMetadata getExpressionMetadata(final ParseTree source) {
-        final ExpressionMetadata sourceSMD = expressionMetadata.get(source);
+        final ExpressionMetadata sourceemd = expressionMetadata.get(source);
 
-        if (sourceSMD == null) {
+        if (sourceemd == null) {
             throw new IllegalStateException(); // TODO: message
         }
 
-        return sourceSMD;
+        return sourceemd;
     }
 
     void markCast(final ExpressionMetadata emd) {
@@ -356,23 +370,23 @@ public class Adapter {
             final Type to = upcast.pop();
             final Cast cast0 = new Cast(from0, to);
 
-            if (types.disallowed.contains(cast0)) continue;
+            if (types.disallowed.contains(cast0))                               continue;
             if (from0.metadata.numeric && from0.metadata != to.metadata &&
-                    !types.numerics.contains(cast0)) continue;
-            if (upcast.contains(from0)) continue;
+                    !types.numerics.contains(cast0))                            continue;
+            if (upcast.contains(from0))                                         continue;
             if (downcast.contains(from0) && !types.numerics.contains(cast0) &&
-                    !types.implicits.containsKey(cast0)) continue;
+                    !types.implicits.containsKey(cast0))                        continue;
             if (!from0.metadata.numeric && !types.implicits.containsKey(cast0)) continue;
 
             if (from1 != null) {
                 final Cast cast1 = new Cast(from1, to);
 
-                if (types.disallowed.contains(cast1)) continue;
+                if (types.disallowed.contains(cast1))                               continue;
                 if (from1.metadata.numeric && from1.metadata != to.metadata &&
-                        !types.numerics.contains(cast1)) continue;
-                if (upcast.contains(from1)) continue;
+                        !types.numerics.contains(cast1))                            continue;
+                if (upcast.contains(from1))                                         continue;
                 if (downcast.contains(from1) && !types.numerics.contains(cast1) &&
-                        !types.implicits.containsKey(cast1)) continue;
+                        !types.implicits.containsKey(cast1))                        continue;
                 if (!from1.metadata.numeric && !types.implicits.containsKey(cast1)) continue;
             }
 

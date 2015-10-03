@@ -8,7 +8,7 @@ import java.util.Properties;
 
 public final class Painless {
     public static void main(String args[]) throws Exception {
-        Executable executable = compile("test", "bool b; while (b) {while (b) { if (b) return true; else continue;} }");
+        Executable executable = compile("test", "return (true);");
         //Executable executable = compile("test", "int x = 0; while (true) {x = x + 1; if (x >= 5) continue; if (x <= 6) {break;}}");
         //Executable executable = compile("test", "for (int x = 0; x < 5; x = x + 1);");
         //Executable executable = compile("test", "bool x = true; x = false; if (x) return !x;");

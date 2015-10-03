@@ -8,9 +8,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
-
-import javax.swing.plaf.nimbus.State;
 
 import static painless.Adapter.*;
 import static painless.Default.*;
@@ -441,7 +440,7 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         final ExpressionContext exprctx = ctx.expression();
 
         if (exprctx != null) {
-            final ExpressionMetadata expremd = adapter.getExpressionMetadata(ctx);
+            final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
             expremd.to = declvaremd.to;
             visit(exprctx);
         }
@@ -449,35 +448,45 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         return null;
     }
 
-    /*@Override
+    @Override
     public Void visitPrecedence(final PrecedenceContext ctx) {
-        final PMetadata precedencemd = getPMetadata(ctx);
+        final ExpressionMetadata precemd = adapter.getExpressionMetadata(ctx);
 
-        final ExpressionContext ectx = ctx.expression();
-        passPMetadata(ectx, precedencemd);
-        visit(ectx);
+        final ExpressionContext exprctx = ctx.expression();
+        final ParserRuleContext parent = (ParserRuleContext)ctx.parent;
+        int index = 0;
+
+        for (ParseTree child : parent.children) {
+            if (child == ctx) {
+                parent.children.set(index, exprctx);
+            }
+
+            ++index;
+        }
+
+        adapter.updateExpressionMetadata(exprctx, precemd);
 
         return null;
     }
 
     @Override
     public Void visitNumeric(final NumericContext ctx) {
-        final PMetadata numericmd = getPMetadata(ctx);
+        final ExpressionMetadata numericemd = adapter.getExpressionMetadata(ctx);
 
         if (ctx.DECIMAL() != null) {
             final String svalue = ctx.DECIMAL().getText();
 
             if (svalue.endsWith("f") || svalue.endsWith("F")) {
                 try {
-                    numericmd.fromptype = pstandard.pfloat;
-                    numericmd.constpre = Float.parseFloat(svalue.substring(0, svalue.length() - 1));
+                    numericemd.from = standard.floatType;
+                    numericemd.preConst = Float.parseFloat(svalue.substring(0, svalue.length() - 1));
                 } catch (NumberFormatException exception) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
             } else {
                 try {
-                    numericmd.fromptype = pstandard.pdouble;
-                    numericmd.constpre = Double.parseDouble(svalue);
+                    numericemd.from = standard.doubleType;
+                    numericemd.preConst = Double.parseDouble(svalue);
                 } catch (NumberFormatException exception) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
@@ -501,26 +510,26 @@ class Analyzer extends PainlessBaseVisitor<Void> {
 
             if (svalue.endsWith("l") || svalue.endsWith("L")) {
                 try {
-                    numericmd.fromptype = pstandard.plong;
-                    numericmd.constpre = Long.parseLong(svalue.substring(0, svalue.length() - 1), radix);
+                    numericemd.from = standard.longType;
+                    numericemd.preConst = Long.parseLong(svalue.substring(0, svalue.length() - 1), radix);
                 } catch (NumberFormatException exception) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
             } else {
                 try {
-                    final PType ptype = numericmd.getToPType();
-                    final PSort psort = ptype == null ? PSort.INT : ptype.getPSort();
+                    final Type type = numericemd.to;
+                    final TypeMetadata tmd = type == null ? TypeMetadata.INT : type.metadata;
                     final int value = Integer.parseInt(svalue, radix);
-                    numericmd.constpre = value;
+                    numericemd.preConst = value;
 
-                    if (psort == PSort.BYTE && value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
-                        numericmd.fromptype = pstandard.pbyte;
-                    } else if (psort == PSort.CHAR && value >= Character.MIN_VALUE && value <= Character.MAX_VALUE) {
-                        numericmd.fromptype = pstandard.pchar;
-                    } else if (psort == PSort.SHORT && value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
-                        numericmd.fromptype = pstandard.pshort;
+                    if (tmd == TypeMetadata.BYTE && value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
+                        numericemd.from = standard.byteType;
+                    } else if (tmd == TypeMetadata.CHAR && value >= Character.MIN_VALUE && value <= Character.MAX_VALUE) {
+                        numericemd.from = standard.charType;
+                    } else if (tmd == TypeMetadata.SHORT && value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
+                        numericemd.from = standard.shortType;
                     } else {
-                        numericmd.fromptype = pstandard.pint;
+                        numericemd.from = standard.intType;
                     }
                 } catch (NumberFormatException exception) {
                     throw new IllegalArgumentException(); // TODO: message
@@ -528,12 +537,12 @@ class Analyzer extends PainlessBaseVisitor<Void> {
             }
         }
 
-        markCast(numericmd);
+        adapter.markCast(numericemd);
 
         return null;
     }
 
-    @Override
+    /*@Override
     public Void visitString(final StringContext ctx) {
         final PMetadata stringmd = getPMetadata(ctx);
 
@@ -568,7 +577,7 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         markCast(charmd);
 
         return null;
-    }*/
+    }
 
     @Override
     public Void visitTrue(final TrueContext ctx) {

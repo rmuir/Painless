@@ -58,6 +58,8 @@ public class Default {
             listType = getTypeFromCanonicalName(types, "list");
             mapType = getTypeFromCanonicalName(types, "map");
             smapType = getTypeFromCanonicalName(types, "smap");
+
+            validateMapsAndLists(types);
         }
 
         private void validateExact(final Types types, final String name, final Class clazz) {
@@ -83,6 +85,62 @@ public class Default {
                 struct.clazz.asSubclass(clazz);
             } catch (ClassCastException exception) {
                 throw new IllegalArgumentException(); // TODO: message
+            }
+        }
+
+        private void validateMapsAndLists(final Types types) {
+            for (final Struct struct : types.structs.values()) {
+                try {
+                    struct.clazz.asSubclass(List.class);
+
+                    final Method get = struct.methods.get("get");
+                    final Method add = struct.methods.get("add");
+
+                    if (get == null) {
+                        throw new IllegalArgumentException();
+                    }
+
+                    if (get.method.getParameterCount() != 1 ||
+                            !Object.class.equals(get.method.getReturnType()) ||
+                            !int.class.equals(get.method.getParameterTypes()[0])) {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+
+                    if (add.method.getParameterCount() != 2 ||
+                            !void.class.equals(add.method.getReturnType()) ||
+                            !int.class.equals(add.method.getParameterTypes()[0]) ||
+                            !Object.class.equals(add.method.getParameterTypes()[1])) {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+                } catch (ClassCastException exception) {
+                    // Do nothing.
+                }
+
+                try {
+                    struct.clazz.asSubclass(Map.class);
+
+                    final Method get = struct.methods.get("get");
+                    final Method put = struct.methods.get("put");
+
+                    if (get == null) {
+                        throw new IllegalArgumentException();
+                    }
+
+                    if (get.method.getParameterCount() != 1 ||
+                            !Object.class.equals(get.method.getReturnType()) ||
+                            !Object.class.equals(get.method.getParameterTypes()[0])) {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+
+                    if (put.method.getParameterCount() != 2 ||
+                            !Object.class.equals(put.method.getReturnType()) ||
+                            !Object.class.equals(put.method.getParameterTypes()[0]) ||
+                            !Object.class.equals(put.method.getParameterTypes()[1])) {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+                } catch (ClassCastException exception) {
+                    // Do nothing.
+                }
             }
         }
     }
