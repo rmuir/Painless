@@ -4,16 +4,17 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 public final class Painless {
     public static void main(String args[]) throws Exception {
-        //Executable executable = compile("test", "bool b = true; while (true) { while (true) {if (b) break; b = !b;} break;}");
+        Executable executable = compile("test", "bool b; while (b) {while (b) { if (b) return true; else continue;} }");
         //Executable executable = compile("test", "int x = 0; while (true) {x = x + 1; if (x >= 5) continue; if (x <= 6) {break;}}");
         //Executable executable = compile("test", "for (int x = 0; x < 5; x = x + 1);");
         //Executable executable = compile("test", "bool x = true; x = false; if (x) return !x;");
         //Executable executable = compile("test", "long[][] x = long.makearray(1, 1); long y; y = x[0][0] = 5; return y;");
         //Executable executable = compile("test", "bool b; b = false; if (b) return null; else return 5;");
-        Executable executable = new Painless().compile("test", "input.get(\"test\");");
+        //Executable executable = new Painless().compile("test", "input.get(\"test\");");
         Map<String, Object> input = new HashMap<>();
         Map<String, Object> inner = new HashMap<>();
         List<Object> list = new ArrayList<>();
@@ -51,12 +52,12 @@ public final class Painless {
         //}
     }
 
-    public Executable compile(String name, String source) {
-        return compile(name, source, Painless.class.getClassLoader());
+    public static Executable compile(String name, String source) {
+        return compile(name, source, Painless.class.getClassLoader(), null);
     }
 
-    public Executable compile(String name, String source, ClassLoader parent) {
-        return Compiler.compile(name, source, parent);
+    public static Executable compile(String name, String source, ClassLoader parent, Properties properties) {
+        return Compiler.compile(name, source, parent, properties);
     }
 
     private Painless() {}

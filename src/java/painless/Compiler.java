@@ -5,13 +5,17 @@ import java.io.FileOutputStream;
 import java.lang.reflect.Constructor;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
 
-import static painless.Analyzer.*;
+import static painless.Default.*;
 import static painless.Types.*;
 
 final class Compiler {
@@ -25,10 +29,12 @@ final class Compiler {
         }
     }
 
-    static Executable compile(String name, String source, ClassLoader parent) {
+    static Executable compile(final String name, final String source,
+                              final ClassLoader parent, final Properties properties) {
         long start = System.currentTimeMillis();
 
-        final Types types = loadFromProperties();
+        final Types types = properties == null ? DEFAULT_TYPES : loadFromProperties(properties);
+        final Standard standard = properties == null ? DEFAULT_STANDARD : new Standard(types);
 
         long end = System.currentTimeMillis() - start;
         System.out.println("types: " + end);
@@ -39,7 +45,7 @@ final class Compiler {
         end = System.currentTimeMillis() - start;
         System.out.println("tree: " + end);
 
-        final Adapter adapter = new Adapter(types, root);
+        final Adapter adapter = new Adapter(types, standard, root);
         adapter.incrementScope();
         adapter.addVariable("this", adapter.standard.execType);
         adapter.addVariable("input", adapter.standard.smapType);

@@ -3,95 +3,15 @@ package painless;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.antlr.v4.runtime.tree.ParseTree;
 
+import static painless.Default.*;
 import static painless.Types.*;
 
 public class Adapter {
-    static class Standard {
-        final Type voidType;
-        final Type boolType;
-        final Type byteType;
-        final Type shortType;
-        final Type charType;
-        final Type intType;
-        final Type longType;
-        final Type floatType;
-        final Type doubleType;
-        final Type objectType;
-        final Type stringType;
-        final Type execType;
-        final Type listType;
-        final Type mapType;
-        final Type smapType;
-
-        private Standard(final Types types) {
-            validateExact(types, "void", void.class);
-            validateExact(types, "bool", boolean.class);
-            validateExact(types, "byte", byte.class);
-            validateExact(types, "short", short.class);
-            validateExact(types, "char", char.class);
-            validateExact(types, "int", int.class);
-            validateExact(types, "long", long.class);
-            validateExact(types, "float", float.class);
-            validateExact(types, "double", double.class);
-            validateExact(types, "object", Object.class);
-            validateExact(types, "string", String.class);
-            validateSubclass(types, "exec", Executable.class);
-            validateSubclass(types, "list", List.class);
-            validateSubclass(types, "map", Map.class);
-            validateSubclass(types, "smap", Map.class);
-
-            voidType = getTypeFromCanonicalName(types, "void");
-            boolType = getTypeFromCanonicalName(types, "bool");
-            byteType = getTypeFromCanonicalName(types, "byte");
-            shortType = getTypeFromCanonicalName(types, "short");
-            charType = getTypeFromCanonicalName(types, "char");
-            intType = getTypeFromCanonicalName(types, "int");
-            longType = getTypeFromCanonicalName(types, "long");
-            floatType = getTypeFromCanonicalName(types, "float");
-            doubleType = getTypeFromCanonicalName(types, "double");
-            objectType = getTypeFromCanonicalName(types, "object");
-            stringType = getTypeFromCanonicalName(types, "string");
-            execType = getTypeFromCanonicalName(types, "exec");
-            listType = getTypeFromCanonicalName(types, "list");
-            mapType = getTypeFromCanonicalName(types, "map");
-            smapType = getTypeFromCanonicalName(types, "smap");
-        }
-
-        private void validateExact(final Types types, final String name, final Class clazz) {
-            final Struct struct = types.structs.get(name);
-
-            if (struct == null) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
-
-            if (!clazz.equals(struct.clazz)) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
-        }
-
-        private void validateSubclass(final Types types, final String name, final Class clazz) {
-            final Struct struct = types.structs.get(name);
-
-            if (struct == null) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
-
-            try {
-                struct.clazz.asSubclass(clazz);
-            } catch (ClassCastException exception) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
-        }
-    }
-
     static class Variable {
         final String name;
         final Type type;
@@ -172,54 +92,22 @@ public class Adapter {
     final Standard standard;
     final ParseTree root;
 
-    private final Set<Cast> numerics;
-
     private final Deque<Integer> scopes;
     private final Deque<Variable> variables;
 
     private final Map<ParseTree, StatementMetadata> statementMetadata;
     private final Map<ParseTree, ExpressionMetadata> expressionMetadata;
 
-    Adapter(final Types types, final ParseTree root) {
+    Adapter(final Types types, final Standard standard, final ParseTree root) {
         this.types = types;
-        this.standard = new Standard(types);
+        this.standard = standard;
         this.root = root;
 
-        numerics = new HashSet<>();
-        buildNumericCasts();
-
-        this.scopes = new ArrayDeque<>();
-        this.variables = new ArrayDeque<>();
+        scopes = new ArrayDeque<>();
+        variables = new ArrayDeque<>();
 
         statementMetadata = new HashMap<>();
         expressionMetadata = new HashMap<>();
-    }
-
-    private void buildNumericCasts() {
-        numerics.add(new Cast(standard.byteType, standard.shortType));
-        numerics.add(new Cast(standard.byteType, standard.intType));
-        numerics.add(new Cast(standard.byteType, standard.longType));
-        numerics.add(new Cast(standard.byteType, standard.floatType));
-        numerics.add(new Cast(standard.byteType, standard.doubleType));
-
-        numerics.add(new Cast(standard.shortType, standard.intType));
-        numerics.add(new Cast(standard.shortType, standard.longType));
-        numerics.add(new Cast(standard.shortType, standard.floatType));
-        numerics.add(new Cast(standard.shortType, standard.doubleType));
-
-        numerics.add(new Cast(standard.charType, standard.intType));
-        numerics.add(new Cast(standard.charType, standard.longType));
-        numerics.add(new Cast(standard.charType, standard.floatType));
-        numerics.add(new Cast(standard.charType, standard.doubleType));
-
-        numerics.add(new Cast(standard.intType, standard.longType));
-        numerics.add(new Cast(standard.intType, standard.floatType));
-        numerics.add(new Cast(standard.intType, standard.doubleType));
-
-        numerics.add(new Cast(standard.longType, standard.floatType));
-        numerics.add(new Cast(standard.longType, standard.doubleType));
-
-        numerics.add(new Cast(standard.floatType, standard.doubleType));
     }
 
     void incrementScope() {
@@ -249,7 +137,7 @@ public class Adapter {
         return null;
     }
 
-     Variable addVariable(final String name, final Type ptype) {
+     void addVariable(final String name, final Type ptype) {
         if (getVariable(name) != null) {
             throw new IllegalArgumentException(); // TODO: message
         }
@@ -266,8 +154,6 @@ public class Adapter {
 
         final int update = scopes.pop() + 1;
         scopes.push(update);
-
-        return pvariable;
     }
 
     StatementMetadata createStatementMetadata(final ParseTree source) {
@@ -353,7 +239,7 @@ public class Adapter {
             return cast;
         }
 
-        if (from.metadata.numeric && to.metadata.numeric && (force || numerics.contains(cast))) {
+        if (from.metadata.numeric && to.metadata.numeric && (force || types.numerics.contains(cast))) {
             return cast;
         }
 
@@ -398,31 +284,24 @@ public class Adapter {
                     switch (toTMD) {
                         case BYTE:
                             emd.postConst = number.byteValue();
-
                             break;
                         case SHORT:
                             emd.postConst = number.shortValue();
-
                             break;
                         case CHAR:
                             emd.postConst = (char)number.longValue();
-
                             break;
                         case INT:
                             emd.postConst = number.intValue();
-
                             break;
                         case LONG:
                             emd.postConst = number.longValue();
-
                             break;
                         case FLOAT:
                             emd.postConst = number.floatValue();
-
                             break;
                         case DOUBLE:
                             emd.postConst = number.doubleValue();
-
                             break;
                         default:
                             throw new IllegalStateException();
@@ -478,15 +357,23 @@ public class Adapter {
             final Cast cast0 = new Cast(from0, to);
 
             if (types.disallowed.contains(cast0)) continue;
+            if (from0.metadata.numeric && from0.metadata != to.metadata &&
+                    !types.numerics.contains(cast0)) continue;
             if (upcast.contains(from0)) continue;
-            if (downcast.contains(from0) && !types.implicits.containsKey(cast0)) continue;
+            if (downcast.contains(from0) && !types.numerics.contains(cast0) &&
+                    !types.implicits.containsKey(cast0)) continue;
             if (!from0.metadata.numeric && !types.implicits.containsKey(cast0)) continue;
 
             if (from1 != null) {
-                if (types.disallowed.contains(cast0)) continue;
+                final Cast cast1 = new Cast(from1, to);
+
+                if (types.disallowed.contains(cast1)) continue;
+                if (from1.metadata.numeric && from1.metadata != to.metadata &&
+                        !types.numerics.contains(cast1)) continue;
                 if (upcast.contains(from1)) continue;
-                if (downcast.contains(from1) && !types.implicits.containsKey(cast0)) continue;
-                if (!from1.metadata.numeric && !types.implicits.containsKey(cast0)) continue;
+                if (downcast.contains(from1) && !types.numerics.contains(cast1) &&
+                        !types.implicits.containsKey(cast1)) continue;
+                if (!from1.metadata.numeric && !types.implicits.containsKey(cast1)) continue;
             }
 
             return to;

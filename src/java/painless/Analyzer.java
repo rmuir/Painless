@@ -10,8 +10,10 @@ import java.util.Set;
 
 import org.antlr.v4.runtime.tree.ParseTree;
 
+import javax.swing.plaf.nimbus.State;
+
 import static painless.Adapter.*;
-import static painless.External.*;
+import static painless.Default.*;
 import static painless.PainlessParser.*;
 import static painless.Types.*;
 
@@ -47,16 +49,16 @@ class Analyzer extends PainlessBaseVisitor<Void> {
             final StatementMetadata statesmd = adapter.createStatementMetadata(statectx);
             visit(statectx);
 
-            sourcesmd.allExit = statesmd.allExit;
-            sourcesmd.allReturn = statesmd.allReturn;
+            if (statesmd.anyContinue) {
+                throw new IllegalArgumentException();
+            }
 
             if (statesmd.anyBreak) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException();
             }
 
-            if (statesmd.anyContinue) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
+            sourcesmd.allExit = statesmd.allExit;
+            sourcesmd.allReturn = statesmd.allReturn;
         }
 
         adapter.decrementScope();
@@ -150,6 +152,7 @@ class Analyzer extends PainlessBaseVisitor<Void> {
 
             if (exitrequired && blocksmd.anyReturn && !blocksmd.anyBreak) {
                 whilesmd.allExit = true;
+                whilesmd.allReturn = true;
             }
         } else if (!emptyallowed) {
             throw new IllegalArgumentException(); // TODO: message
@@ -160,135 +163,127 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         return null;
     }
 
-    /*@Override
+    @Override
     public Void visitDo(final DoContext ctx) {
-        final PMetadata domd = getPMetadata(ctx);
+        final StatementMetadata dosmd = adapter.getStatementMetadata(ctx);
 
-        incrementScope();
+        adapter.incrementScope();
 
-        final BlockContext bctx = ctx.block();
-        final PMetadata blockmd = createPMetadata(bctx);
-        visit(bctx);
+        final BlockContext blockctx = ctx.block();
+        final StatementMetadata blocksmd = adapter.createStatementMetadata(blockctx);
+        visit(blockctx);
 
-        if (blockmd.allrtn) {
+        if (blocksmd.allReturn) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (blockmd.allbreak) {
+        if (blocksmd.allBreak) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (blockmd.allcontinue) {
+        if (blocksmd.allContinue) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        final ExpressionContext ectx = ctx.expression();
-        final PMetadata expressionmd = createPMetadata(ectx);
-        expressionmd.toptype = pstandard.pbool;
-        visit(ectx);
+        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
+        expremd.to = standard.boolType;
+        visit(exprctx);
 
-        if (expressionmd.constpost != null) {
-            boolean constant = (boolean)expressionmd.constpost;
+        if (expremd.postConst != null) {
+            final boolean exitrequired = (boolean)expremd.postConst;
 
-            if (constant && !blockmd.anyrtn && !blockmd.anybreak) {
+            if (exitrequired && !blocksmd.anyReturn && !blocksmd.anyBreak) {
                 throw new IllegalArgumentException(); // TODO: message
             }
 
-            if (constant && blockmd.anyrtn && !blockmd.anybreak) {
-                domd.close = true;
+            if (exitrequired && blocksmd.anyReturn && !blocksmd.anyBreak) {
+                dosmd.allExit = true;
+                dosmd.allReturn = true;
             }
 
-            if (!constant && !blockmd.anycontinue) {
+            if (!exitrequired && !blocksmd.anyContinue) {
                 throw new IllegalArgumentException(); // TODO: message
             }
-
-            domd.constpost = true;
         }
 
-        domd.statement = true;
-
-        decrementScope();
+        adapter.decrementScope();
 
         return null;
     }
 
     @Override
     public Void visitFor(final ForContext ctx) {
-        final PMetadata formd = getPMetadata(ctx);
+        final StatementMetadata forsmd = adapter.getStatementMetadata(ctx);
         boolean emptyallowed = false;
         boolean exitrequired = false;
 
-        incrementScope();
+        adapter.incrementScope();
 
-        final DeclarationContext dctx = ctx.declaration();
+        final DeclarationContext declctx = ctx.declaration();
 
-        if (dctx != null) {
-            final PMetadata declarationmd = createPMetadata(dctx);
-            visit(dctx);
-
-            if (!declarationmd.statement) {
-                throw new IllegalStateException(); // TODO: message
-            }
+        if (declctx != null) {
+            adapter.createStatementMetadata(declctx);
+            visit(declctx);
         }
 
-        final ExpressionContext ectx0 = ctx.expression(0);
+        final ExpressionContext exprctx0 = ctx.expression(0);
 
-        if (ectx0 != null) {
-            final PMetadata expressionmd0 = createPMetadata(ectx0);
-            expressionmd0.toptype = pstandard.pbool;
-            visit(ectx0);
+        if (exprctx0 != null) {
+            final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
+            expremd0.to = standard.boolType;
+            visit(exprctx0);
 
-            emptyallowed = expressionmd0.statement;
+            emptyallowed = expremd0.statement;
 
-            if (expressionmd0.constpost != null) {
-                boolean constant = (boolean)expressionmd0.constpost;
+            if (expremd0.postConst != null) {
+                boolean constant = (boolean)expremd0.postConst;
 
                 if (!constant) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
 
                 exitrequired = true;
-                formd.constpost = true;
             }
         } else {
             exitrequired = true;
-            formd.constpost = true;
         }
 
-        final ExpressionContext ectx1 = ctx.expression(1);
+        final ExpressionContext exprctx1 = ctx.expression(1);
 
-        if (ectx1 != null) {
-            final PMetadata expressionmd1 = createPMetadata(ectx1);
-            expressionmd1.toptype = pstandard.pvoid;
-            visit(ectx1);
+        if (exprctx1 != null) {
+            final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
+            expremd1.to = standard.voidType;
+            visit(exprctx0);
 
-            if (!expressionmd1.statement) {
+            if (!expremd1.statement) {
                 throw new IllegalStateException(); // TODO: message
             }
 
             emptyallowed = true;
         }
 
-        final BlockContext bctx = ctx.block();
+        final BlockContext blockctx = ctx.block();
 
-        if (bctx != null) {
-            final PMetadata blockmd = createPMetadata(bctx);
-            visit(bctx);
+        if (blockctx != null) {
+            final StatementMetadata blocksmd = adapter.createStatementMetadata(blockctx);
+            visit(blockctx);
 
-            if (blockmd.allrtn) {
+            if (blocksmd.allReturn) {
                 throw new IllegalArgumentException(); // TODO: message
             }
 
-            if (blockmd.allbreak) {
+            if (blocksmd.allBreak) {
                 throw new IllegalArgumentException(); //TODO: message
             }
 
-            if (exitrequired && !blockmd.anyrtn && !blockmd.anybreak) {
+            if (exitrequired && !blocksmd.anyReturn && !blocksmd.anyBreak) {
                 throw new IllegalArgumentException(); // TODO: message
             }
 
-            if (exitrequired && blockmd.anyrtn && !blockmd.anybreak) {
-                formd.close = true;
+            if (exitrequired && blocksmd.anyReturn && !blocksmd.anyBreak) {
+                forsmd.allExit = true;
+                forsmd.allReturn = true;
             }
         } else if (exitrequired) {
             throw new IllegalArgumentException(); // TODO: message
@@ -296,141 +291,111 @@ class Analyzer extends PainlessBaseVisitor<Void> {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        formd.statement = true;
-
-        decrementScope();
+        adapter.decrementScope();
 
         return null;
     }
 
     @Override
     public Void visitDecl(final DeclContext ctx) {
-        final PMetadata declmd = getPMetadata(ctx);
-
-        final DeclarationContext dctx = ctx.declaration();
-        final PMetadata declarationmd = createPMetadata(dctx);
-        visit(ctx.declaration());
-
-        declmd.statement = declarationmd.statement;
+        final DeclarationContext declctx = ctx.declaration();
+        adapter.createStatementMetadata(declctx);
+        visit(declctx);
 
         return null;
     }
 
     @Override
     public Void visitContinue(final ContinueContext ctx) {
-        final PMetadata continuemd = getPMetadata(ctx);
+        final StatementMetadata continuesmd = adapter.getStatementMetadata(ctx);
 
-        continuemd.statement = true;
-        continuemd.close = true;
-
-        continuemd.allexit = true;
-        continuemd.allcontinue = true;
-        continuemd.anycontinue = true;
+        continuesmd.allExit = true;
+        continuesmd.allContinue = true;
+        continuesmd.anyContinue = true;
 
         return null;
     }
 
     @Override
     public Void visitBreak(final BreakContext ctx) {
-        final PMetadata breakmd = getPMetadata(ctx);
+        final StatementMetadata breaksmd = adapter.getStatementMetadata(ctx);
 
-        breakmd.statement = true;
-        breakmd.close = true;
-
-        breakmd.allexit = true;
-        breakmd.allbreak = true;
-        breakmd.anybreak = true;
+        breaksmd.allExit = true;
+        breaksmd.allBreak = true;
+        breaksmd.anyBreak = true;
 
         return null;
     }
 
     @Override
     public Void visitReturn(final ReturnContext ctx) {
-        final PMetadata returnmd = getPMetadata(ctx);
+        final StatementMetadata returnsmd = adapter.getStatementMetadata(ctx);
 
-        final ExpressionContext ectx = ctx.expression();
-        final PMetadata expressionmd = createPMetadata(ectx);
-        expressionmd.toptype = pstandard.pobject;
-        visit(ectx);
+        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
+        expremd.to = standard.objectType;
+        visit(exprctx);
 
-        returnmd.statement = true;
-        returnmd.close = true;
-
-        returnmd.allexit = true;
-        returnmd.allrtn = true;
-        returnmd.anyrtn = true;
+        returnsmd.allExit = true;
+        returnsmd.allReturn = true;
+        returnsmd.anyReturn = true;
 
         return null;
     }
 
     @Override
     public Void visitExpr(final ExprContext ctx) {
-        final PMetadata exprmd = getPMetadata(ctx);
+        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
+        expremd.to = standard.voidType;
+        visit(exprctx);
 
-        final ExpressionContext ectx = ctx.expression();
-        final PMetadata expressionmd = createPMetadata(ectx);
-        expressionmd.toptype = pstandard.pvoid;
-        visit(ectx);
-
-        exprmd.statement = expressionmd.statement;
+        if (!expremd.statement) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
 
         return null;
     }
 
     @Override
     public Void visitMultiple(final MultipleContext ctx) {
-        final PMetadata multiplemd = getPMetadata(ctx);
+        final StatementMetadata multiplesmd = adapter.getStatementMetadata(ctx);
 
-        for (StatementContext sctx : ctx.statement()) {
-            if (multiplemd.close) {
+        for (StatementContext statectx : ctx.statement()) {
+            if (multiplesmd.allExit) {
                 throw new IllegalStateException();  // TODO: message
             }
 
-            final PMetadata statementmd = createPMetadata(sctx);
-            visit(sctx);
+            final StatementMetadata statesmd = adapter.createStatementMetadata(statectx);
+            visit(statectx);
 
-            if (!statementmd.statement) {
-                throw new IllegalStateException(); // TODO: message
-            }
-
-            multiplemd.close = statementmd.close;
-
-            multiplemd.allexit = statementmd.allexit;
-            multiplemd.allrtn = statementmd.allrtn && !statementmd.anybreak && !statementmd.anycontinue;
-            multiplemd.anyrtn |= statementmd.anyrtn;
-            multiplemd.allbreak = !statementmd.anyrtn && statementmd.allbreak && !statementmd.anycontinue;
-            multiplemd.anybreak |= statementmd.anybreak;
-            multiplemd.allcontinue = !statementmd.anyrtn && !statementmd.anybreak && !statementmd.allcontinue;
-            multiplemd.anycontinue |= statementmd.anycontinue;
+            multiplesmd.allExit = statesmd.allExit;
+            multiplesmd.allReturn = statesmd.allReturn && !statesmd.anyBreak && !statesmd.anyContinue;
+            multiplesmd.anyReturn |= statesmd.anyReturn;
+            multiplesmd.allBreak = !statesmd.anyReturn && statesmd.allBreak && !statesmd.anyContinue;
+            multiplesmd.anyBreak |= statesmd.anyBreak;
+            multiplesmd.allContinue = !statesmd.anyReturn && !statesmd.anyBreak && !statesmd.allContinue;
+            multiplesmd.anyContinue |= statesmd.anyContinue;
         }
-
-        multiplemd.statement = true;
 
         return null;
     }
 
     @Override
     public Void visitSingle(final SingleContext ctx) {
-        final PMetadata singlemd = getPMetadata(ctx);
+        final StatementMetadata singlesmd = adapter.getStatementMetadata(ctx);
 
-        final StatementContext sctx = ctx.statement();
-        final PMetadata statementmd = createPMetadata(sctx);
-        visit(sctx);
+        final StatementContext statectx = ctx.statement();
+        final StatementMetadata statesmd = adapter.createStatementMetadata(statectx);
+        visit(statectx);
 
-        if (!statementmd.statement) {
-            throw new IllegalStateException(); // TODO: message
-        }
-
-        singlemd.statement = true;
-        singlemd.close = statementmd.close;
-
-        singlemd.allexit = statementmd.allexit;
-        singlemd.allrtn = statementmd.allrtn;
-        singlemd.anyrtn = statementmd.anyrtn;
-        singlemd.allbreak = statementmd.allbreak;
-        singlemd.anybreak = statementmd.anybreak;
-        singlemd.allcontinue = statementmd.allcontinue;
-        singlemd.anycontinue = statementmd.anycontinue;
+        singlesmd.allExit = statesmd.allExit;
+        singlesmd.allReturn = statesmd.allReturn;
+        singlesmd.anyReturn = statesmd.anyReturn;
+        singlesmd.allBreak = statesmd.allBreak;
+        singlesmd.anyBreak = statesmd.anyBreak;
+        singlesmd.allContinue = statesmd.allContinue;
+        singlesmd.anyContinue = statesmd.anyContinue;
 
         return null;
     }
@@ -442,57 +407,49 @@ class Analyzer extends PainlessBaseVisitor<Void> {
 
     @Override
     public Void visitDeclaration(final DeclarationContext ctx) {
-        final PMetadata declarationmd = getPMetadata(ctx);
+        final DecltypeContext decltypectx = ctx.decltype();
+        final ExpressionMetadata decltypeemd = adapter.createExpressionMetadata(decltypectx);
+        visit(decltypectx);
 
-        final DecltypeContext dctx0 = ctx.decltype();
-        final PMetadata decltypemd = createPMetadata(dctx0);
-        decltypemd.anyptype = true;
-        visit(dctx0);
-
-        for (final DeclvarContext dctx1 : ctx.declvar()) {
-            PMetadata declvarmd = createPMetadata(dctx1);
-            declvarmd.toptype = decltypemd.fromptype;
-            visit(dctx1);
+        for (final DeclvarContext declvarctx : ctx.declvar()) {
+            final ExpressionMetadata declvaremd = adapter.createExpressionMetadata(decltypectx);
+            declvaremd.to = decltypeemd.from;
+            visit(declvarctx);
         }
-
-        declarationmd.statement = true;
 
         return null;
     }
 
     @Override
     public Void visitDecltype(final DecltypeContext ctx) {
-        final PMetadata decltypemd = getPMetadata(ctx);
-
-        if (!decltypemd.anyptype) {
-            throw new IllegalStateException(); // TODO: message
-        }
+        final ExpressionMetadata decltypeemd = adapter.getExpressionMetadata(ctx);
 
         final String pnamestr = ctx.getText();
-        decltypemd.fromptype = getPTypeFromCanonicalPName(ptypes, pnamestr);
+        decltypeemd.from = getTypeFromCanonicalName(types, pnamestr);
 
         return null;
     }
 
     @Override
     public Void visitDeclvar(final DeclvarContext ctx) {
-        final PMetadata declvarmd = getPMetadata(ctx);
+        final ExpressionMetadata declvaremd = adapter.getExpressionMetadata(ctx);
 
         final String name = ctx.ID().getText();
-        declvarmd.constpost = addPVariable(name, declvarmd.toptype);
+        declvaremd.postConst = name;
+        adapter.addVariable(name, declvaremd.to);
 
-        final ExpressionContext ectx = ctx.expression();
+        final ExpressionContext exprctx = ctx.expression();
 
-        if (ectx != null) {
-            final PMetadata expressionmd = createPMetadata(ectx);
-            expressionmd.toptype = declvarmd.toptype;
-            visit(ectx);
+        if (exprctx != null) {
+            final ExpressionMetadata expremd = adapter.getExpressionMetadata(ctx);
+            expremd.to = declvaremd.to;
+            visit(exprctx);
         }
 
         return null;
     }
 
-    @Override
+    /*@Override
     public Void visitPrecedence(final PrecedenceContext ctx) {
         final PMetadata precedencemd = getPMetadata(ctx);
 
@@ -611,25 +568,25 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         markCast(charmd);
 
         return null;
-    }
+    }*/
 
     @Override
     public Void visitTrue(final TrueContext ctx) {
-        final PMetadata truemd = getPMetadata(ctx);
+        final ExpressionMetadata trueemd = adapter.getExpressionMetadata(ctx);
 
         if (ctx.TRUE() == null) {
             throw new IllegalStateException(); // TODO: message
         }
 
-        truemd.constpre = true;
-        truemd.fromptype = pstandard.pbool;
+        trueemd.preConst = true;
+        trueemd.from = standard.boolType;
 
-        markCast(truemd);
+        adapter.markCast(trueemd);
 
         return null;
     }
 
-    @Override
+    /*@Override
     public Void visitFalse(final FalseContext ctx) {
         final PMetadata falsemd = getPMetadata(ctx);
 

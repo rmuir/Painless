@@ -281,10 +281,10 @@ class Types {
                 loadStructFromProperty(types, property, true);
             } else {
                 boolean valid = key.startsWith("constructor") ||
-                                key.startsWith("function")    || key.startsWith("method") ||
-                                key.startsWith("static")      || key.startsWith("member") ||
-                                key.startsWith("transform")   || key.startsWith("upcast") ||
-                                key.startsWith("disallow");
+                                key.startsWith("function")    || key.startsWith("method")  ||
+                                key.startsWith("static")      || key.startsWith("member")  ||
+                                key.startsWith("transform")   || key.startsWith("numeric") ||
+                                key.startsWith("upcast")     || key.startsWith("disallow");
 
                 if (!valid) {
                     throw new IllegalArgumentException(); // TODO: message
@@ -313,6 +313,8 @@ class Types {
 
             if (key.startsWith("transform")) {
                 loadTransformFromProperty(types, property);
+            } else if (key.startsWith("numeric")) {
+                loadNumericFromProperty(types, property);
             } else if (key.startsWith("upcast")) {
                 loadUpcastFromProperty(types, property);
             } else if (key.startsWith("disallow")) {
@@ -432,6 +434,19 @@ class Types {
         final String methodstr = split[5];
 
         loadTransform(types, typestr, fromstr, tostr, ownerstr, staticstr, methodstr);
+    }
+
+    private static void loadNumericFromProperty(final Types types, final String property) {
+        final String[] split = property.split("\\s+");
+
+        if (split.length != 2) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String fromstr = split[0];
+        final String tostr = split[1];
+
+        loadNumeric(types, fromstr, tostr);
     }
 
     private static void loadUpcastFromProperty(final Types types, final String property) {
@@ -694,6 +709,10 @@ class Types {
             throw new IllegalArgumentException(); // TODO: message
         }
 
+        if (types.numerics.contains(cast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
         if (types.upcasts.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
@@ -795,6 +814,47 @@ class Types {
         }
     }
 
+    private static void loadNumeric(final Types types, final String fromstr, final String tostr) {
+        final Type from = getTypeFromCanonicalName(types, fromstr);
+        final Type to = getTypeFromCanonicalName(types, tostr);
+
+        if (from.equals(to)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final Cast cast = new Cast(from, to);
+
+        if (types.disallowed.contains(cast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (types.numerics.contains(cast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (types.upcasts.contains(cast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (types.explicits.containsKey(cast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (types.implicits.containsKey(cast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (!from.metadata.numeric) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (!to.metadata.numeric) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        types.numerics.add(cast);
+    }
+
     private static void loadUpcast(final Types types, final String fromstr, final String tostr) {
         final Type from = getTypeFromCanonicalName(types, fromstr);
         final Type to = getTypeFromCanonicalName(types, tostr);
@@ -806,6 +866,10 @@ class Types {
         final Cast cast = new Cast(from, to);
 
         if (types.disallowed.contains(cast)) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (types.numerics.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
@@ -917,7 +981,7 @@ class Types {
                     continue;
                 }
 
-                if (value.clazz.equals(metadata.clazz)) {
+                if (value.clazz.equals(struct.clazz)) {
                     metadata = value;
 
                     break;
@@ -1150,6 +1214,7 @@ class Types {
 
     final Map<Cast, Transform> explicits;
     final Map<Cast, Transform> implicits;
+    final Set<Cast> numerics;
     final Set<Cast> upcasts;
     final Set<Cast> disallowed;
 
@@ -1158,6 +1223,7 @@ class Types {
 
         explicits = new HashMap<>();
         implicits = new HashMap<>();
+        numerics = new HashSet<>();
         upcasts = new HashSet<>();
         disallowed = new HashSet<>();
     }
@@ -1173,6 +1239,7 @@ class Types {
 
         explicits = Collections.unmodifiableMap(types.explicits);
         implicits = Collections.unmodifiableMap(types.implicits);
+        numerics = Collections.unmodifiableSet(types.numerics);
         upcasts = Collections.unmodifiableSet(types.upcasts);
         disallowed = Collections.unmodifiableSet(types.disallowed);
     }
