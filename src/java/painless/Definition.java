@@ -11,20 +11,20 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
-class Types {
+class Definition {
     enum TypeMetadata {
-        VOID(   void.class    , 0 , false , false , false ),
-        BOOL(   boolean.class , 1 , false , true  , false ),
-        BYTE(   byte.class    , 1 , true  , true  , false ),
-        SHORT(  short.class   , 1 , true  , true  , false ),
-        CHAR(   char.class    , 1 , true  , true  , false ),
-        INT(    int.class     , 1 , true  , true  , false ),
-        LONG(   long.class    , 2 , true  , true  , false ),
-        FLOAT(  float.class   , 1 , true  , true  , false ),
-        DOUBLE( double.class  , 2 , true  , true  , false ),
-        OBJECT( null          , 1 , false , false , true  ),
-        STRING( String.class  , 1 , false , true  , true  ),
-        ARRAY(  null          , 1 , false , false , true  );
+        VOID(    void.class    , 0 , false , false , false ),
+        BOOL(    boolean.class , 1 , false , true  , false ),
+        BYTE(    byte.class    , 1 , true  , true  , false ),
+        SHORT(   short.class   , 1 , true  , true  , false ),
+        CHAR(    char.class    , 1 , true  , true  , false ),
+        INT(     int.class     , 1 , true  , true  , false ),
+        LONG(    long.class    , 2 , true  , true  , false ),
+        FLOAT(   float.class   , 1 , true  , true  , false ),
+        DOUBLE(  double.class  , 2 , true  , true  , false ),
+        OBJECT(  null          , 1 , false , false , true  ),
+        STRING(  String.class  , 1 , false , true  , true  ),
+        ARRAY(   null          , 1 , false , false , true  );
 
         final Class clazz;
         final int size;
@@ -255,12 +255,12 @@ class Types {
         }
     }
 
-    private static final String PROPERTIES_FILE = Types.class.getSimpleName() + ".properties";
+    private static final String PROPERTIES_FILE = Definition.class.getSimpleName() + ".properties";
 
-    static Types loadFromProperties() {
+    static Definition loadFromProperties() {
         final Properties properties = new Properties();
 
-        try (final InputStream stream = Types.class.getResourceAsStream(PROPERTIES_FILE)) {
+        try (final InputStream stream = Definition.class.getResourceAsStream(PROPERTIES_FILE)) {
             properties.load(stream);
         } catch (IOException exception) {
             throw new IllegalStateException(); // TODO: message
@@ -269,16 +269,16 @@ class Types {
         return loadFromProperties(properties);
     }
 
-    static Types loadFromProperties(final Properties properties) {
-        final Types types = new Types();
+    static Definition loadFromProperties(final Properties properties) {
+        final Definition definition = new Definition();
 
         for (String key : properties.stringPropertyNames()) {
             final String property = properties.getProperty(key);
 
             if (key.startsWith("class")) {
-                loadStructFromProperty(types, property, false);
+                loadStructFromProperty(definition, property, false);
             } else if (key.startsWith("generic")) {
-                loadStructFromProperty(types, property, true);
+                loadStructFromProperty(definition, property, true);
             } else {
                 boolean valid = key.startsWith("constructor") ||
                                 key.startsWith("function")    || key.startsWith("method")  ||
@@ -296,15 +296,15 @@ class Types {
             final String property = properties.getProperty(key);
 
             if (key.startsWith("constructor")) {
-                loadConstructorFromProperty(types, property);
+                loadConstructorFromProperty(definition, property);
             } else if (key.startsWith("function")) {
-                loadMethodFromProperty(types, property, true);
+                loadMethodFromProperty(definition, property, true);
             } else if (key.startsWith("method")) {
-                loadMethodFromProperty(types, property, false);
+                loadMethodFromProperty(definition, property, false);
             } else if (key.startsWith("static")) {
-                loadFieldFromProperty(types, property, true);
+                loadFieldFromProperty(definition, property, true);
             } else if (key.startsWith("member")) {
-                loadFieldFromProperty(types, property, false);
+                loadFieldFromProperty(definition, property, false);
             }
         }
 
@@ -312,22 +312,22 @@ class Types {
             final String property = properties.getProperty(key);
 
             if (key.startsWith("transform")) {
-                loadTransformFromProperty(types, property);
+                loadTransformFromProperty(definition, property);
             } else if (key.startsWith("numeric")) {
-                loadNumericFromProperty(types, property);
+                loadNumericFromProperty(definition, property);
             } else if (key.startsWith("upcast")) {
-                loadUpcastFromProperty(types, property);
+                loadUpcastFromProperty(definition, property);
             } else if (key.startsWith("disallow")) {
-                loadDisallowFromProperty(types, property);
+                loadDisallowFromProperty(definition, property);
             }
         }
 
-        validateMethods(types);
+        validateMethods(definition);
 
-        return new Types(types);
+        return new Definition(definition);
     }
 
-    private static void loadStructFromProperty(final Types types, final String property, final boolean generic) {
+    private static void loadStructFromProperty(final Definition definition, final String property, final boolean generic) {
         final String[] split = property.split("\\s+");
 
         if (split.length != 2) {
@@ -337,10 +337,10 @@ class Types {
         final String namestr = split[0];
         final String clazzstr = split[1];
 
-        loadStruct(types, namestr, clazzstr, generic);
+        loadStruct(definition, namestr, clazzstr, generic);
     }
 
-    private static void loadConstructorFromProperty(final Types types, final String property) {
+    private static void loadConstructorFromProperty(final Definition definition, final String property) {
         String parsed = property;
         int index = parsed.indexOf(' ');
 
@@ -361,10 +361,10 @@ class Types {
 
         final String[][] argumentsstrs = parseArgumentsStr(parsed);
 
-        loadConstructor(types, ownerstr, namestr, argumentsstrs);
+        loadConstructor(definition, ownerstr, namestr, argumentsstrs);
     }
 
-    private static void loadMethodFromProperty(final Types types, final String property, final boolean statik) {
+    private static void loadMethodFromProperty(final Definition definition, final String property, final boolean statik) {
         String parsed = property;
         int index = parsed.indexOf(' ');
 
@@ -401,10 +401,10 @@ class Types {
 
         final String[][] argumentsstrs = parseArgumentsStr(parsed);
 
-        loadMethod(types, ownerstr, namestr, returnstr, clazzstr, argumentsstrs, statik);
+        loadMethod(definition, ownerstr, namestr, returnstr, clazzstr, argumentsstrs, statik);
     }
 
-    private static void loadFieldFromProperty(final Types types, final String property, final boolean statik) {
+    private static void loadFieldFromProperty(final Definition definition, final String property, final boolean statik) {
         final String[] split = property.split("\\s+");
 
         if (split.length != 4) {
@@ -416,10 +416,10 @@ class Types {
         final String typestr = split[2];
         final String clazzstr = split[3];
 
-        loadField(types, ownerstr, namestr, typestr, clazzstr, statik);
+        loadField(definition, ownerstr, namestr, typestr, clazzstr, statik);
     }
 
-    private static void loadTransformFromProperty(final Types types, final String property) {
+    private static void loadTransformFromProperty(final Definition definition, final String property) {
         final String[] split = property.split("\\s+");
 
         if (split.length != 6) {
@@ -433,10 +433,10 @@ class Types {
         final String staticstr = split[4];
         final String methodstr = split[5];
 
-        loadTransform(types, typestr, fromstr, tostr, ownerstr, staticstr, methodstr);
+        loadTransform(definition, typestr, fromstr, tostr, ownerstr, staticstr, methodstr);
     }
 
-    private static void loadNumericFromProperty(final Types types, final String property) {
+    private static void loadNumericFromProperty(final Definition definition, final String property) {
         final String[] split = property.split("\\s+");
 
         if (split.length != 2) {
@@ -446,10 +446,10 @@ class Types {
         final String fromstr = split[0];
         final String tostr = split[1];
 
-        loadNumeric(types, fromstr, tostr);
+        loadNumeric(definition, fromstr, tostr);
     }
 
-    private static void loadUpcastFromProperty(final Types types, final String property) {
+    private static void loadUpcastFromProperty(final Definition definition, final String property) {
         final String[] split = property.split("\\s+");
 
         if (split.length != 2) {
@@ -459,10 +459,10 @@ class Types {
         final String fromstr = split[0];
         final String tostr = split[1];
 
-        loadUpcast(types, fromstr, tostr);
+        loadUpcast(definition, fromstr, tostr);
     }
 
-    private static void loadDisallowFromProperty(final Types types, final String property) {
+    private static void loadDisallowFromProperty(final Definition definition, final String property) {
         final String[] split = property.split("\\s+");
 
         if (split.length != 2) {
@@ -472,16 +472,16 @@ class Types {
         final String fromstr = split[0];
         final String tostr = split[1];
 
-        loadDisallow(types, fromstr, tostr);
+        loadDisallow(definition, fromstr, tostr);
     }
 
-    private static void loadStruct(final Types types, final String namestr,
+    private static void loadStruct(final Definition definition, final String namestr,
                                    final String clazzstr, final boolean generic) {
         if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]+$")) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (types.structs.containsKey(namestr)) {
+        if (definition.structs.containsKey(namestr)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
@@ -489,12 +489,12 @@ class Types {
         final String internal = clazz.getName().replace('.', '/');
         final Struct struct = new Struct(namestr, clazz, internal, generic);
 
-        types.structs.put(namestr, struct);
+        definition.structs.put(namestr, struct);
     }
 
-    private static void loadConstructor(final Types types, final String ownerstr,
+    private static void loadConstructor(final Definition definition, final String ownerstr,
                                          final String namestr, final String[][] argumentsstrs) {
-        final Struct owner = types.structs.get(ownerstr);
+        final Struct owner = definition.structs.get(ownerstr);
 
         if (owner == null) {
             throw new IllegalArgumentException(); // TODO: message
@@ -527,11 +527,11 @@ class Types {
             final String[] argumentstrs = argumentsstrs[argumentindex];
 
             if (argumentstrs.length == 1) {
-                arguments[argumentindex] = getTypeFromCanonicalName(types, argumentstrs[0]);
+                arguments[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[0]);
                 originals[argumentindex] = arguments[argumentindex];
             } else if (argumentstrs.length == 2) {
-                arguments[argumentindex] = getTypeFromCanonicalName(types, argumentstrs[1]);
-                originals[argumentindex] = getTypeFromCanonicalName(types, argumentstrs[0]);
+                arguments[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[1]);
+                originals[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[0]);
             } else {
                 throw new IllegalArgumentException(); // TODO: message
             }
@@ -549,10 +549,10 @@ class Types {
         owner.constructors.put(namestr, constructor);
     }
 
-    private static void loadMethod(final Types types, final String ownerstr, final String namestr,
+    private static void loadMethod(final Definition definition, final String ownerstr, final String namestr,
                                     final String returnstr, final String clazzstr,
                                     final String[][] argumentsstrs, boolean statik) {
-        final Struct owner = types.structs.get(ownerstr);
+        final Struct owner = definition.structs.get(ownerstr);
 
         if (owner == null) {
             throw new IllegalArgumentException(); // TODO: message
@@ -580,11 +580,11 @@ class Types {
         Class jreturn;
 
         if (returnstrs.length == 1) {
-            rtn = getTypeFromCanonicalName(types, returnstrs[0]);
+            rtn = getTypeFromCanonicalName(definition, returnstrs[0]);
             oreturn = rtn;
         } else if (returnstrs.length == 2) {
-            rtn = getTypeFromCanonicalName(types, returnstrs[1]);
-            oreturn = getTypeFromCanonicalName(types, returnstrs[0]);
+            rtn = getTypeFromCanonicalName(definition, returnstrs[1]);
+            oreturn = getTypeFromCanonicalName(definition, returnstrs[0]);
         } else {
             throw new IllegalArgumentException(); // TODO: message
         }
@@ -602,11 +602,11 @@ class Types {
             final String[] argumentstrs = argumentsstrs[argumentindex];
 
             if (argumentstrs.length == 1) {
-                arguments[argumentindex] = getTypeFromCanonicalName(types, argumentstrs[0]);
+                arguments[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[0]);
                 originals[argumentindex] = arguments[argumentindex];
             } else if (argumentstrs.length == 2) {
-                arguments[argumentindex] = getTypeFromCanonicalName(types, argumentstrs[1]);
-                originals[argumentindex] = getTypeFromCanonicalName(types, argumentstrs[0]);
+                arguments[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[1]);
+                originals[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[0]);
             } else {
                 throw new IllegalArgumentException(); // TODO: message
             }
@@ -643,9 +643,9 @@ class Types {
         }
     }
 
-    private static void loadField(final Types types, final String ownerstr, final String namestr,
+    private static void loadField(final Definition definition, final String ownerstr, final String namestr,
                                   final String typestr, final String jnamestr, final boolean statik) {
-        final Struct owner = types.structs.get(ownerstr);
+        final Struct owner = definition.structs.get(ownerstr);
 
         if (owner == null) {
             throw new IllegalArgumentException(); // TODO: message
@@ -663,7 +663,7 @@ class Types {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        final Type type = getTypeFromCanonicalName(types, typestr);
+        final Type type = getTypeFromCanonicalName(definition, typestr);
         final java.lang.reflect.Field jfield = getJFieldFromJClass(owner.clazz, jnamestr);
         final Field field = new Field(namestr, owner, type, jfield);
         final int modifiers = jfield.getModifiers();
@@ -687,17 +687,17 @@ class Types {
         }
     }
 
-    private static void loadTransform(final Types types, final String typestr,
+    private static void loadTransform(final Definition definition, final String typestr,
                                       final String fromstr, final String tostr, final String ownerstr,
                                       final String staticstr, final String methodstr) {
-        final Struct owner = types.structs.get(ownerstr);
+        final Struct owner = definition.structs.get(ownerstr);
 
         if (owner == null) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        final Type from = getTypeFromCanonicalName(types, fromstr);
-        final Type to = getTypeFromCanonicalName(types, tostr);
+        final Type from = getTypeFromCanonicalName(definition, fromstr);
+        final Type to = getTypeFromCanonicalName(definition, tostr);
 
         if (from.equals(to)) {
             throw new IllegalArgumentException(); // TODO: message
@@ -705,15 +705,15 @@ class Types {
 
         final Cast cast = new Cast(from, to);
 
-        if (types.disallowed.contains(cast)) {
+        if (definition.disallowed.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (types.numerics.contains(cast)) {
+        if (definition.numerics.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (types.upcasts.contains(cast)) {
+        if (definition.upcasts.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
@@ -773,7 +773,7 @@ class Types {
             } catch (ClassCastException cce0) {
                 try {
                     owner.clazz.asSubclass(from.clazz);
-                    castfrom = getTypeFromCanonicalName(types, owner.name);
+                    castfrom = getTypeFromCanonicalName(definition, owner.name);
                 } catch (ClassCastException cce1) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
@@ -798,25 +798,25 @@ class Types {
         final Transform transform = new Transform(cast, method, castfrom, castto);
 
         if ("explicit".equals(typestr)) {
-            if (types.explicits.containsKey(cast)) {
+            if (definition.explicits.containsKey(cast)) {
                 throw new IllegalArgumentException(); // TODO: message
             }
 
-            types.explicits.put(cast, transform);
+            definition.explicits.put(cast, transform);
         } else if ("implicit".equals(typestr)) {
-            if (types.implicits.containsKey(cast)) {
+            if (definition.implicits.containsKey(cast)) {
                 throw new IllegalArgumentException(); // TODO: message
             }
 
-            types.implicits.put(cast, transform);
+            definition.implicits.put(cast, transform);
         } else {
             throw new IllegalArgumentException(); // TODO: message
         }
     }
 
-    private static void loadNumeric(final Types types, final String fromstr, final String tostr) {
-        final Type from = getTypeFromCanonicalName(types, fromstr);
-        final Type to = getTypeFromCanonicalName(types, tostr);
+    private static void loadNumeric(final Definition definition, final String fromstr, final String tostr) {
+        final Type from = getTypeFromCanonicalName(definition, fromstr);
+        final Type to = getTypeFromCanonicalName(definition, tostr);
 
         if (from.equals(to)) {
             throw new IllegalArgumentException(); // TODO: message
@@ -824,23 +824,23 @@ class Types {
 
         final Cast cast = new Cast(from, to);
 
-        if (types.disallowed.contains(cast)) {
+        if (definition.disallowed.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (types.numerics.contains(cast)) {
+        if (definition.numerics.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (types.upcasts.contains(cast)) {
+        if (definition.upcasts.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (types.explicits.containsKey(cast)) {
+        if (definition.explicits.containsKey(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (types.implicits.containsKey(cast)) {
+        if (definition.implicits.containsKey(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
@@ -852,12 +852,12 @@ class Types {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        types.numerics.add(cast);
+        definition.numerics.add(cast);
     }
 
-    private static void loadUpcast(final Types types, final String fromstr, final String tostr) {
-        final Type from = getTypeFromCanonicalName(types, fromstr);
-        final Type to = getTypeFromCanonicalName(types, tostr);
+    private static void loadUpcast(final Definition definition, final String fromstr, final String tostr) {
+        final Type from = getTypeFromCanonicalName(definition, fromstr);
+        final Type to = getTypeFromCanonicalName(definition, tostr);
 
         if (from.equals(to)) {
             throw new IllegalArgumentException(); // TODO: message
@@ -865,23 +865,23 @@ class Types {
 
         final Cast cast = new Cast(from, to);
 
-        if (types.disallowed.contains(cast)) {
+        if (definition.disallowed.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (types.numerics.contains(cast)) {
+        if (definition.numerics.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (types.upcasts.contains(cast)) {
+        if (definition.upcasts.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (types.explicits.containsKey(cast)) {
+        if (definition.explicits.containsKey(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (types.implicits.containsKey(cast)) {
+        if (definition.implicits.containsKey(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
@@ -891,12 +891,12 @@ class Types {
             throw new IllegalArgumentException();
         }
 
-        types.upcasts.add(cast);
+        definition.upcasts.add(cast);
     }
 
-    private static void loadDisallow(final Types types, final String fromstr, final String tostr) {
-        final Type from = getTypeFromCanonicalName(types, fromstr);
-        final Type to = getTypeFromCanonicalName(types, tostr);
+    private static void loadDisallow(final Definition definition, final String fromstr, final String tostr) {
+        final Type from = getTypeFromCanonicalName(definition, fromstr);
+        final Type to = getTypeFromCanonicalName(definition, tostr);
 
         if (from.equals(to)) {
             throw new IllegalArgumentException(); // TODO: message
@@ -904,23 +904,23 @@ class Types {
 
         final Cast pcast = new Cast(from, to);
 
-        if (types.disallowed.contains(pcast)) {
+        if (definition.disallowed.contains(pcast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (types.upcasts.contains(pcast)) {
+        if (definition.upcasts.contains(pcast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (types.explicits.containsKey(pcast)) {
+        if (definition.explicits.containsKey(pcast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (types.implicits.containsKey(pcast)) {
+        if (definition.implicits.containsKey(pcast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        types.disallowed.add(pcast);
+        definition.disallowed.add(pcast);
     }
 
     private static String[][] parseArgumentsStr(final String argumentstr) {
@@ -956,10 +956,10 @@ class Types {
         }
     }
 
-    static Type getTypeFromCanonicalName(final Types types, final String namestr) {
+    static Type getTypeFromCanonicalName(final Definition definition, final String namestr) {
         final int dimensions = getArrayDimensionsFromCanonicalName(namestr);
         final String pclassstr = dimensions == 0 ? namestr : namestr.substring(0, namestr.indexOf('['));
-        final Struct pclass = types.structs.get(pclassstr);
+        final Struct pclass = definition.structs.get(pclassstr);
 
         if (pclass == null) {
             throw new IllegalArgumentException(); // TODO: message
@@ -1156,7 +1156,7 @@ class Types {
         }
     }
 
-    private static void validateMethods(final Types tyes) {
+    private static void validateMethods(final Definition tyes) {
         for (final Struct struct : tyes.structs.values()) {
             for (final Constructor constructor : struct.constructors.values()) {
                 final int length = constructor.arguments.size();
@@ -1194,14 +1194,14 @@ class Types {
         }
     }
 
-    private static void validateArgument(final Types types, final Type argument, final Type original) {
+    private static void validateArgument(final Definition definition, final Type argument, final Type original) {
         final Cast pcast = new Cast(argument, original);
 
-        if (types.disallowed.contains(pcast)) {
+        if (definition.disallowed.contains(pcast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (!types.implicits.containsKey(pcast)) {
+        if (!definition.implicits.containsKey(pcast)) {
             try {
                 argument.clazz.asSubclass(original.clazz);
             } catch (ClassCastException exception) {
@@ -1218,7 +1218,7 @@ class Types {
     final Set<Cast> upcasts;
     final Set<Cast> disallowed;
 
-    private Types() {
+    private Definition() {
         structs = new HashMap<>();
 
         explicits = new HashMap<>();
@@ -1228,19 +1228,19 @@ class Types {
         disallowed = new HashSet<>();
     }
 
-    private Types(Types types) {
+    private Definition(Definition definition) {
         final Map<String, Struct> ummodifiable = new HashMap<>();
 
-        for (final Struct struct : types.structs.values()) {
+        for (final Struct struct : definition.structs.values()) {
             ummodifiable.put(struct.name, new Struct(struct));
         }
 
         structs = Collections.unmodifiableMap(ummodifiable);
 
-        explicits = Collections.unmodifiableMap(types.explicits);
-        implicits = Collections.unmodifiableMap(types.implicits);
-        numerics = Collections.unmodifiableSet(types.numerics);
-        upcasts = Collections.unmodifiableSet(types.upcasts);
-        disallowed = Collections.unmodifiableSet(types.disallowed);
+        explicits = Collections.unmodifiableMap(definition.explicits);
+        implicits = Collections.unmodifiableMap(definition.implicits);
+        numerics = Collections.unmodifiableSet(definition.numerics);
+        upcasts = Collections.unmodifiableSet(definition.upcasts);
+        disallowed = Collections.unmodifiableSet(definition.disallowed);
     }
 }

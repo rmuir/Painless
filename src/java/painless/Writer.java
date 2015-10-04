@@ -1,24 +1,5 @@
 package painless;
 
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-
-import org.antlr.v4.runtime.tree.ParseTree;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.Label;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-
-import static painless.Analyzer.*;
-import static painless.External.*;
-import static painless.PainlessParser.*;
-import static painless.Types.*;
-
 class Writer extends PainlessBaseVisitor<Void>{
     /*private static class PBranch {
         private final ParseTree source;

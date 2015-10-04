@@ -1,22 +1,13 @@
 package painless;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.lang.reflect.Constructor;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
 
 import static painless.Default.*;
-import static painless.Types.*;
+import static painless.Definition.*;
 
 final class Compiler {
     private static class Loader extends ClassLoader {
@@ -33,19 +24,20 @@ final class Compiler {
                               final ClassLoader parent, final Properties properties) {
         long start = System.currentTimeMillis();
 
-        final Types types = properties == null ? DEFAULT_TYPES : loadFromProperties(properties);
-        final Standard standard = properties == null ? DEFAULT_STANDARD : new Standard(types);
+        final Definition definition = properties == null ? DEFAULT_DEFINITION : loadFromProperties(properties);
+        final Standard standard = properties == null ? DEFAULT_STANDARD : new Standard(definition);
+        final Caster caster = properties == null ? DEFAULT_CASTER : new Caster(definition, standard);
 
         long end = System.currentTimeMillis() - start;
-        System.out.println("types: " + end);
+        System.out.println("definition: " + end);
         start = System.currentTimeMillis();
 
-        final ParseTree root = createParseTree(source, types);
+        final ParseTree root = createParseTree(source, definition);
 
         end = System.currentTimeMillis() - start;
         System.out.println("tree: " + end);
 
-        final Adapter adapter = new Adapter(types, standard, root);
+        final Adapter adapter = new Adapter(definition, standard, caster, root);
         adapter.incrementScope();
         adapter.addVariable("this", adapter.standard.execType);
         adapter.addVariable("input", adapter.standard.smapType);
@@ -74,12 +66,12 @@ final class Compiler {
         return null;
     }
 
-    private static ParseTree createParseTree(String source, Types types) {
+    private static ParseTree createParseTree(String source, Definition definition) {
         final ANTLRInputStream stream = new ANTLRInputStream(source);
         final PainlessLexer lexer = new PainlessLexer(stream);
         final PainlessParser parser = new PainlessParser(new CommonTokenStream(lexer));
 
-        parser.setTypes(types.structs.keySet());
+        parser.setTypes(definition.structs.keySet());
 
         ParseTree root = parser.source();
         System.out.println(root.toStringTree(parser));

@@ -1,12 +1,9 @@
 package painless;
 
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-import static painless.Types.*;
+import static painless.Definition.*;
 
 public class Default {
     static class Standard {
@@ -26,44 +23,44 @@ public class Default {
         final Type mapType;
         final Type smapType;
 
-        Standard(final Types types) {
-            validateExact(types, "void", void.class);
-            validateExact(types, "bool", boolean.class);
-            validateExact(types, "byte", byte.class);
-            validateExact(types, "short", short.class);
-            validateExact(types, "char", char.class);
-            validateExact(types, "int", int.class);
-            validateExact(types, "long", long.class);
-            validateExact(types, "float", float.class);
-            validateExact(types, "double", double.class);
-            validateExact(types, "object", Object.class);
-            validateExact(types, "string", String.class);
-            validateSubclass(types, "exec", Executable.class);
-            validateSubclass(types, "list", List.class);
-            validateSubclass(types, "map", Map.class);
-            validateSubclass(types, "smap", Map.class);
+        Standard(final Definition definition) {
+            validateExact(definition, "void", void.class);
+            validateExact(definition, "bool", boolean.class);
+            validateExact(definition, "byte", byte.class);
+            validateExact(definition, "short", short.class);
+            validateExact(definition, "char", char.class);
+            validateExact(definition, "int", int.class);
+            validateExact(definition, "long", long.class);
+            validateExact(definition, "float", float.class);
+            validateExact(definition, "double", double.class);
+            validateExact(definition, "object", Object.class);
+            validateExact(definition, "string", String.class);
+            validateSubclass(definition, "exec", Executable.class);
+            validateSubclass(definition, "list", List.class);
+            validateSubclass(definition, "map", Map.class);
+            validateSubclass(definition, "smap", Map.class);
 
-            voidType = getTypeFromCanonicalName(types, "void");
-            boolType = getTypeFromCanonicalName(types, "bool");
-            byteType = getTypeFromCanonicalName(types, "byte");
-            shortType = getTypeFromCanonicalName(types, "short");
-            charType = getTypeFromCanonicalName(types, "char");
-            intType = getTypeFromCanonicalName(types, "int");
-            longType = getTypeFromCanonicalName(types, "long");
-            floatType = getTypeFromCanonicalName(types, "float");
-            doubleType = getTypeFromCanonicalName(types, "double");
-            objectType = getTypeFromCanonicalName(types, "object");
-            stringType = getTypeFromCanonicalName(types, "string");
-            execType = getTypeFromCanonicalName(types, "exec");
-            listType = getTypeFromCanonicalName(types, "list");
-            mapType = getTypeFromCanonicalName(types, "map");
-            smapType = getTypeFromCanonicalName(types, "smap");
+            voidType = getTypeFromCanonicalName(definition, "void");
+            boolType = getTypeFromCanonicalName(definition, "bool");
+            byteType = getTypeFromCanonicalName(definition, "byte");
+            shortType = getTypeFromCanonicalName(definition, "short");
+            charType = getTypeFromCanonicalName(definition, "char");
+            intType = getTypeFromCanonicalName(definition, "int");
+            longType = getTypeFromCanonicalName(definition, "long");
+            floatType = getTypeFromCanonicalName(definition, "float");
+            doubleType = getTypeFromCanonicalName(definition, "double");
+            objectType = getTypeFromCanonicalName(definition, "object");
+            stringType = getTypeFromCanonicalName(definition, "string");
+            execType = getTypeFromCanonicalName(definition, "exec");
+            listType = getTypeFromCanonicalName(definition, "list");
+            mapType = getTypeFromCanonicalName(definition, "map");
+            smapType = getTypeFromCanonicalName(definition, "smap");
 
-            validateMapsAndLists(types);
+            //validateMapsAndLists(definition);
         }
 
-        private void validateExact(final Types types, final String name, final Class clazz) {
-            final Types.Struct struct = types.structs.get(name);
+        private void validateExact(final Definition definition, final String name, final Class clazz) {
+            final Definition.Struct struct = definition.structs.get(name);
 
             if (struct == null) {
                 throw new IllegalArgumentException(); // TODO: message
@@ -74,8 +71,8 @@ public class Default {
             }
         }
 
-        private void validateSubclass(final Types types, final String name, final Class clazz) {
-            final Types.Struct struct = types.structs.get(name);
+        private void validateSubclass(final Definition definition, final String name, final Class clazz) {
+            final Definition.Struct struct = definition.structs.get(name);
 
             if (struct == null) {
                 throw new IllegalArgumentException(); // TODO: message
@@ -88,8 +85,8 @@ public class Default {
             }
         }
 
-        private void validateMapsAndLists(final Types types) {
-            for (final Struct struct : types.structs.values()) {
+        /*private void validateMapsAndLists(final Definition definition) {
+            for (final Struct struct : definition.structs.values()) {
                 try {
                     struct.clazz.asSubclass(List.class);
 
@@ -142,15 +139,17 @@ public class Default {
                     // Do nothing.
                 }
             }
-        }
+        }*/
     }
 
-    final static Types DEFAULT_TYPES;
+    final static Definition DEFAULT_DEFINITION;
     final static Standard DEFAULT_STANDARD;
+    final static Caster DEFAULT_CASTER;
 
     static {
-        DEFAULT_TYPES = loadFromProperties();
-        DEFAULT_STANDARD = new Standard(DEFAULT_TYPES);
+        DEFAULT_DEFINITION = loadFromProperties();
+        DEFAULT_STANDARD = new Standard(DEFAULT_DEFINITION);
+        DEFAULT_CASTER = new Caster(DEFAULT_DEFINITION, DEFAULT_STANDARD);
     }
 
     private Default() {}

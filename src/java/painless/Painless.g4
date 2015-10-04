@@ -5,18 +5,18 @@ grammar Painless;
 }
 
 @parser::members {
-    private Set<String> types = null;
+    private Set<String> definition = null;
 
-    void setTypes(Set<String> types) {
-        this.types = types;
+    void setTypes(Set<String> definition) {
+        this.definition = definition;
     }
 
     boolean isType() {
-        if (types == null) {
+        if (definition == null) {
             throw new IllegalStateException();
         }
 
-        return types.contains(getCurrentToken().getText());
+        return definition.contains(getCurrentToken().getText());
     }
 }
 

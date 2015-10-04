@@ -4,14 +4,16 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import org.antlr.v4.runtime.tree.ParseTree;
 
+import static painless.Caster.*;
 import static painless.Default.*;
-import static painless.Types.*;
+import static painless.Definition.*;
 
-public class Adapter {
+class Adapter {
     static class Variable {
         final String name;
         final Type type;
@@ -57,11 +59,9 @@ public class Adapter {
         Object postConst;
         boolean isNull;
 
+        Promotions promotions;
         Type to;
         Type from;
-
-        boolean anyNumeric;
-        boolean anyType;
         boolean explicit;
 
         Cast cast;
@@ -76,11 +76,9 @@ public class Adapter {
             postConst = null;
             isNull = false;
 
+            promotions = null;
             to = null;
             from = null;
-
-            anyNumeric = false;
-            anyType = false;
             explicit = false;
 
             cast = null;
@@ -88,8 +86,9 @@ public class Adapter {
         }
     }
 
-    final Types types;
+    final Definition definition;
     final Standard standard;
+    final Caster caster;
     final ParseTree root;
 
     private final Deque<Integer> scopes;
@@ -98,9 +97,10 @@ public class Adapter {
     private final Map<ParseTree, StatementMetadata> statementMetadata;
     private final Map<ParseTree, ExpressionMetadata> expressionMetadata;
 
-    Adapter(final Types types, final Standard standard, final ParseTree root) {
-        this.types = types;
+    Adapter(final Definition definition, final Standard standard, final Caster caster, final ParseTree root) {
+        this.definition = definition;
         this.standard = standard;
+        this.caster = caster;
         this.root = root;
 
         scopes = new ArrayDeque<>();
@@ -153,7 +153,7 @@ public class Adapter {
         variables.add(pvariable);
 
         final int update = scopes.pop() + 1;
-        scopes.push(update);
+         scopes.push(update);
     }
 
     StatementMetadata createStatementMetadata(final ParseTree source) {
@@ -202,275 +202,5 @@ public class Adapter {
         }
 
         return sourceemd;
-    }
-
-    void markCast(final ExpressionMetadata emd) {
-        if (emd.from == null) {
-            throw new IllegalStateException(); // TODO: message
-        }
-
-        if (emd.to != null) {
-            final Object object = getLegalCast(emd.to, emd.from, emd.explicit, false);
-
-            if (object instanceof Cast) {
-                emd.cast = (Cast)object;
-            } else if (object instanceof Transform) {
-                emd.transform = (Transform)object;
-            }
-
-            if (emd.to.metadata.constant) {
-                constCast(emd);
-            }
-        } else if (!emd.anyNumeric && emd.anyType) {
-            throw new IllegalStateException(); // TODO: message
-        }
-    }
-
-    Object getLegalCast(final Type from, final Type to, final boolean force, final boolean ignore) {
-        final Cast cast = new Cast(from, to);
-
-        if (from.equals(to)) {
-            return cast;
-        }
-
-        if (!ignore && types.disallowed.contains(cast)) {
-            throw new ClassCastException(); // TODO: message
-        }
-
-        final Transform explicit = types.explicits.get(cast);
-
-        if (force && explicit != null) {
-            return explicit;
-        }
-
-        final Transform implicit = types.implicits.get(cast);
-
-        if (implicit != null) {
-            return implicit;
-        }
-
-        if (types.upcasts.contains(cast)) {
-            return cast;
-        }
-
-        if (from.metadata.numeric && to.metadata.numeric && (force || types.numerics.contains(cast))) {
-            return cast;
-        }
-
-        try {
-            from.clazz.asSubclass(to.clazz);
-
-            return null;
-        } catch (ClassCastException cce0) {
-            try {
-                if (force) {
-                    to.clazz.asSubclass(from.clazz);
-
-                    return cast;
-                } else {
-                    throw new ClassCastException(); // TODO: message
-                }
-            } catch (ClassCastException cce1) {
-                throw new ClassCastException(); // TODO: message
-            }
-        }
-    }
-
-    void constCast(final ExpressionMetadata emd) {
-        if (emd.preConst != null) {
-            if (emd.transform != null) {
-                emd.postConst = invokeTransform(emd.transform, emd.preConst);
-            } else if (emd.cast != null) {
-                final TypeMetadata fromTMD = emd.cast.from.metadata;
-                final TypeMetadata toTMD = emd.cast.to.metadata;
-
-                if (fromTMD == toTMD) {
-                    emd.postConst = emd.preConst;
-                } else if (fromTMD.numeric && toTMD.numeric) {
-                    Number number;
-
-                    if (fromTMD == TypeMetadata.CHAR) {
-                        number = (int)(char)emd.preConst;
-                    } else {
-                        number = (Number)emd.preConst;
-                    }
-
-                    switch (toTMD) {
-                        case BYTE:
-                            emd.postConst = number.byteValue();
-                            break;
-                        case SHORT:
-                            emd.postConst = number.shortValue();
-                            break;
-                        case CHAR:
-                            emd.postConst = (char)number.longValue();
-                            break;
-                        case INT:
-                            emd.postConst = number.intValue();
-                            break;
-                        case LONG:
-                            emd.postConst = number.longValue();
-                            break;
-                        case FLOAT:
-                            emd.postConst = number.floatValue();
-                            break;
-                        case DOUBLE:
-                            emd.postConst = number.doubleValue();
-                            break;
-                        default:
-                            throw new IllegalStateException();
-                    }
-                } else {
-                    throw new IllegalStateException(); // TODO: message
-                }
-            } else {
-                throw new IllegalStateException(); // TODO: message
-            }
-        }
-    }
-
-    Object invokeTransform(final Transform transform, final Object object) {
-        final Method method = transform.method;
-        final java.lang.reflect.Method jmethod = method.method;
-        final int modifiers = jmethod.getModifiers();
-
-        try {
-            if (java.lang.reflect.Modifier.isStatic(modifiers)) {
-                return jmethod.invoke(null, object);
-            } else {
-                return jmethod.invoke(object);
-            }
-        } catch (IllegalAccessException | IllegalArgumentException |
-                java.lang.reflect.InvocationTargetException | NullPointerException |
-                ExceptionInInitializerError exception) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-    }
-
-    Type getUnaryNumericPromotion(final Type pfrom, boolean decimal) {
-        return getBinaryNumericPromotion(pfrom, null , decimal);
-    }
-
-    Type getBinaryNumericPromotion(final Type from0, final Type from1, boolean decimal) {
-        final Deque<Type> upcast = new ArrayDeque<>();
-        final Deque<Type> downcast = new ArrayDeque<>();
-
-        if (decimal) {
-            upcast.push(standard.doubleType);
-            upcast.push(standard.floatType);
-        } else {
-            downcast.push(standard.doubleType);
-            downcast.push(standard.floatType);
-        }
-
-        upcast.push(standard.longType);
-        upcast.push(standard.intType);
-
-        while (!upcast.isEmpty()) {
-            final Type to = upcast.pop();
-            final Cast cast0 = new Cast(from0, to);
-
-            if (types.disallowed.contains(cast0))                               continue;
-            if (from0.metadata.numeric && from0.metadata != to.metadata &&
-                    !types.numerics.contains(cast0))                            continue;
-            if (upcast.contains(from0))                                         continue;
-            if (downcast.contains(from0) && !types.numerics.contains(cast0) &&
-                    !types.implicits.containsKey(cast0))                        continue;
-            if (!from0.metadata.numeric && !types.implicits.containsKey(cast0)) continue;
-
-            if (from1 != null) {
-                final Cast cast1 = new Cast(from1, to);
-
-                if (types.disallowed.contains(cast1))                               continue;
-                if (from1.metadata.numeric && from1.metadata != to.metadata &&
-                        !types.numerics.contains(cast1))                            continue;
-                if (upcast.contains(from1))                                         continue;
-                if (downcast.contains(from1) && !types.numerics.contains(cast1) &&
-                        !types.implicits.containsKey(cast1))                        continue;
-                if (!from1.metadata.numeric && !types.implicits.containsKey(cast1)) continue;
-            }
-
-            return to;
-        }
-
-        return null;
-    }
-
-    Type getBinaryAnyPromotion(final Type from0, final Type from1) {
-        if (from0.equals(from1)) {
-            return from0;
-        }
-
-        final TypeMetadata tmd0 = from0.metadata;
-        final TypeMetadata tmd1 = from1.metadata;
-
-        if (tmd0 == TypeMetadata.BOOL || tmd1 == TypeMetadata.BOOL) {
-            final Cast cast = new Cast(tmd0 == TypeMetadata.BOOL ? from1 : from0, standard.boolType);
-
-            if (!types.disallowed.contains(cast) && types.implicits.containsKey(cast)) {
-                return standard.boolType;
-            }
-        }
-
-        if (tmd0.numeric || tmd1.numeric) {
-            Type type = getBinaryNumericPromotion(from0, from1, true);
-
-            if (type != null) {
-                return type;
-            }
-        }
-
-        if (from0.clazz.equals(from1.clazz)) {
-            Cast cast0 = null;
-            Cast cast1 = null;
-
-            if (from0.struct.generic && !from1.struct.generic) {
-                cast0 = new Cast(from0, from1);
-                cast1 = new Cast(from1, from0);
-            } else if (!from0.struct.generic && from1.struct.generic) {
-                cast0 = new Cast(from1, from0);
-                cast1 = new Cast(from0, from1);
-            }
-
-            if (cast0 != null && cast1 != null) {
-                if (!types.disallowed.contains(cast0) && types.implicits.containsKey(cast0)) {
-                    return cast0.to;
-                }
-
-                if (!types.disallowed.contains(cast1) && types.implicits.containsKey(cast1)) {
-                    return cast1.to;
-                }
-            }
-
-            return standard.objectType;
-        }
-
-        try {
-            from0.clazz.asSubclass(from1.clazz);
-            final Cast cast = new Cast(from0, from1);
-
-            if (!types.disallowed.contains(cast)) {
-                return from1;
-            }
-        } catch (ClassCastException cce0) {
-            // Do nothing.
-        }
-
-        try {
-            from1.clazz.asSubclass(from1.clazz);
-            final Cast cast = new Cast(from1, from0);
-
-            if (!types.disallowed.contains(cast)) {
-                return from0;
-            }
-        } catch (ClassCastException cce0) {
-            // Do nothing.
-        }
-
-        if (tmd0.object && tmd1.object) {
-            return standard.objectType;
-        }
-
-        return null;
     }
 }

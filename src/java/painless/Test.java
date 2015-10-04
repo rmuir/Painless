@@ -1,10 +1,8 @@
 package painless;
 
 public class Test {
-    public int stest() {
-        long j = 0;
-        long l = 0;
-        l = j++;
+    public int stest(String a, String b, Long l) {
+        //String test = 2 + ("a" + a) + (b + "b") + l - 2;
 
         return 0;
     }
