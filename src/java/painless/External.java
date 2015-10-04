@@ -1,7 +1,7 @@
 package painless;
 
 public class External {
-    /*enum SType {
+    enum SType {
         TYPE,
         VARIABLE,
         CONSTRUCTOR,
@@ -400,5 +400,5 @@ public class External {
         PType getPType() {
             return ptype;
         }
-    }*/
+    }
 }

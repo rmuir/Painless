@@ -44,10 +44,10 @@ public class Caster {
     private final Definition definition;
     private final Standard standard;
 
-    final Promotions promotionEquality;
-    final Promotions promotionAdd;
-    final Promotions promotionDecimal;
-    final Promotions promotionNumeric;
+    final Promotions equality;
+    final Promotions add;
+    final Promotions decimal;
+    final Promotions numeric;
 
     Caster(final Definition definition, final Standard standard) {
         this.definition = definition;
@@ -59,21 +59,21 @@ public class Caster {
         promotions.add(new Promotion(PromotionType.ANY_DECIMAL, null));
         promotions.add(new Promotion(PromotionType.TO_SUPERCLASS, null));
         promotions.add(new Promotion(PromotionType.TO_SUBCLASS, null));
-        this.promotionEquality = new Promotions(promotions);
+        equality = new Promotions(promotions);
 
         promotions.clear();
         promotions.add(new Promotion(PromotionType.ANY_TYPE, standard.stringType));
         promotions.add(new Promotion(PromotionType.ANY_DECIMAL, null));
         promotions.add(new Promotion(PromotionType.TO_TYPE, standard.stringType));
-        this.promotionAdd = new Promotions(promotions);
+        add = new Promotions(promotions);
 
         promotions.clear();
         promotions.add(new Promotion(PromotionType.ANY_DECIMAL, null));
-        this.promotionDecimal = new Promotions(promotions);
+        decimal = new Promotions(promotions);
 
         promotions.clear();
         promotions.add(new Promotion(PromotionType.ANY_NUMERIC, null));
-        this.promotionNumeric = new Promotions(promotions);
+        numeric = new Promotions(promotions);
     }
 
     void markCast(final ExpressionMetadata emd) {
@@ -229,8 +229,7 @@ public class Caster {
                     }
 
                     break;
-                }
-                case ANY_TYPE: {
+                } case ANY_TYPE: {
                     final Type to = promotion.type;
                     boolean eq0 = from0.equals(to);
                     boolean eq1 = from1.equals(to);
@@ -244,8 +243,7 @@ public class Caster {
                     }
 
                     break;
-                }
-                case TO_TYPE: {
+                } case TO_TYPE: {
                     final Type to = promotion.type;
                     boolean eq0 = from0.equals(to);
                     boolean eq1 = from1.equals(to);
@@ -277,8 +275,7 @@ public class Caster {
                     }
 
                     break;
-                }
-                case ANY_NUMERIC: {
+                } case ANY_NUMERIC: {
                     if (from0.metadata.numeric || from1.metadata.numeric) {
                         final Type type = getNumericPromotion(from0, from1, false);
 
@@ -288,8 +285,7 @@ public class Caster {
                     }
 
                     break;
-                }
-                case ANY_DECIMAL: {
+                } case ANY_DECIMAL: {
                     if (from0.metadata.numeric || from1.metadata.numeric) {
                         final Type type = getNumericPromotion(from0, from1, true);
 
@@ -299,8 +295,7 @@ public class Caster {
                     }
 
                     break;
-                }
-                case TO_NUMERIC: {
+                } case TO_NUMERIC: {
                     final Type type = getNumericPromotion(from0, from1, false);
 
                     if (type != null) {
@@ -308,8 +303,7 @@ public class Caster {
                     }
 
                     break;
-                }
-                case TO_DECIMAL: {
+                } case TO_DECIMAL: {
                     final Type type = getNumericPromotion(from0, from1, true);
 
                     if (type != null) {
@@ -317,8 +311,7 @@ public class Caster {
                     }
 
                     break;
-                }
-                case TO_SUPERCLASS: {
+                } case TO_SUPERCLASS: {
                     if (from0.equals(from1)) {
                         return from0;
                     }
@@ -392,7 +385,7 @@ public class Caster {
                     }
 
                     break;
-                } default : {
+                } default: {
                     throw new IllegalStateException(); // TODO: message
                 }
             }
@@ -443,6 +436,6 @@ public class Caster {
             return to;
         }
 
-        return null;
+        throw new ClassCastException(); // TODO: message
     }
 }

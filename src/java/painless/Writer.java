@@ -1,5 +1,17 @@
 package painless;
 
+import java.util.Deque;
+import java.util.HashMap;
+
+import org.antlr.v4.runtime.tree.ParseTree;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+
+import static painless.Definition.*;
+import static painless.PainlessParser.*;
+
 class Writer extends PainlessBaseVisitor<Void>{
     /*private static class PBranch {
         private final ParseTree source;
@@ -24,7 +36,7 @@ class Writer extends PainlessBaseVisitor<Void>{
     final static String BASE_CLASS_INTERNAL = Executable.class.getName().replace('.', '/');
     final static String CLASS_INTERNAL = BASE_CLASS_INTERNAL + "$CompiledPainlessExecutable";
 
-    static byte[] write(final String source, final ParseTree tree, final Map<ParseTree, PMetadata> pmetadata) {
+    static byte[] write(final String source, Adapter adapter) {
         Writer writer = new Writer(source, tree, pmetadata);
 
         return writer.getBytes();
@@ -60,19 +72,19 @@ class Writer extends PainlessBaseVisitor<Void>{
         return nodemd;
     }
 
-    private void checkWritePCast(final PMetadata pmetadata) {
-        if (pmetadata.getPCast() != null) {
-            writePCast(pmetadata.getPCast());
+    private void checkWriteCast(final PMetadata pmetadata) {
+        if (pmetadata.getCast() != null) {
+            writeCast(pmetadata.getCast());
         } else if (pmetadata.getPTransform() != null) {
             writePTransform(pmetadata.getPTransform());
         }
     }
 
-    private void writePCast(final PCast pcast) {
-        final PType fromptype = pcast.getPFrom();
-        final PType toptype = pcast.getPTo();
-        final PSort frompsort = fromptype.getPSort();
-        final PSort topsort = toptype.getPSort();
+    private void writeCast(final Cast pcast) {
+        final Type fromptype = pcast.getPFrom();
+        final Type toptype = pcast.getPTo();
+        final TypeMetadata frompsort = fromptype.getTypeMetadata();
+        final TypeMetadata topsort = toptype.getTypeMetadata();
 
         if (frompsort.isPNumeric() && topsort.isPNumeric()) {
             switch (frompsort) {
@@ -242,8 +254,8 @@ class Writer extends PainlessBaseVisitor<Void>{
         final Struct powner = pmethod.getPOwner();
         final Class jowner = powner.getJClass();
 
-        final PType pcastfrom = ptransform.getJCastFrom();
-        final PType pcastto = ptransform.getJCastTo();
+        final Type pcastfrom = ptransform.getJCastFrom();
+        final Type pcastto = ptransform.getJCastTo();
 
         if (pcastfrom != null) {
             execute.visitTypeInsn(Opcodes.CHECKCAST, pcastfrom.getJInternal());
@@ -672,7 +684,7 @@ class Writer extends PainlessBaseVisitor<Void>{
             visit(ectx);
         }
 
-        final PSort psort = pvariable.getPType().getPSort();
+        final TypeMetadata psort = pvariable.getType().getTypeMetadata();
         final int slot = pvariable.getASlot();
 
         switch (psort) {
@@ -745,7 +757,7 @@ class Writer extends PainlessBaseVisitor<Void>{
             final Object constpre = stringmd.getConstPre();
 
             writePNumeric(constpre);
-            checkWritePCast(stringmd);
+            checkWriteCast(stringmd);
         } else {
             writePConstant(constpost);
         }
@@ -765,7 +777,7 @@ class Writer extends PainlessBaseVisitor<Void>{
             final Object constpre = stringmd.getConstPre();
 
             writePString(constpre);
-            checkWritePCast(stringmd);
+            checkWriteCast(stringmd);
         } else {
             writePConstant(constpost);
         }
@@ -785,7 +797,7 @@ class Writer extends PainlessBaseVisitor<Void>{
             final Object constpre = stringmd.getConstPre();
 
             writePNumeric((int)(char)constpre);
-            checkWritePCast(stringmd);
+            checkWriteCast(stringmd);
         } else {
             writePConstant(constpost);
         }
@@ -804,7 +816,7 @@ class Writer extends PainlessBaseVisitor<Void>{
         if (pbranch == null) {
             if (constpost == null) {
                 writePBoolean(true);
-                checkWritePCast(truemd);
+                checkWriteCast(truemd);
             } else {
                 writePConstant(constpost);
             }
@@ -824,7 +836,7 @@ class Writer extends PainlessBaseVisitor<Void>{
         if (pbranch == null) {
             if (constpost == null) {
                 writePBoolean(false);
-                checkWritePCast(truemd);
+                checkWriteCast(truemd);
             } else {
                 writePConstant(constpost);
             }
@@ -841,7 +853,7 @@ class Writer extends PainlessBaseVisitor<Void>{
         final PBranch pbranch = pbranches.get(ctx);
 
         execute.visitInsn(Opcodes.ACONST_NULL);
-        checkWritePCast(nullmd);
+        checkWriteCast(nullmd);
         checkWritePBranch(pbranch);
 
         return null;
@@ -885,7 +897,7 @@ class Writer extends PainlessBaseVisitor<Void>{
                     execute.visitInsn(Opcodes.ICONST_1);
                     execute.visitLabel(aend);
 
-                    checkWritePCast(unarymd);
+                    checkWriteCast(unarymd);
                 } else {
                     final PBranch localpbranch = new PBranch(ctx);
                     localpbranch.atrue = pbranch.afalse;
@@ -895,12 +907,12 @@ class Writer extends PainlessBaseVisitor<Void>{
                     visit(ectx);
                 }
             } else {
-                final PSort psort = unarymd.getFromPType().getPSort();
+                final TypeMetadata psort = unarymd.getFromType().getTypeMetadata();
 
                 visit(ectx);
 
                 if (ctx.BWNOT() != null) {
-                    if (psort == PSort.INT) {
+                    if (psort == TypeMetadata.INT) {
                         writePConstant(-1);
                         execute.visitInsn(Opcodes.IXOR);
                     } else {
@@ -908,18 +920,18 @@ class Writer extends PainlessBaseVisitor<Void>{
                         execute.visitInsn(Opcodes.LXOR);
                     }
                 } else if (ctx.SUB() != null) {
-                    if (psort == PSort.INT) {
+                    if (psort == TypeMetadata.INT) {
                         execute.visitInsn(Opcodes.INEG);
-                    } else if (psort == PSort.LONG) {
+                    } else if (psort == TypeMetadata.LONG) {
                         execute.visitInsn(Opcodes.LNEG);
-                    } else if (psort == PSort.FLOAT) {
+                    } else if (psort == TypeMetadata.FLOAT) {
                         execute.visitInsn(Opcodes.FNEG);
                     } else {
                         execute.visitInsn(Opcodes.DNEG);
                     }
                 }
 
-                checkWritePCast(unarymd);
+                checkWriteCast(unarymd);
                 checkWritePBranch(pbranch);
             }
         } else {
@@ -950,7 +962,7 @@ class Writer extends PainlessBaseVisitor<Void>{
 
         if (constpost == null) {
             visit(ctx.expression());
-            checkWritePCast(castmd);
+            checkWriteCast(castmd);
         } else {
             writePConstant(constpost);
         }
@@ -973,7 +985,7 @@ class Writer extends PainlessBaseVisitor<Void>{
             visit(expr0);
             visit(expr1);
 
-            final PSort psort = compmd.getFromPType().getPSort();
+            final TypeMetadata psort = compmd.getFromType().getTypeMetadata();
 
             switch (psort) {
                 case INT:
@@ -1068,7 +1080,7 @@ class Writer extends PainlessBaseVisitor<Void>{
                     throw new IllegalStateException(); // TODO: message
             }
 
-            checkWritePCast(compmd);
+            checkWriteCast(compmd);
             checkWritePBranch(pbranch);
         } else {
             writePConstant(constpost);
@@ -1088,7 +1100,7 @@ class Writer extends PainlessBaseVisitor<Void>{
             final ExpressionContext ectx0 = ctx.expression(0);
             final ExpressionContext ectx1 = ctx.expression(1);
             final PMetadata expressionmd1 = getPMetadata(ectx1);
-            final PSort psort = expressionmd1.getToPType().getPSort();
+            final TypeMetadata psort = expressionmd1.getToType().getTypeMetadata();
 
             visit(ectx0);
 
@@ -1236,7 +1248,7 @@ class Writer extends PainlessBaseVisitor<Void>{
                 execute.visitInsn(Opcodes.ICONST_1);
                 execute.visitLabel(aend);
 
-                checkWritePCast(compmd);
+                checkWriteCast(compmd);
             }
         } else {
             if (pbranch == null) {
@@ -1301,7 +1313,7 @@ class Writer extends PainlessBaseVisitor<Void>{
                     throw new IllegalStateException(); // TODO: message
                 }
 
-                checkWritePCast(boolmd);
+                checkWriteCast(boolmd);
             } else {
                 if (ctx.BOOLAND() != null) {
                     final PBranch pbranch0 = new PBranch(ctx);
@@ -1374,20 +1386,20 @@ class Writer extends PainlessBaseVisitor<Void>{
         execute.visitLabel(localpbranch.aend);
 
         if (pbranch == null) {
-            checkWritePCast(conditionalmd);
+            checkWriteCast(conditionalmd);
         }
 
         return null;
     }
 
-    @Override
+    /*@Override
     public Void visitAssignment(final AssignmentContext ctx) {
         final PMetadata assignmentmd = getPMetadata(ctx);
         final PBranch pbranch = pbranches.get(ctx);
 
         visit(ctx.extstart());
 
-        checkWritePCast(assignmentmd);
+        checkWriteCast(assignmentmd);
         checkWritePBranch(pbranch);
 
         return null;
@@ -1412,7 +1424,7 @@ class Writer extends PainlessBaseVisitor<Void>{
                 } case VARIABLE: {
                     final PVariable pvariable = (PVariable)svalue0;
                     final boolean write = (Boolean)svalue1;
-                    final PSort psort = pvariable.getPType().getPSort();
+                    final TypeMetadata psort = pvariable.getType().getTypeMetadata();
                     final int aslot = pvariable.getASlot();
 
                     switch (psort) {
@@ -1471,10 +1483,10 @@ class Writer extends PainlessBaseVisitor<Void>{
                 } case FIELD: {
                     final PField pfield = (PField)svalue0;
                     final Boolean write = (Boolean)svalue1;
-                    final PSort psort = pfield.getPType().getPSort();
+                    final TypeMetadata psort = pfield.getType().getTypeMetadata();
                     final String jinternal = pfield.getPOwner().getJInternal();
                     final String jname = pfield.getJField().getName();
-                    final String adescriptor = pfield.getPType().getADescriptor();
+                    final String adescriptor = pfield.getType().getADescriptor();
 
                     int opcode;
 
@@ -1496,7 +1508,7 @@ class Writer extends PainlessBaseVisitor<Void>{
 
                     break;
                 } case ARRAY: {
-                    final PSort psort = ((PType)svalue0).getPSort();
+                    final TypeMetadata psort = ((Type)svalue0).getTypeMetadata();
                     final boolean write = (Boolean)svalue1;
 
                     if (write && !pop) {
@@ -1536,8 +1548,8 @@ class Writer extends PainlessBaseVisitor<Void>{
 
                     break;
                 } case POP: {
-                    final PType ptype = (PType)svalue0;
-                    final int asize = ptype.getPSort().getASize();
+                    final Type ptype = (Type)svalue0;
+                    final int asize = ptype.getTypeMetadata().getASize();
 
                     if (asize == 1) {
                         execute.visitInsn(Opcodes.POP);
@@ -1552,8 +1564,8 @@ class Writer extends PainlessBaseVisitor<Void>{
 
                     break;
                 } case CAST: {
-                    final PCast pcast = (PCast)svalue0;
-                    writePCast(pcast);
+                    final Cast pcast = (Cast)svalue0;
+                    writeCast(pcast);
 
                     break;
                 } case TRANSFORM: {
@@ -1563,13 +1575,13 @@ class Writer extends PainlessBaseVisitor<Void>{
                     break;
                 }
                 case AMAKE: {
-                    final PType ptype = (PType)svalue0;
+                    final Type ptype = (Type)svalue0;
 
                     if (ptype.getPDimensions() > 1) {
                         final String adescriptor = ptype.getADescriptor();
                         execute.visitMultiANewArrayInsn(adescriptor, ptype.getPDimensions());
                     } else {
-                        PSort psort = getPTypeWithArrayDimensions(ptype.getPClass(), 0).getPSort();
+                        TypeMetadata psort = getTypeWithArrayDimensions(ptype.getPClass(), 0).getTypeMetadata();
 
                         switch (psort) {
                             case VOID:
@@ -1612,13 +1624,13 @@ class Writer extends PainlessBaseVisitor<Void>{
             }
         }
 
-        checkWritePCast(extstartmd);
+        checkWriteCast(extstartmd);
         checkWritePBranch(pbranch);
 
         return null;
-    }
+    }*/
 
-    @Override
+    /*@Override
     public Void visitExtprec(final ExtprecContext ctx) {
         throw new UnsupportedOperationException(); // TODO: message
     }

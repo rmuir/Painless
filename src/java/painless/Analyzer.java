@@ -776,15 +776,11 @@ class Analyzer extends PainlessBaseVisitor<Void> {
 
             unaryemd.from = standard.boolType;
         } else if (ctx.BWNOT() != null || ctx.ADD() != null || ctx.SUB() != null) {
-            final Promotions promotions = ctx.BWNOT() != null ? caster.promotionNumeric : caster.promotionDecimal;
+            final Promotions promotions = ctx.BWNOT() != null ? caster.numeric : caster.decimal;
             expremd.promotions = promotions;
             visit(exprctx);
 
             final Type promote = caster.getTypePromotion(expremd.from, null, promotions);
-
-            if (promote == null) {
-                throw new ClassCastException(); // TODO: message
-            }
 
             expremd.to = promote;
             caster.markCast(expremd);
@@ -868,31 +864,28 @@ class Analyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitBinary(final BinaryContext ctx) {
         final ExpressionMetadata binaryemd = adapter.getExpressionMetadata(ctx);
-        
+
+        Promotions promotions;
+
+        if (ctx.ADD() != null) {
+            promotions = caster.add;
+        } else if (ctx.SUB() != null || ctx.DIV() != null || ctx.MUL() != null || ctx.REM() != null) {
+            promotions = caster.decimal;
+        } else {
+            promotions = caster.numeric;
+        }
 
         final ExpressionContext exprctx0 = ctx.expression(0);
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
-
+        expremd0.promotions = promotions;
         visit(exprctx0);
 
         final ExpressionContext exprctx1 = ctx.expression(1);
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
-
+        expremd1.promotions = promotions;
         visit(exprctx1);
 
-        final boolean decimal = ctx.ADD() != null || ctx.SUB() != null ||
-                ctx.DIV() != null || ctx.MUL() != null || ctx.REM() != null;
-        Type promote = caster.getNumericPromotion(expremd0.from, expremd1.from, caster.promotionAdd);
-
-        if (promote == null) {
-            if (ctx.ADD() != null) {
-                promote = caster.getBinaryAnyPromotion(expremd0.from, expremd1.from);
-            }
-
-            if (promote == null || promote.metadata != TypeMetadata.STRING) {
-                throw new ClassCastException(); // TODO: message
-            }
-        }
+        final Type promote = caster.getTypePromotion(expremd0.from, expremd1.from, promotions);
 
         expremd0.to = promote;
         caster.markCast(expremd0);
@@ -1023,224 +1016,189 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         return null;
     }
 
-    /*@Override
+    @Override
     public Void visitComp(final CompContext ctx) {
-        final PMetadata compmd = getPMetadata(ctx);
+        final ExpressionMetadata compemd = adapter.getExpressionMetadata(ctx);
+        final Promotions promotions = ctx.EQ() != null || ctx.NE() != null ? caster.equality : caster.decimal;
 
-        final ExpressionContext ectx0 = ctx.expression(0);
-        final PMetadata expressionmd0 = createPMetadata(ectx0);
-        final ExpressionContext ectx1 = ctx.expression(1);
-        final PMetadata expressionmd1 = createPMetadata(ectx1);
+        final ExpressionContext exprctx0 = ctx.expression(0);
+        final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
+        expremd0.promotions = promotions;
+        visit(exprctx0);
 
-        if (expressionmd0.isnull && expressionmd1.isnull) {
+        final ExpressionContext exprctx1 = ctx.expression(1);
+        final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
+        expremd1.promotions = promotions;
+        visit(exprctx1);
+
+        final Type promote = caster.getTypePromotion(expremd0.from, expremd1.from, promotions);
+
+        if (expremd0.isNull && expremd1.isNull) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (ctx.EQ() != null || ctx.NE() != null) {
-            expressionmd0.anyptype = true;
-            visit(ectx0);
-            expressionmd1.anyptype = true;
-            visit(ectx1);
+        expremd0.to = promote;
+        caster.markCast(expremd0);
+        expremd1.to = promote;
+        caster.markCast(expremd1);
 
-            final PType promoteptype = getBinaryAnyPromotion(expressionmd0.fromptype, expressionmd1.fromptype);
+        if (expremd0.postConst != null && expremd1.postConst != null) {
+            final TypeMetadata metadata = promote.metadata;
 
-            if (promoteptype == null) {
-                throw new ClassCastException(); // TODO: message
-            }
-
-            expressionmd0.toptype = promoteptype;
-            markCast(expressionmd0);
-            expressionmd1.toptype = promoteptype;
-            markCast(expressionmd1);
-
-            if (expressionmd0.constpost != null && expressionmd1.constpost != null) {
-                final PSort promotepsort = promoteptype.getPSort();
-
-                if (ctx.EQ() != null) {
-                    if (promotepsort == PSort.BOOL) {
-                        compmd.constpre = (boolean)expressionmd0.constpost == (boolean)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.INT) {
-                        compmd.constpre = (int)expressionmd0.constpost == (int)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.LONG) {
-                        compmd.constpre = (long)expressionmd0.constpost == (long)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.FLOAT) {
-                        compmd.constpre = (float)expressionmd0.constpost == (float)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.DOUBLE) {
-                        compmd.constpre = (double)expressionmd0.constpost == (double)expressionmd1.constpost;
-                    } else {
-                        compmd.constpre = expressionmd0.constpost == expressionmd1.constpost;
-                    }
-                } else if (ctx.NE() != null) {
-                    if (promotepsort == PSort.BOOL) {
-                        compmd.constpre = (boolean)expressionmd0.constpost != (boolean)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.INT) {
-                        compmd.constpre = (int)expressionmd0.constpost != (int)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.LONG) {
-                        compmd.constpre = (long)expressionmd0.constpost != (long)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.FLOAT) {
-                        compmd.constpre = (float)expressionmd0.constpost != (float)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.DOUBLE) {
-                        compmd.constpre = (double)expressionmd0.constpost != (double)expressionmd1.constpost;
-                    } else {
-                        compmd.constpre = expressionmd0.constpost != expressionmd1.constpost;
-                    }
+            if (ctx.EQ() != null) {
+                if (metadata == TypeMetadata.BOOL) {
+                    compemd.preConst = (boolean)expremd0.postConst == (boolean)expremd1.postConst;
+                } else if (metadata == TypeMetadata.INT) {
+                    compemd.preConst = (int)expremd0.postConst == (int)expremd1.postConst;
+                } else if (metadata == TypeMetadata.LONG) {
+                    compemd.preConst = (long)expremd0.postConst == (long)expremd1.postConst;
+                } else if (metadata == TypeMetadata.FLOAT) {
+                    compemd.preConst = (float)expremd0.postConst == (float)expremd1.postConst;
+                } else if (metadata == TypeMetadata.DOUBLE) {
+                    compemd.preConst = (double)expremd0.postConst == (double)expremd1.postConst;
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    compemd.preConst = expremd0.postConst == expremd1.postConst;
                 }
-            }
-        } else if (ctx.GT() != null || ctx.GTE() != null || ctx.LT() != null || ctx.LTE() != null) {
-            expressionmd0.anypnumeric = true;
-            visit(ectx0);
-            expressionmd1.anypnumeric = true;
-            visit(ectx1);
-
-            final PType promoteptype = getBinaryNumericPromotion(expressionmd0.fromptype, expressionmd1.fromptype, true);
-
-            if (promoteptype == null) {
-                throw new ClassCastException(); // TODO: message
-            }
-
-            expressionmd0.toptype = promoteptype;
-            markCast(expressionmd0);
-            expressionmd1.toptype = promoteptype;
-            markCast(expressionmd1);
-
-            if (expressionmd0.constpost != null && expressionmd1.constpost != null) {
-                final PSort promotepsort = promoteptype.getPSort();
-
-                if (ctx.GTE() != null) {
-                    if (promotepsort == PSort.INT) {
-                        compmd.constpre = (int)expressionmd0.constpost >= (int)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.LONG) {
-                        compmd.constpre = (long)expressionmd0.constpost >= (long)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.FLOAT) {
-                        compmd.constpre = (float)expressionmd0.constpost >= (float)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.DOUBLE) {
-                        compmd.constpre = (double)expressionmd0.constpost >= (double)expressionmd1.constpost;
-                    }
-                } else if (ctx.GT() != null) {
-                    if (promotepsort == PSort.INT) {
-                        compmd.constpre = (int)expressionmd0.constpost > (int)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.LONG) {
-                        compmd.constpre = (long)expressionmd0.constpost > (long)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.FLOAT) {
-                        compmd.constpre = (float)expressionmd0.constpost > (float)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.DOUBLE) {
-                        compmd.constpre = (double)expressionmd0.constpost > (double)expressionmd1.constpost;
-                    }
-                } else if (ctx.LTE() != null) {
-                    if (promotepsort == PSort.INT) {
-                        compmd.constpre = (int)expressionmd0.constpost <= (int)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.LONG) {
-                        compmd.constpre = (long)expressionmd0.constpost <= (long)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.FLOAT) {
-                        compmd.constpre = (float)expressionmd0.constpost <= (float)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.DOUBLE) {
-                        compmd.constpre = (double)expressionmd0.constpost <= (double)expressionmd1.constpost;
-                    }
-                } else if (ctx.LT() != null) {
-                    if (promotepsort == PSort.INT) {
-                        compmd.constpre = (int)expressionmd0.constpost < (int)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.LONG) {
-                        compmd.constpre = (long)expressionmd0.constpost < (long)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.FLOAT) {
-                        compmd.constpre = (float)expressionmd0.constpost < (float)expressionmd1.constpost;
-                    } else if (promotepsort == PSort.DOUBLE) {
-                        compmd.constpre = (double)expressionmd0.constpost < (double)expressionmd1.constpost;
-                    }
+            } else if (ctx.NE() != null) {
+                if (metadata == TypeMetadata.BOOL) {
+                    compemd.preConst = (boolean)expremd0.postConst != (boolean)expremd1.postConst;
+                } else if (metadata == TypeMetadata.INT) {
+                    compemd.preConst = (int)expremd0.postConst != (int)expremd1.postConst;
+                } else if (metadata == TypeMetadata.LONG) {
+                    compemd.preConst = (long)expremd0.postConst != (long)expremd1.postConst;
+                } else if (metadata == TypeMetadata.FLOAT) {
+                    compemd.preConst = (float)expremd0.postConst != (float)expremd1.postConst;
+                } else if (metadata == TypeMetadata.DOUBLE) {
+                    compemd.preConst = (double)expremd0.postConst != (double)expremd1.postConst;
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    compemd.preConst = expremd0.postConst != expremd1.postConst;
                 }
+            } else {
+                throw new IllegalStateException(); // TODO: message
             }
-        } else {
-            throw new IllegalStateException();
+
+            if (ctx.GTE() != null) {
+                if (metadata == TypeMetadata.INT) {
+                    compemd.preConst = (int)expremd0.postConst >= (int)expremd1.postConst;
+                } else if (metadata == TypeMetadata.LONG) {
+                    compemd.preConst = (long)expremd0.postConst >= (long)expremd1.postConst;
+                } else if (metadata == TypeMetadata.FLOAT) {
+                    compemd.preConst = (float)expremd0.postConst >= (float)expremd1.postConst;
+                } else if (metadata == TypeMetadata.DOUBLE) {
+                    compemd.preConst = (double)expremd0.postConst >= (double)expremd1.postConst;
+                }
+            } else if (ctx.GT() != null) {
+                if (metadata == TypeMetadata.INT) {
+                    compemd.preConst = (int)expremd0.postConst > (int)expremd1.postConst;
+                } else if (metadata == TypeMetadata.LONG) {
+                    compemd.preConst = (long)expremd0.postConst > (long)expremd1.postConst;
+                } else if (metadata == TypeMetadata.FLOAT) {
+                    compemd.preConst = (float)expremd0.postConst > (float)expremd1.postConst;
+                } else if (metadata == TypeMetadata.DOUBLE) {
+                    compemd.preConst = (double)expremd0.postConst > (double)expremd1.postConst;
+                }
+            } else if (ctx.LTE() != null) {
+                if (metadata == TypeMetadata.INT) {
+                    compemd.preConst = (int)expremd0.postConst <= (int)expremd1.postConst;
+                } else if (metadata == TypeMetadata.LONG) {
+                    compemd.preConst = (long)expremd0.postConst <= (long)expremd1.postConst;
+                } else if (metadata == TypeMetadata.FLOAT) {
+                    compemd.preConst = (float)expremd0.postConst <= (float)expremd1.postConst;
+                } else if (metadata == TypeMetadata.DOUBLE) {
+                    compemd.preConst = (double)expremd0.postConst <= (double)expremd1.postConst;
+                }
+            } else if (ctx.LT() != null) {
+                if (metadata == TypeMetadata.INT) {
+                    compemd.preConst = (int)expremd0.postConst < (int)expremd1.postConst;
+                } else if (metadata == TypeMetadata.LONG) {
+                    compemd.preConst = (long)expremd0.postConst < (long)expremd1.postConst;
+                } else if (metadata == TypeMetadata.FLOAT) {
+                    compemd.preConst = (float)expremd0.postConst < (float)expremd1.postConst;
+                } else if (metadata == TypeMetadata.DOUBLE) {
+                    compemd.preConst = (double)expremd0.postConst < (double)expremd1.postConst;
+                }
+            } else {
+                throw new IllegalStateException(); // TODO: message
+            }
         }
 
-        compmd.fromptype = pstandard.pbool;
-        markCast(compmd);
+        compemd.from = standard.boolType;
+        caster.markCast(compemd);
 
         return null;
     }
 
     @Override
     public Void visitBool(final BoolContext ctx) {
-        final PMetadata boolmd = getPMetadata(ctx);
+        final ExpressionMetadata boolemd = adapter.getExpressionMetadata(ctx);
 
-        final ExpressionContext ectx0 = ctx.expression(0);
-        final PMetadata expressionmd0 = createPMetadata(ectx0);
-        expressionmd0.toptype = pstandard.pbool;
-        visit(ectx0);
+        final ExpressionContext exprctx0 = ctx.expression(0);
+        final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
+        expremd0.to = standard.boolType;
+        visit(exprctx0);
 
-        final ExpressionContext ectx1 = ctx.expression(1);
-        final PMetadata expressionmd1 = createPMetadata(ectx1);
-        expressionmd1.toptype = pstandard.pbool;
-        visit(ectx1);
+        final ExpressionContext exprctx1 = ctx.expression(1);
+        final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
+        expremd1.to = standard.boolType;
+        visit(exprctx1);
 
-        if (expressionmd0.constpost != null && expressionmd1.constpost != null) {
+        if (expremd0.postConst != null && expremd1.postConst != null) {
             if (ctx.BOOLAND() != null) {
-                boolmd.constpre = (boolean)expressionmd0.constpost && (boolean)expressionmd1.constpost;
+                boolemd.preConst = (boolean)expremd0.postConst && (boolean)expremd1.postConst;
             } else if (ctx.BOOLOR() != null) {
-                boolmd.constpre = (boolean)expressionmd0.constpost || (boolean)expressionmd1.constpost;
+                boolemd.preConst = (boolean)expremd0.postConst || (boolean)expremd1.postConst;
             } else {
                 throw new IllegalStateException(); // TODO: message
             }
         }
 
-        boolmd.fromptype = pstandard.pbool;
-        markCast(boolmd);
+        boolemd.from = standard.boolType;
+        caster.markCast(boolemd);
 
         return null;
     }
 
     @Override
     public Void visitConditional(final ConditionalContext ctx) {
-        final PMetadata conditionalmd = getPMetadata(ctx);
+        final ExpressionMetadata condemd = adapter.getExpressionMetadata(ctx);
 
-        final ExpressionContext ectx0 = ctx.expression(0);
-        final PMetadata expressionmd0 = createPMetadata(ectx0);
-        expressionmd0.toptype = pstandard.pbool;
-        visit(ectx0);
+        final ExpressionContext exprctx0 = ctx.expression(0);
+        final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
+        expremd0.to = standard.boolType;
+        visit(exprctx0);
 
-        if (expressionmd0.constpost != null) {
+        if (expremd0.postConst != null) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        final ExpressionContext ectx1 = ctx.expression(1);
-        final PMetadata expressionmd1 = createPMetadata(ectx1);
-        expressionmd1.toptype = conditionalmd.toptype;
-        expressionmd1.anyptype = conditionalmd.anyptype;
-        expressionmd1.anypnumeric = conditionalmd.anypnumeric;
-        visit(ectx1);
+        final ExpressionContext exprctx1 = ctx.expression(1);
+        final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
+        expremd1.to = condemd.to;
+        expremd1.promotions = condemd.promotions;
+        visit(exprctx1);
 
-        final ExpressionContext ectx2 = ctx.expression(2);
-        final PMetadata expressionmd2 = createPMetadata(ectx2);
-        expressionmd2.toptype = conditionalmd.toptype;
-        expressionmd1.anyptype = conditionalmd.anyptype;
-        expressionmd1.anypnumeric = conditionalmd.anypnumeric;
-        visit(ectx2);
+        final ExpressionContext exprctx2 = ctx.expression(2);
+        final ExpressionMetadata expremd2 = adapter.createExpressionMetadata(exprctx2);
+        expremd2.to = condemd.to;
+        expremd2.promotions = condemd.promotions;
+        visit(exprctx2);
 
-        if (conditionalmd.toptype != null) {
-            conditionalmd.fromptype = conditionalmd.toptype;
-        } else if (conditionalmd.anyptype || conditionalmd.anypnumeric) {
-            PType promoteptype = conditionalmd.anyptype ?
-                    getBinaryAnyPromotion(expressionmd1.fromptype, expressionmd2.fromptype) :
-                    getBinaryNumericPromotion(expressionmd1.fromptype, expressionmd2.fromptype, true);
+        if (condemd.to != null) {
+            condemd.from = condemd.to;
+        } else if (condemd.promotions != null) {
+            Type promote = caster.getTypePromotion(expremd1.from, expremd2.from, condemd.promotions);
 
-            if (promoteptype == null) {
-                throw new ClassCastException();
-            }
+            expremd0.to = promote;
+            caster.markCast(expremd1);
+            expremd1.to = promote;
+            caster.markCast(expremd2);
 
-            expressionmd0.toptype = promoteptype;
-            markCast(expressionmd1);
-            expressionmd1.toptype = promoteptype;
-            markCast(expressionmd2);
-
-            conditionalmd.fromptype = promoteptype;
+            condemd.from = promote;
         } else {
             throw new IllegalStateException(); // TODO: message
         }
 
-        markCast(conditionalmd);
+        caster.markCast(condemd);
 
         return null;
     }
