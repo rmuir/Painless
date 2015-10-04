@@ -4,10 +4,10 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 
 import org.antlr.v4.runtime.tree.ParseTree;
+import org.objectweb.asm.Label;
 
 import static painless.Caster.*;
 import static painless.Default.*;
@@ -19,7 +19,7 @@ class Adapter {
         final Type type;
         final int slot;
 
-        Variable(final String name, final Type type, final int slot) {
+        private Variable(final String name, final Type type, final int slot) {
             this.name = name;
             this.type = type;
             this.slot = slot;
@@ -27,7 +27,7 @@ class Adapter {
     }
 
     static class StatementMetadata {
-        ParseTree source;
+        final ParseTree source;
 
         boolean allExit;
         boolean allReturn;
@@ -37,8 +37,8 @@ class Adapter {
         boolean allContinue;
         boolean anyContinue;
 
-        StatementMetadata() {
-            source = null;
+        private StatementMetadata(final ParseTree source) {
+            this.source = source;
 
             allExit = false;
             allReturn = false;
@@ -67,7 +67,7 @@ class Adapter {
         Cast cast;
         Transform transform;
 
-        ExpressionMetadata() {
+        private ExpressionMetadata() {
             source = null;
 
             statement = false;
@@ -86,9 +86,28 @@ class Adapter {
         }
     }
 
+    static class Branch {
+        final ParseTree source;
+
+        Label begin;
+        Label end;
+        Label tru;
+        Label fals;
+
+        private Branch(final ParseTree source) {
+            this.source = source;
+
+            begin = null;
+            end = null;
+            tru = null;
+            fals = null;
+        }
+    }
+
     final Definition definition;
     final Standard standard;
     final Caster caster;
+    final String source;
     final ParseTree root;
 
     private final Deque<Integer> scopes;
@@ -96,11 +115,17 @@ class Adapter {
 
     private final Map<ParseTree, StatementMetadata> statementMetadata;
     private final Map<ParseTree, ExpressionMetadata> expressionMetadata;
+    private final Map<ParseTree, External> externals;
 
-    Adapter(final Definition definition, final Standard standard, final Caster caster, final ParseTree root) {
+    private final HashMap<ParseTree, Branch> branches;
+    private final Deque<Branch> loops;
+
+    Adapter(final Definition definition, final Standard standard, final Caster caster,
+            final String source, final ParseTree root) {
         this.definition = definition;
         this.standard = standard;
         this.caster = caster;
+        this.source = source;
         this.root = root;
 
         scopes = new ArrayDeque<>();
@@ -108,6 +133,10 @@ class Adapter {
 
         statementMetadata = new HashMap<>();
         expressionMetadata = new HashMap<>();
+        externals = new HashMap<>();
+
+        this.branches = new HashMap<>();
+        this.loops = new ArrayDeque<>();
     }
 
     void incrementScope() {
@@ -157,17 +186,10 @@ class Adapter {
     }
 
     StatementMetadata createStatementMetadata(final ParseTree source) {
-        final StatementMetadata sourcesmd = new StatementMetadata();
-        sourcesmd.source = source;
+        final StatementMetadata sourcesmd = new StatementMetadata(source);
         statementMetadata.put(source, sourcesmd);
 
         return sourcesmd;
-    }
-
-    void updateStatementMetadata(final ParseTree source, final StatementMetadata statemd) {
-        statementMetadata.remove(statemd.source);
-        statemd.source = source;
-        statementMetadata.put(source, statemd);
     }
 
     StatementMetadata getStatementMetadata(final ParseTree source) {
@@ -202,5 +224,40 @@ class Adapter {
         }
 
         return sourceemd;
+    }
+
+    void putExternal(final ParseTree source, final External external) {
+        externals.put(source, external);
+    }
+
+    External getExternal(final ParseTree source) {
+        final External external = externals.get(source);
+
+        if (external == null) {
+            throw new IllegalStateException(); // TODO: message
+        }
+
+        return external;
+    }
+
+    Branch createBranch(final ParseTree source, boolean loop) {
+        final Branch branch = new Branch(source);
+        branches.put(source, branch);
+
+        return branch;
+    }
+
+    Branch propagateBranch(final ParseTree node, Branch branch) {
+        branches.put(source, branch);
+    }
+
+    Branch getBranch(final ParseTree source) {
+        final Branch branch = branches.get(source);
+
+        if (branch == null) {
+            throw new IllegalStateException(); // TODO: message
+        }
+
+        return branch;
     }
 }

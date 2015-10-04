@@ -5,6 +5,7 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.MethodVisitor;
 
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
 
@@ -31,20 +32,13 @@ class External {
         }
     }
 
-    private class ArraySegment extends Segment {
-        private final Variable variable;
+    private class FieldSegment extends Segment {
+        private final Field field;
 
-        ArraySegment(final Variable variable) {
-            this.variable = variable;
+        FieldSegment(final Field field) {
+            this.field = field;
         }
 
-        @Override
-        void write(MethodVisitor visitor) {
-
-        }
-    }
-
-    private class LengthSegment extends Segment {
         @Override
         void write(MethodVisitor visitor) {
 
@@ -71,6 +65,52 @@ class External {
             this.method = method;
         }
 
+        @Override
+        void write(MethodVisitor visitor) {
+
+        }
+    }
+
+    private class NodeSegment extends Segment {
+        private final ParseTree node;
+
+        NodeSegment(final ParseTree node) {
+            this.node = node;
+        }
+
+        @Override
+        void write(MethodVisitor visitor) {
+
+        }
+    }
+
+    private class ArraySegment extends Segment {
+        private final Type type;
+
+        ArraySegment(final Type type) {
+            this.type = type;
+        }
+
+        @Override
+        void write(MethodVisitor visitor) {
+
+        }
+    }
+
+    private class MakeSegment extends Segment {
+        private final Type type;
+
+        MakeSegment(final Type type) {
+            this.type = type;
+        }
+
+        @Override
+        void write(MethodVisitor visitor) {
+
+        }
+    }
+
+    private class LengthSegment extends Segment {
         @Override
         void write(MethodVisitor visitor) {
 
@@ -267,6 +307,8 @@ class External {
 
         final Object object = caster.getLegalCast(from, to, true, false);
 
+        current = to;
+
         if (object instanceof Cast) {
             segments.add(new CastSegment((Cast)object));
         } else if (object instanceof Transform) {
@@ -277,43 +319,37 @@ class External {
     }
 
     public void brace(final ExtbraceContext ctx) {
-        final PMetadata extbrace = getPMetadata(ctx);
-        final PExternal pexternal = extbrace.getPExternal();
-        final PType ptype = pexternal.getPType();
+        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
+        final Struct struct = current.struct;
 
-        final ExpressionContext ectx0 = ctx.expression();
-        final PMetadata expressionmd = createPMetadata(ectx0);
-
-        final ExtdotContext ectx1 = ctx.extdot();
-        final ExtbraceContext ectx2 = ctx.extbrace();
-
-        if (ptype.getPDimensions() > 0) {
-            expressionmd.toptype = pstandard.pint;
-            visit(ectx0);
-
-            pexternal.addSegment(SType.NODE, ectx0, null);
-            pexternal.addSegment(SType.ARRAY, null, null);
+        if (current.dimensions > 0) {
+            expremd.to = standard.intType;
+            analyzer.visit(exprctx);
+            current = getTypeWithArrayDimensions(current.struct, current.dimensions - 1);
+            segments.add(new NodeSegment(exprctx));
+            segments.add(new ArraySegment(current));
         } else {
-            expressionmd.anyptype = true;
-            visit(ectx0);
+            expremd.promotions = caster.brace;
+            analyzer.visit(exprctx);
 
-            final PSort psort = expressionmd.getFromPType().getPSort();
-            final boolean numeric = psort.isPNumeric();
-            expressionmd.toptype = numeric ? pstandard.pint : expressionmd.toptype;
-            markCast(expressionmd);
+            final boolean list = expremd.from.metadata.numeric;
+            expremd.to = list ? standard.intType : standard.objectType;
+            caster.markCast(expremd);
+            segments.add(new NodeSegment(exprctx));
 
-            final Object object = getLegalCast(ptype, numeric ? pstandard.plist : pstandard.pmap, true, false);
+            final Object object = caster.getLegalCast(current, list ? standard.listType : standard.mapType, true, true);
 
-            if (object instanceof PCast) {
-                pexternal.addSegment(SType.CAST, object, null);
-            } else if (object instanceof PTransform) {
-                pexternal.addSegment(SType.TRANSFORM, object, null);
+            if (object instanceof Cast) {
+                segments.add(new CastSegment((Cast)object));
+            } else if (object instanceof Transform) {
+                segments.add(new CastSegment((Cast)object));
+            } else {
+                throw new IllegalArgumentException(); // TODO: message
             }
 
-            pexternal.addSegment(SType.NODE, ectx0, null);
-
-            if (numeric) {
-                final Struct pclass = object == null ? ptype.getPClass() : pstandard.plist.getPClass();
+            if (list) {
+                /*final Struct pclass = object == null ? current : pstandard.plist.getPClass();
                 final PMethod read = pclass.getPMethod("get");
                 final PMethod write = pclass.getPMethod("add");
 
@@ -325,9 +361,9 @@ class External {
                     throw new IllegalArgumentException(); // TOOD: message
                 }
 
-                pexternal.addSegment(SType.SHORTCUT, read, write);
+                pexternal.addSegment(SType.SHORTCUT, read, write);*/
             } else {
-                final Struct pclass = object == null ? ptype.getPClass() : pstandard.pmap.getPClass();
+                /*final Struct pclass = object == null ? ptype.getPClass() : pstandard.pmap.getPClass();
                 final PMethod read = pclass.getPMethod("get");
                 final PMethod write = pclass.getPMethod("put");
 
@@ -339,18 +375,17 @@ class External {
                     throw new IllegalArgumentException(); // TOOD: message
                 }
 
-                pexternal.addSegment(SType.SHORTCUT, read, write);
+                pexternal.addSegment(SType.SHORTCUT, read, write);*/
             }
         }
 
-        if (ectx1 != null) {
-            final PMetadata extdotmd = createPMetadata(ectx1);
-            extdotmd.pexternal = extbrace.pexternal;
-            visit(ectx1);
-        } else if (ectx2 != null) {
-            final PMetadata extarraymd1 = createPMetadata(ectx2);
-            extarraymd1.pexternal = extbrace.pexternal;
-            visit(ectx2);
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        if (dotctx != null) {
+            dot(dotctx);
+        } else if (bracectx != null) {
+            brace(bracectx);
         }
     }
 
@@ -379,79 +414,71 @@ class External {
     }
 
     public void call(final ExtcallContext ctx) {
-        final PMetadata extcallmd = getPMetadata(ctx);
-        final PType declptype = extcallmd.pexternal.getPType();
-        final Struct pclass = declptype.getPClass();
+        final String name = ctx.ID().getText();
+        final Struct struct = current.struct;
 
-        if (pclass == null) {
-            throw new IllegalArgumentException(); // TODO: message
+        final List<ExpressionContext> arguments = ctx.arguments().expression();
+        Type[] types;
+
+        Segment segment;
+
+        if (current.metadata == TypeMetadata.ARRAY) {
+            throw new IllegalArgumentException(); // TODO : message
         }
 
-        final String pname = ctx.ID().getText();
-        final boolean statik = extcallmd.pexternal.isStatic();
-        final List<ExpressionContext> arguments = ctx.arguments().expression();
-        SType stype;
-        Object svalue;
-        PType[] argumentsptypes;
-
-        if (statik && "makearray".equals(pname)) {
-            stype = SType.AMAKE;
-            svalue = arguments.size();
-            argumentsptypes = new PType[arguments.size()];
-            Arrays.fill(argumentsptypes, pstandard.pint);
+        if (statik && "makearray".equals(name)) {
+            types = new Type[arguments.size()];
+            Arrays.fill(types, standard.intType);
+            current = getTypeWithArrayDimensions(struct, arguments.size());
+            segment = new MakeSegment(current);
         } else {
-            final Constructor pconstructor = statik ? pclass.getPConstructor(pname) : null;
-            final PMethod pmethod = statik ? pclass.getPFunction(pname) : pclass.getPMethod(pname);
+            final Constructor constructor = statik ? struct.constructors.get(name) : null;
+            final Method method = statik ? struct.functions.get(name) : struct.methods.get(name);
 
-            if (pconstructor != null) {
-                stype = SType.CONSTRUCTOR;
-                svalue = pconstructor;
-                argumentsptypes = new PType[pconstructor.getPArguments().size()];
-                pconstructor.getPArguments().toArray(argumentsptypes);
-            } else if (pmethod != null) {
-                stype = SType.METHOD;
-                svalue = pmethod;
-                argumentsptypes = new PType[pmethod.getPArguments().size()];
-                pmethod.getPArguments().toArray(argumentsptypes);
+            if (constructor != null) {
+                types = new Type[constructor.arguments.size()];
+                constructor.arguments.toArray(types);
+                segment = new ConstructorSegment(constructor);
+            } else if (method != null) {
+                types = new Type[method.arguments.size()];
+                method.arguments.toArray(types);
+                current = method.rtn;
+                segment = new MethodSegment(method);
             } else {
                 throw new IllegalArgumentException(); // TODO: message
             }
         }
 
-        if (arguments.size() != argumentsptypes.length) {
+        if (arguments.size() != types.length) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
         for (int argument = 0; argument < arguments.size(); ++argument) {
-            final ParseTree ectx = arguments.get(argument);
-            final PMetadata expressionmd = createPMetadata(ectx);
-            expressionmd.toptype = argumentsptypes[argument];
-            visit(ectx);
+            final ParseTree exprctx = arguments.get(argument);
+            final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
+            expremd.to = types[argument];
+            analyzer.visit(exprctx);
 
-            extcallmd.pexternal.addSegment(SType.NODE, ectx, null);
+            segments.add(new NodeSegment(exprctx));
         }
 
-        extcallmd.pexternal.addSegment(stype, svalue, null);
+        segments.add(segment);
 
-        final ExtdotContext ectx0 = ctx.extdot();
-        final ExtbraceContext ectx1 = ctx.extbrace();
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
 
-        if (ectx0 != null) {
-            final PMetadata extdotmd = createPMetadata(ectx0);
-            extdotmd.pexternal = extcallmd.pexternal;
-            visit(ectx0);
-        } else if (ectx1 != null) {
-            final PMetadata extdotmd = createPMetadata(ectx1);
-            extdotmd.pexternal = extcallmd.pexternal;
-            visit(ectx1);
+        if (dotctx != null) {
+            dot(dotctx);
+        } else if (bracectx != null) {
+            brace(bracectx);
         }
     }
 
     public void member(final ExtmemberContext ctx) {
-        final String pname = ctx.ID().getText();
+        final String name = ctx.ID().getText();
 
         if (current == null) {
-            final Variable variable = adapter.getVariable(pname);
+            final Variable variable = adapter.getVariable(name);
 
             if (variable == null) {
                 throw new IllegalArgumentException(); // TODO: message
@@ -461,38 +488,32 @@ class External {
             segments.add(new VariableSegment(variable));
         } else {
             if (current.metadata == TypeMetadata.ARRAY) {
-                if ("length".equals(pname)) {
+                if ("length".equals(name)) {
+                    current = standard.intType;
                     segments.add(new LengthSegment());
                 } else {
                     throw new IllegalArgumentException(); // TODO: message
                 }
             } else {
                 final Struct struct = current.struct;
+                final Field field = statik ? struct.statics.get(name) : struct.members.get(name);
 
-                final boolean statik = extmembermd.pexternal.isStatic();
-                final PField pmember = statik ? pclass.getPStatic(pname) : pclass.getPMember(pname);
-
-                if (pmember == null) {
+                if (field == null) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
 
-                extmembermd.pexternal.addSegment(SType.FIELD, pmember, false);
+                current = field.type;
+                segments.add(new FieldSegment(field));
             }
         }
 
-        final ExtdotContext ectx0 = ctx.extdot();
-        final ExtbraceContext ectx1 = ctx.extbrace();
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
 
-        if (ectx0 != null) {
-            final PMetadata extdotmd = createPMetadata(ectx0);
-            extdotmd.pexternal = extmembermd.pexternal;
-            visit(ectx0);
-        } else if (ectx1 != null) {
-            final PMetadata extdotmd = createPMetadata(ectx1);
-            extdotmd.pexternal = extmembermd.pexternal;
-            visit(ectx1);
-        } else if (prec == 0) {
-
+        if (dotctx != null) {
+            dot(dotctx);
+        } else if (bracectx != null) {
+            brace(bracectx);
         }
     }
 }

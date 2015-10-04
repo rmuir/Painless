@@ -618,6 +618,7 @@ class Analyzer extends PainlessBaseVisitor<Void> {
     public Void visitExt(final ExtContext ctx) {
         External external = new External(this, adapter);
         external.ext(ctx);
+        adapter.putExternal(ctx, external);
 
         return null;
     }
@@ -1196,6 +1197,7 @@ class Analyzer extends PainlessBaseVisitor<Void> {
     public Void visitAssignment(final AssignmentContext ctx) {
         External external = new External(this, adapter);
         external.assignment(ctx);
+        adapter.putExternal(ctx, external);
 
         return null;
     }

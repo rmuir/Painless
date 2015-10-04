@@ -37,7 +37,7 @@ final class Compiler {
         end = System.currentTimeMillis() - start;
         System.out.println("tree: " + end);
 
-        final Adapter adapter = new Adapter(definition, standard, caster, root);
+        final Adapter adapter = new Adapter(definition, standard, caster, source, root);
         adapter.incrementScope();
         adapter.addVariable("this", adapter.standard.execType);
         adapter.addVariable("input", adapter.standard.smapType);

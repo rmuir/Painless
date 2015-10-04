@@ -48,6 +48,7 @@ public class Caster {
     final Promotions add;
     final Promotions decimal;
     final Promotions numeric;
+    final Promotions brace;
 
     Caster(final Definition definition, final Standard standard) {
         this.definition = definition;
@@ -68,12 +69,17 @@ public class Caster {
         add = new Promotions(promotions);
 
         promotions.clear();
-        promotions.add(new Promotion(PromotionType.ANY_DECIMAL, null));
+        promotions.add(new Promotion(PromotionType.TO_DECIMAL, null));
         decimal = new Promotions(promotions);
 
         promotions.clear();
-        promotions.add(new Promotion(PromotionType.ANY_NUMERIC, null));
+        promotions.add(new Promotion(PromotionType.TO_NUMERIC, null));
         numeric = new Promotions(promotions);
+
+        promotions.clear();
+        promotions.add(new Promotion(PromotionType.TO_NUMERIC, null));
+        promotions.add(new Promotion(PromotionType.TO_TYPE, standard.objectType));
+        brace = new Promotions(promotions);
     }
 
     void markCast(final ExpressionMetadata emd) {
