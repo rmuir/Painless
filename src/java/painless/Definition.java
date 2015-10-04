@@ -958,14 +958,14 @@ class Definition {
 
     static Type getTypeFromCanonicalName(final Definition definition, final String namestr) {
         final int dimensions = getArrayDimensionsFromCanonicalName(namestr);
-        final String pclassstr = dimensions == 0 ? namestr : namestr.substring(0, namestr.indexOf('['));
-        final Struct pclass = definition.structs.get(pclassstr);
+        final String structstr = dimensions == 0 ? namestr : namestr.substring(0, namestr.indexOf('['));
+        final Struct struct = definition.structs.get(structstr);
 
-        if (pclass == null) {
+        if (struct == null) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        return getTypeWithArrayDimensions(pclass, dimensions);
+        return getTypeWithArrayDimensions(struct, dimensions);
     }
 
     static Type getTypeWithArrayDimensions(final Struct struct, final int dimensions) {

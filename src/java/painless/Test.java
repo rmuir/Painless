@@ -1,9 +1,13 @@
 package painless;
 
-public class Test {
-    public int stest(String a, String b, Long l) {
-        //String test = 2 + ("a" + a) + (b + "b") + l - 2;
+import java.util.Map;
 
-        return 0;
+public class Test {
+    void itest(Integer x) {
+        //long i = (long)++(int)x.get(x))[0];
+    }
+
+    void stest(Integer x) {
+        itest(++x);
     }
 }

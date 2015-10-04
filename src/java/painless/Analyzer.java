@@ -113,7 +113,6 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         expremd.to = standard.boolType;
         visit(exprctx);
 
-        final boolean emptyallowed = expremd.statement;
         boolean exitrequired = false;
 
         if (expremd.postConst != null) {
@@ -148,7 +147,7 @@ class Analyzer extends PainlessBaseVisitor<Void> {
                 whilesmd.allExit = true;
                 whilesmd.allReturn = true;
             }
-        } else if (!emptyallowed) {
+        } else if (exitrequired) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
@@ -209,7 +208,6 @@ class Analyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitFor(final ForContext ctx) {
         final StatementMetadata forsmd = adapter.getStatementMetadata(ctx);
-        boolean emptyallowed = false;
         boolean exitrequired = false;
 
         adapter.incrementScope();
@@ -227,8 +225,6 @@ class Analyzer extends PainlessBaseVisitor<Void> {
             final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
             expremd0.to = standard.boolType;
             visit(exprctx0);
-
-            emptyallowed = expremd0.statement;
 
             if (expremd0.postConst != null) {
                 boolean constant = (boolean)expremd0.postConst;
@@ -248,13 +244,11 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         if (exprctx1 != null) {
             final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
             expremd1.to = standard.voidType;
-            visit(exprctx0);
+            visit(exprctx1);
 
             if (!expremd1.statement) {
                 throw new IllegalStateException(); // TODO: message
             }
-
-            emptyallowed = true;
         }
 
         final BlockContext blockctx = ctx.block();
@@ -280,8 +274,6 @@ class Analyzer extends PainlessBaseVisitor<Void> {
                 forsmd.allReturn = true;
             }
         } else if (exitrequired) {
-            throw new IllegalArgumentException(); // TODO: message
-        } else if (!emptyallowed) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
@@ -406,7 +398,7 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         visit(decltypectx);
 
         for (final DeclvarContext declvarctx : ctx.declvar()) {
-            final ExpressionMetadata declvaremd = adapter.createExpressionMetadata(decltypectx);
+            final ExpressionMetadata declvaremd = adapter.createExpressionMetadata(declvarctx);
             declvaremd.to = decltypeemd.from;
             visit(declvarctx);
         }
@@ -622,16 +614,13 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         return null;
     }
 
-    /*@Override
+    @Override
     public Void visitExt(final ExtContext ctx) {
-        final PMetadata extmd = getPMetadata(ctx);
-
-        final ExtstartContext ectx = ctx.extstart();
-        passPMetadata(ectx, extmd);
-        visit(ectx);
+        External external = new External(this, adapter);
+        external.ext(ctx);
 
         return null;
-    }*/
+    }
 
     /*@Override
     public Void visitPostinc(final PostincContext ctx) {
@@ -1203,417 +1192,56 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         return null;
     }
 
-    /*@Override
+    @Override
     public Void visitAssignment(final AssignmentContext ctx) {
-        final PMetadata assignmentmd = getPMetadata(ctx);
-
-        final ExtstartContext ectx0 = ctx.extstart();
-        final PMetadata extstartmd = createPMetadata(ectx0);
-        extstartmd.anyptype = true;
-        visit(ectx0);
-
-        final ExpressionContext ectx1 = ctx.expression();
-        final PMetadata expressionmd = createPMetadata(ectx1);
-        expressionmd.toptype = extstartmd.pexternal.getPType();
-        visit(ectx1);
-
-        extstartmd.pexternal.addSegment(SType.WRITE, ectx1, null);
-
-        assignmentmd.fromptype = extstartmd.fromptype;
-        assignmentmd.statement = true;
-        markCast(assignmentmd);
+        External external = new External(this, adapter);
+        external.assignment(ctx);
 
         return null;
     }
 
     @Override
     public Void visitExtstart(final ExtstartContext ctx) {
-        final PMetadata extstartmd = getPMetadata(ctx);
-
-        extstartmd.pexternal = new PExternal(ptypes);
-
-        final ExtprecContext ectx0 = ctx.extprec();
-        final ExtcastContext ectx1 = ctx.extcast();
-        final ExttypeContext ectx2 = ctx.exttype();
-        final ExtmemberContext ectx3 = ctx.extmember();
-
-        if (ectx0 != null) {
-            final PMetadata extprecmd = createPMetadata(ectx0);
-            extprecmd.pexternal = extstartmd.pexternal;
-            visit(ectx0);
-        } else if (ectx1 != null) {
-            final PMetadata extcastmd = createPMetadata(ectx1);
-            extcastmd.pexternal = extstartmd.pexternal;
-            visit(ectx1);
-        } else if (ectx2 != null) {
-            final PMetadata exttypemd = createPMetadata(ectx2);
-            exttypemd.pexternal = extstartmd.pexternal;
-            visit(ectx2);
-        } else if (ectx3 != null) {
-            final PMetadata extmembermd = createPMetadata(ectx3);
-            extmembermd.pexternal = extstartmd.pexternal;
-            visit(ectx3);
-        } else {
-            throw new IllegalStateException(); // TODO: message
-        }
-
-        extstartmd.statement = extstartmd.pexternal.isCall();
-
-        if (pstandard.pvoid.equals(extstartmd.toptype)) {
-            extstartmd.fromptype = pstandard.pvoid;
-            extstartmd.pexternal.addSegment(SType.POP, extstartmd.pexternal.getPType(), null);
-        } else {
-            extstartmd.fromptype = extstartmd.pexternal.getPType();
-        }
-
-        markCast(extstartmd);
-
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitExtprec(final ExtprecContext ctx) {
-        final PMetadata extprecmd0 = getPMetadata(ctx);
-
-        final ExtprecContext ectx0 = ctx.extprec();
-        final ExtcastContext ectx1 = ctx.extcast();
-        final ExttypeContext ectx2 = ctx.exttype();
-        final ExtmemberContext ectx3 = ctx.extmember();
-
-        if (ectx0 != null) {
-            final PMetadata extprecmd1 = createPMetadata(ectx0);
-            extprecmd1.pexternal = extprecmd0.pexternal;
-            visit(ectx0);
-        } else if (ectx1 != null) {
-            final PMetadata extcastmd = createPMetadata(ectx1);
-            extcastmd.pexternal = extprecmd0.pexternal;
-            visit(ectx1);
-        } else if (ectx2 != null) {
-            final PMetadata exttypemd = createPMetadata(ectx2);
-            exttypemd.pexternal = extprecmd0.pexternal;
-            visit(ectx2);
-        } else if (ectx3 != null) {
-            final PMetadata extmembermd = createPMetadata(ectx3);
-            extmembermd.pexternal = extprecmd0.pexternal;
-            visit(ectx3);
-        } else {
-            throw new IllegalStateException(); // TODO: message
-        }
-
-        final ExtdotContext ectx4 = ctx.extdot();
-        final ExtbraceContext ectx5 = ctx.extbrace();
-
-        if (ectx4 != null) {
-            final PMetadata extdotmd = createPMetadata(ectx4);
-            extdotmd.pexternal = extprecmd0.pexternal;
-            visit(ectx4);
-        } else if (ectx5 != null) {
-            final PMetadata extarraymd = createPMetadata(ectx5);
-            extarraymd.pexternal = extprecmd0.pexternal;
-            visit(ectx5);
-        }
-
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitExtcast(final ExtcastContext ctx) {
-        final PMetadata extcastmd0 = getPMetadata(ctx);
-
-        final ExtprecContext ectx0 = ctx.extprec();
-        final ExtcastContext ectx1 = ctx.extcast();
-        final ExttypeContext ectx2 = ctx.exttype();
-        final ExtmemberContext ectx3 = ctx.extmember();
-
-        if (ectx0 != null) {
-            final PMetadata extprecmd1 = createPMetadata(ectx0);
-            extprecmd1.pexternal = extcastmd0.pexternal;
-            visit(ectx0);
-        } else if (ectx1 != null) {
-            final PMetadata extcastmd1 = createPMetadata(ectx1);
-            extcastmd1.pexternal = extcastmd0.pexternal;
-            visit(ectx1);
-        } else if (ectx2 != null) {
-            final PMetadata exttypemd = createPMetadata(ectx2);
-            exttypemd.pexternal = extcastmd0.pexternal;
-            visit(ectx2);
-        } else if (ectx3 != null) {
-            final PMetadata extmembermd = createPMetadata(ectx3);
-            extmembermd.pexternal = extcastmd0.pexternal;
-            visit(ectx3);
-        } else {
-            throw new IllegalStateException(); // TODO: message
-        }
-
-        final DecltypeContext dctx = ctx.decltype();
-        final PMetadata decltypemd = createPMetadata(dctx);
-        decltypemd.anyptype = true;
-        visit(dctx);
-
-        final PType pfrom = extcastmd0.pexternal.getPType();
-        final PType pto = decltypemd.fromptype;
-
-        final Object object = getLegalCast(pfrom, pto, true, true);
-
-        if (object instanceof PCast) {
-            extcastmd0.pexternal.addSegment(SType.CAST, object, null);
-        } else if (object instanceof PTransform) {
-            extcastmd0.pexternal.addSegment(SType.TRANSFORM, object, null);
-        }
-
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitExtbrace(final ExtbraceContext ctx) {
-        final PMetadata extbrace = getPMetadata(ctx);
-        final PExternal pexternal = extbrace.getPExternal();
-        final PType ptype = pexternal.getPType();
-
-        final ExpressionContext ectx0 = ctx.expression();
-        final PMetadata expressionmd = createPMetadata(ectx0);
-
-        final ExtdotContext ectx1 = ctx.extdot();
-        final ExtbraceContext ectx2 = ctx.extbrace();
-
-        if (ptype.getPDimensions() > 0) {
-            expressionmd.toptype = pstandard.pint;
-            visit(ectx0);
-
-            pexternal.addSegment(SType.NODE, ectx0, null);
-            pexternal.addSegment(SType.ARRAY, null, null);
-        } else {
-            expressionmd.anyptype = true;
-            visit(ectx0);
-
-            final PSort psort = expressionmd.getFromPType().getPSort();
-            final boolean numeric = psort.isPNumeric();
-            expressionmd.toptype = numeric ? pstandard.pint : expressionmd.toptype;
-            markCast(expressionmd);
-
-            final Object object = getLegalCast(ptype, numeric ? pstandard.plist : pstandard.pmap, true, false);
-
-            if (object instanceof PCast) {
-                pexternal.addSegment(SType.CAST, object, null);
-            } else if (object instanceof PTransform) {
-                pexternal.addSegment(SType.TRANSFORM, object, null);
-            }
-
-            pexternal.addSegment(SType.NODE, ectx0, null);
-
-            if (numeric) {
-                final Struct pclass = object == null ? ptype.getPClass() : pstandard.plist.getPClass();
-                final PMethod read = pclass.getPMethod("get");
-                final PMethod write = pclass.getPMethod("add");
-
-                if (read == null) {
-                    throw new IllegalArgumentException(); // TOOD: message
-                }
-
-                if (write == null) {
-                    throw new IllegalArgumentException(); // TOOD: message
-                }
-
-                pexternal.addSegment(SType.SHORTCUT, read, write);
-            } else {
-                final Struct pclass = object == null ? ptype.getPClass() : pstandard.pmap.getPClass();
-                final PMethod read = pclass.getPMethod("get");
-                final PMethod write = pclass.getPMethod("put");
-
-                if (read == null) {
-                    throw new IllegalArgumentException(); // TOOD: message
-                }
-
-                if (write == null) {
-                    throw new IllegalArgumentException(); // TOOD: message
-                }
-
-                pexternal.addSegment(SType.SHORTCUT, read, write);
-            }
-        }
-
-        if (ectx1 != null) {
-            final PMetadata extdotmd = createPMetadata(ectx1);
-            extdotmd.pexternal = extbrace.pexternal;
-            visit(ectx1);
-        } else if (ectx2 != null) {
-            final PMetadata extarraymd1 = createPMetadata(ectx2);
-            extarraymd1.pexternal = extbrace.pexternal;
-            visit(ectx2);
-        }
-
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitExtdot(final ExtdotContext ctx) {
-        final PMetadata extdotmd = getPMetadata(ctx);
-
-        final ExtcallContext ectx0 = ctx.extcall();
-        final ExtmemberContext ectx1 = ctx.extmember();
-
-        if (ectx0 != null) {
-            final PMetadata extcallmd = createPMetadata(ectx0);
-            extcallmd.pexternal = extdotmd.pexternal;
-            visit(ectx0);
-        } else if (ectx1 != null) {
-            final PMetadata extmembermd = createPMetadata(ectx1);
-            extmembermd.pexternal = extdotmd.pexternal;
-            visit(ectx1);
-        }
-
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitExttype(final ExttypeContext ctx) {
-        final PMetadata exttypemd = getPMetadata(ctx);
-        final String ptypestr = ctx.ID().getText();
-        final PType ptype = getPTypeFromCanonicalPName(ptypes, ptypestr);
-
-        if (ptype == null) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        exttypemd.pexternal.addSegment(SType.TYPE, ptype, null);
-
-        final ExtdotContext ectx = ctx.extdot();
-        final PMetadata extdotmd = createPMetadata(ectx);
-        extdotmd.pexternal = exttypemd.pexternal;
-        visit(ectx);
-
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitExtcall(final ExtcallContext ctx) {
-        final PMetadata extcallmd = getPMetadata(ctx);
-        final PType declptype = extcallmd.pexternal.getPType();
-        final Struct pclass = declptype.getPClass();
-
-        if (pclass == null) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        final String pname = ctx.ID().getText();
-        final boolean statik = extcallmd.pexternal.isStatic();
-        final List<ExpressionContext> arguments = ctx.arguments().expression();
-        SType stype;
-        Object svalue;
-        PType[] argumentsptypes;
-
-        if (statik && "makearray".equals(pname)) {
-            stype = SType.AMAKE;
-            svalue = arguments.size();
-            argumentsptypes = new PType[arguments.size()];
-            Arrays.fill(argumentsptypes, pstandard.pint);
-        } else {
-            final Constructor pconstructor = statik ? pclass.getPConstructor(pname) : null;
-            final PMethod pmethod = statik ? pclass.getPFunction(pname) : pclass.getPMethod(pname);
-
-            if (pconstructor != null) {
-                stype = SType.CONSTRUCTOR;
-                svalue = pconstructor;
-                argumentsptypes = new PType[pconstructor.getPArguments().size()];
-                pconstructor.getPArguments().toArray(argumentsptypes);
-            } else if (pmethod != null) {
-                stype = SType.METHOD;
-                svalue = pmethod;
-                argumentsptypes = new PType[pmethod.getPArguments().size()];
-                pmethod.getPArguments().toArray(argumentsptypes);
-            } else {
-                throw new IllegalArgumentException(); // TODO: message
-            }
-        }
-
-        if (arguments.size() != argumentsptypes.length) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        for (int argument = 0; argument < arguments.size(); ++argument) {
-            final ParseTree ectx = arguments.get(argument);
-            final PMetadata expressionmd = createPMetadata(ectx);
-            expressionmd.toptype = argumentsptypes[argument];
-            visit(ectx);
-
-            extcallmd.pexternal.addSegment(SType.NODE, ectx, null);
-        }
-
-        extcallmd.pexternal.addSegment(stype, svalue, null);
-
-        final ExtdotContext ectx0 = ctx.extdot();
-        final ExtbraceContext ectx1 = ctx.extbrace();
-
-        if (ectx0 != null) {
-            final PMetadata extdotmd = createPMetadata(ectx0);
-            extdotmd.pexternal = extcallmd.pexternal;
-            visit(ectx0);
-        } else if (ectx1 != null) {
-            final PMetadata extdotmd = createPMetadata(ectx1);
-            extdotmd.pexternal = extcallmd.pexternal;
-            visit(ectx1);
-        }
-
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitExtmember(final ExtmemberContext ctx) {
-        final PMetadata extmembermd = getPMetadata(ctx);
-        final PType ptype = extmembermd.pexternal.getPType();
-        final String pname = ctx.ID().getText();
-
-        if (ptype == null) {
-            final PVariable pvariable = getPVariable(pname);
-
-            if (pvariable == null) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
-
-            extmembermd.pexternal.addSegment(SType.VARIABLE, pvariable, false);
-        } else {
-            if (ptype.getPSort() == PSort.ARRAY) {
-                if ("length".equals(pname)) {
-                    extmembermd.pexternal.addSegment(SType.ALENGTH, null, null);
-                } else {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-            } else {
-                final Struct pclass = ptype.getPClass();
-
-                if (pclass == null) {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-
-                final boolean statik = extmembermd.pexternal.isStatic();
-                final PField pmember = statik ? pclass.getPStatic(pname) : pclass.getPMember(pname);
-
-                if (pmember == null) {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-
-                extmembermd.pexternal.addSegment(SType.FIELD, pmember, false);
-            }
-        }
-
-        final ExtdotContext ectx0 = ctx.extdot();
-        final ExtbraceContext ectx1 = ctx.extbrace();
-
-        if (ectx0 != null) {
-            final PMetadata extdotmd = createPMetadata(ectx0);
-            extdotmd.pexternal = extmembermd.pexternal;
-            visit(ectx0);
-        } else if (ectx1 != null) {
-            final PMetadata extdotmd = createPMetadata(ectx1);
-            extdotmd.pexternal = extmembermd.pexternal;
-            visit(ectx1);
-        }
-
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitArguments(final ArgumentsContext ctx) {
         throw new UnsupportedOperationException(); // TODO: message
-    }*/
+    }
 }
