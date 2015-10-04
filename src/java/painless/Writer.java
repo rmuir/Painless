@@ -1,15 +1,7 @@
 package painless;
 
-import java.util.Deque;
-import java.util.HashMap;
-
 import org.antlr.v4.runtime.tree.ParseTree;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.Label;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-
-import javax.swing.plaf.nimbus.State;
+import org.objectweb.asm.*;
 
 import static painless.Adapter.*;
 import static painless.Definition.*;
@@ -45,319 +37,6 @@ class Writer extends PainlessBaseVisitor<Void>{
         writeConstructor();
         writeExecute();
         writeEnd();
-    }
-
-    private void checkWriteCast(final ExpressionMetadata pmetadata) {
-        if (pmetadata.getCast() != null) {
-            writeCast(pmetadata.getCast());
-        } else if (pmetadata.getPTransform() != null) {
-            writePTransform(pmetadata.getPTransform());
-        }
-    }
-
-    private void writeCast(final Cast pcast) {
-        final Type fromptype = pcast.getPFrom();
-        final Type toptype = pcast.getPTo();
-        final TypeMetadata frompsort = fromptype.getTypeMetadata();
-        final TypeMetadata topsort = toptype.getTypeMetadata();
-
-        if (frompsort.isPNumeric() && topsort.isPNumeric()) {
-            switch (frompsort) {
-                case BYTE:
-                    switch (topsort) {
-                        case SHORT:
-                            execute.visitInsn(Opcodes.I2S);
-                            break;
-                        case CHAR:
-                            execute.visitInsn(Opcodes.I2C);
-                            break;
-                        case LONG:
-                            execute.visitInsn(Opcodes.I2L);
-                            break;
-                        case FLOAT:
-                            execute.visitInsn(Opcodes.I2F);
-                            break;
-                        case DOUBLE:
-                            execute.visitInsn(Opcodes.I2D);
-                            break;
-                    }
-                    break;
-                case SHORT:
-                    switch (topsort) {
-                        case BYTE:
-                            execute.visitInsn(Opcodes.I2B);
-                            break;
-                        case CHAR:
-                            execute.visitInsn(Opcodes.I2C);
-                            break;
-                        case LONG:
-                            execute.visitInsn(Opcodes.I2L);
-                            break;
-                        case FLOAT:
-                            execute.visitInsn(Opcodes.I2F);
-                            break;
-                        case DOUBLE:
-                            execute.visitInsn(Opcodes.I2D);
-                            break;
-                    }
-                    break;
-                case CHAR:
-                    switch (topsort) {
-                        case BYTE:
-                            execute.visitInsn(Opcodes.I2B);
-                            break;
-                        case SHORT:
-                            execute.visitInsn(Opcodes.I2S);
-                            break;
-                        case LONG:
-                            execute.visitInsn(Opcodes.I2L);
-                            break;
-                        case FLOAT:
-                            execute.visitInsn(Opcodes.I2F);
-                            break;
-                        case DOUBLE:
-                            execute.visitInsn(Opcodes.I2D);
-                            break;
-                    }
-                    break;
-                case INT:
-                    switch (topsort) {
-                        case BYTE:
-                            execute.visitInsn(Opcodes.I2B);
-                            break;
-                        case SHORT:
-                            execute.visitInsn(Opcodes.I2S);
-                            break;
-                        case CHAR:
-                            execute.visitInsn(Opcodes.I2C);
-                            break;
-                        case LONG:
-                            execute.visitInsn(Opcodes.I2L);
-                            break;
-                        case FLOAT:
-                            execute.visitInsn(Opcodes.I2F);
-                            break;
-                        case DOUBLE:
-                            execute.visitInsn(Opcodes.I2D);
-                            break;
-                    }
-                    break;
-                case LONG:
-                    switch (topsort) {
-                        case BYTE:
-                            execute.visitInsn(Opcodes.L2I);
-                            execute.visitInsn(Opcodes.I2B);
-                            break;
-                        case SHORT:
-                            execute.visitInsn(Opcodes.L2I);
-                            execute.visitInsn(Opcodes.I2S);
-                            break;
-                        case CHAR:
-                            execute.visitInsn(Opcodes.L2I);
-                            execute.visitInsn(Opcodes.I2C);
-                            break;
-                        case INT:
-                            execute.visitInsn(Opcodes.L2I);
-                            break;
-                        case FLOAT:
-                            execute.visitInsn(Opcodes.L2F);
-                            break;
-                        case DOUBLE:
-                            execute.visitInsn(Opcodes.L2D);
-                            break;
-                    }
-                    break;
-                case FLOAT:
-                    switch (topsort) {
-                        case BYTE:
-                            execute.visitInsn(Opcodes.F2I);
-                            execute.visitInsn(Opcodes.I2B);
-                            break;
-                        case SHORT:
-                            execute.visitInsn(Opcodes.F2I);
-                            execute.visitInsn(Opcodes.I2S);
-                            break;
-                        case CHAR:
-                            execute.visitInsn(Opcodes.F2I);
-                            execute.visitInsn(Opcodes.I2C);
-                            break;
-                        case INT:
-                            execute.visitInsn(Opcodes.F2I);
-                            break;
-                        case LONG:
-                            execute.visitInsn(Opcodes.F2L);
-                            break;
-                        case DOUBLE:
-                            execute.visitInsn(Opcodes.F2D);
-                            break;
-                    }
-                    break;
-                case DOUBLE:
-                    switch (topsort) {
-                        case BYTE:
-                            execute.visitInsn(Opcodes.D2I);
-                            execute.visitInsn(Opcodes.I2B);
-                            break;
-                        case SHORT:
-                            execute.visitInsn(Opcodes.D2I);
-                            execute.visitInsn(Opcodes.I2S);
-                            break;
-                        case CHAR:
-                            execute.visitInsn(Opcodes.D2I);
-                            execute.visitInsn(Opcodes.I2C);
-                            break;
-                        case INT:
-                            execute.visitInsn(Opcodes.D2I);
-                            break;
-                        case LONG:
-                            execute.visitInsn(Opcodes.D2L);
-                            break;
-                        case FLOAT:
-                            execute.visitInsn(Opcodes.D2F);
-                            break;
-                    }
-                    break;
-            }
-        } else {
-            execute.visitTypeInsn(Opcodes.CHECKCAST, toptype.getJInternal());
-        }
-    }
-
-    private void writePTransform(final PTransform ptransform) {
-        final PMethod pmethod = ptransform.getPMethod();
-        final Method jmethod = pmethod.getJMethod();
-        final Struct powner = pmethod.getPOwner();
-        final Class jowner = powner.getJClass();
-
-        final Type pcastfrom = ptransform.getJCastFrom();
-        final Type pcastto = ptransform.getJCastTo();
-
-        if (pcastfrom != null) {
-            execute.visitTypeInsn(Opcodes.CHECKCAST, pcastfrom.getJInternal());
-        }
-
-        if (Modifier.isStatic(jmethod.getModifiers())) {
-            execute.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    powner.getJInternal(), jmethod.getName(), pmethod.getADescriptor(), false);
-        } else if (Modifier.isInterface(jowner.getModifiers())) {
-          execute.visitMethodInsn(Opcodes.INVOKEINTERFACE,
-                  powner.getJInternal(), jmethod.getName(), pmethod.getADescriptor(), true);
-        } else {
-            execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                    powner.getJInternal(), jmethod.getName(), pmethod.getADescriptor(), false);
-        }
-
-        if (pcastto != null) {
-            execute.visitTypeInsn(Opcodes.CHECKCAST, pcastto.getJInternal());
-        }
-    }
-
-    private void checkWritePBranch(final PBranch pbranch) {
-        if (pbranch != null) {
-            if (pbranch.tru != null) {
-                execute.visitJumpInsn(Opcodes.IFNE, pbranch.tru);
-            } else if (pbranch.fals != null) {
-                execute.visitJumpInsn(Opcodes.IFEQ, pbranch.fals);
-            }
-        }
-    }
-
-    private void writePConstant(final Object constant) {
-        if (constant instanceof Number) {
-            writePNumeric(constant);
-        } else if (constant instanceof Character) {
-            writePNumeric((int)(char)constant);
-        } else if (constant instanceof String) {
-            writePString(constant);
-        } else if (constant instanceof Boolean) {
-            writePBoolean(constant);
-        } else if (constant != null) {
-            throw new IllegalStateException(); // TODO: message
-        }
-    }
-
-    private void writePNumeric(final Object numeric) {
-        if (numeric instanceof Double) {
-            final long bits = Double.doubleToLongBits((Double)numeric);
-
-            if (bits == 0L) {
-                execute.visitInsn(Opcodes.DCONST_0);
-            } else if (bits == 0x3ff0000000000000L) {
-                execute.visitInsn(Opcodes.DCONST_1);
-            } else {
-                execute.visitLdcInsn(numeric);
-            }
-        } else if (numeric instanceof Float) {
-            final int bits = Float.floatToIntBits((Float)numeric);
-
-            if (bits == 0L) {
-                execute.visitInsn(Opcodes.FCONST_0);
-            } else if (bits == 0x3f800000) {
-                execute.visitInsn(Opcodes.FCONST_1);
-            } else if (bits == 0x40000000) {
-                execute.visitInsn(Opcodes.FCONST_2);
-            } else {
-                execute.visitLdcInsn(numeric);
-            }
-        } else if (numeric instanceof Long) {
-            final long value = (long)numeric;
-
-            if (value == 0L) {
-                execute.visitInsn(Opcodes.LCONST_0);
-            } else if (value == 1L) {
-                execute.visitInsn(Opcodes.LCONST_1);
-            } else {
-                execute.visitLdcInsn(value);
-            }
-        } else if (numeric instanceof Number) {
-            final int value = ((Number)numeric).intValue();
-
-            if (value == -1) {
-                execute.visitInsn(Opcodes.ICONST_M1);
-            } else if (value == 0) {
-                execute.visitInsn(Opcodes.ICONST_0);
-            } else if (value == 1) {
-                execute.visitInsn(Opcodes.ICONST_1);
-            } else if (value == 2) {
-                execute.visitInsn(Opcodes.ICONST_2);
-            } else if (value == 3) {
-                execute.visitInsn(Opcodes.ICONST_3);
-            } else if (value == 4) {
-                execute.visitInsn(Opcodes.ICONST_4);
-            } else if (value == 5) {
-                execute.visitInsn(Opcodes.ICONST_5);
-            } else if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
-                execute.visitIntInsn(Opcodes.BIPUSH, value);
-            } else if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
-                execute.visitIntInsn(Opcodes.SIPUSH, value);
-            } else {
-                execute.visitLdcInsn(value);
-            }
-        } else {
-            throw new IllegalStateException(); // TODO: message
-        }
-    }
-
-    private void writePString(final Object constant) {
-        if (constant instanceof String) {
-            execute.visitLdcInsn(constant);
-        } else {
-            throw new IllegalStateException(); // TODO: message
-        }
-    }
-
-    private void writePBoolean(final Object constant) {
-        if (constant instanceof Boolean) {
-            boolean value = (boolean)constant;
-
-            if (value) {
-                execute.visitInsn(Opcodes.ICONST_1);
-            } else {
-                execute.visitInsn(Opcodes.ICONST_0);
-            }
-        } else {
-            throw new IllegalStateException(); // TODO: message
-        }
     }
 
     private void writeBegin() {
@@ -419,13 +98,13 @@ class Writer extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitIf(final IfContext ctx) {
+        final ExpressionContext exprctx = ctx.expression();
         final boolean els = ctx.ELSE() != null;
-        final Branch branch = adapter.createBranch(ctx, false);
+        final Branch branch = adapter.markBranch(ctx, exprctx);
         branch.end = new Label();
         branch.fals = els ? new Label() : branch.end;
 
-        pbranches.put(ectx, branch);
-        visit(ctx.expression());
+        visit(exprctx);
 
         final BlockContext blockctx0 = ctx.block(0);
         final StatementMetadata blockmd0 = adapter.getStatementMetadata(blockctx0);
@@ -441,31 +120,29 @@ class Writer extends PainlessBaseVisitor<Void>{
         }
 
         execute.visitLabel(branch.end);
-        adapter.removeBranch(ctx, false);
 
         return null;
     }
 
     @Override
     public Void visitWhile(final WhileContext ctx) {
-        final Branch branch = adapter.createBranch(ctx, true);
+        final ExpressionContext exprctx = ctx.expression();
+        final Branch branch = adapter.markBranch(ctx, exprctx);
         branch.begin = new Label();
         branch.end = new Label();
         branch.fals = branch.end;
 
+        adapter.pushJump(branch);
         execute.visitLabel(branch.begin);
+        visit(exprctx);
 
-
-        pbranches.put(ectx, branch);
-        visit(ctx.expression());
-
-        final BlockContext bctx = ctx.block();
+        final BlockContext blockctx = ctx.block();
         boolean allexit = false;
 
-        if (bctx != null) {
-            StatementMetadata blocksmd = adapter.getStatementMetadata(bctx);
+        if (blockctx != null) {
+            StatementMetadata blocksmd = adapter.getStatementMetadata(blockctx);
             allexit = blocksmd.allExit;
-            visit(bctx);
+            visit(blockctx);
         }
 
         if (!allexit) {
@@ -473,87 +150,80 @@ class Writer extends PainlessBaseVisitor<Void>{
         }
 
         execute.visitLabel(branch.end);
-        adapter.removeBranch(ctx, true);
+        adapter.popJump();
 
         return null;
     }
 
     @Override
     public Void visitDo(final DoContext ctx) {
-        final Branch branch = adapter.createBranch(ctx, true);
+        final ExpressionContext exprctx = ctx.expression();
+        final Branch branch = adapter.markBranch(ctx, exprctx);
         branch.begin = new Label();
         branch.end = new Label();
         branch.fals = branch.end;
 
-        final ExpressionContext ectx = ctx.expression();
+        adapter.pushJump(branch);
+        execute.visitLabel(branch.begin);
+
         final BlockContext bctx = ctx.block();
         final StatementMetadata blocksmd = adapter.getStatementMetadata(bctx);
-
-        execute.visitLabel(branch.begin);
         visit(bctx);
 
-            pbranches.put(ectx, branch);
-            visit(ectx);
-        }
+        visit(exprctx);
 
-        if (!blockmd.getAllExit()) {
+        if (!blocksmd.allExit) {
             execute.visitJumpInsn(Opcodes.GOTO, branch.begin);
         }
 
         execute.visitLabel(branch.end);
-        adapter.removeBranch(ctx, true);
+        adapter.popJump();
 
         return null;
     }
 
     @Override
     public Void visitFor(final ForContext ctx) {
-        final PMetadata formd = getPMetadata(ctx);
-        final Object constant = formd.getConstPost();
+        final ExpressionContext exprctx0 = ctx.expression(0);
+        final ExpressionContext exprctx1 = ctx.expression(1);
+        final Branch branch = adapter.markBranch(ctx, exprctx0);
+        final Label start = new Label();
+        branch.begin = exprctx1 == null ? start : new Label();
+        branch.end = new Label();
+        branch.fals = branch.end;
 
-        final ExpressionContext ectx0 = ctx.expression(0);
-        final ExpressionContext ectx1 = ctx.expression(1);
-        final BlockContext bctx = ctx.block();
-
-        final PBranch pjump = new PBranch(ctx);
-        final Label astart = new Label();
-        pjump.begin = ectx1 == null ? astart : new Label();
-        pjump.end = new Label();
-        pjump.fals = pjump.end;
-
-        ploops.push(pjump);
+        adapter.pushJump(branch);
 
         if (ctx.declaration() != null) {
             visit(ctx.declaration());
         }
 
-        execute.visitLabel(astart);
+        execute.visitLabel(start);
 
-        if (!(constant instanceof Boolean && (boolean)constant)) {
-            pbranches.put(ectx0, pjump);
-            visit(ectx0);
+        if (exprctx0 != null) {
+            visit(exprctx0);
         }
 
+        final BlockContext blockctx = ctx.block();
         boolean allexit = false;
 
-        if (bctx != null) {
-            PMetadata blockmd = getPMetadata(bctx);
-            allexit = blockmd.getAllExit();
-            visit(bctx);
+        if (blockctx != null) {
+            StatementMetadata blocksmd = adapter.getStatementMetadata(blockctx);
+            allexit = blocksmd.allExit;
+            visit(blockctx);
         }
 
-        if (ectx1 != null) {
-            execute.visitLabel(pjump.begin);
-
-            visit(ectx1);
+        if (exprctx1 != null) {
+            execute.visitLabel(branch.begin);
+            visit(exprctx1);
         }
 
-        if (ectx1 != null || !allexit) {
-            execute.visitJumpInsn(Opcodes.GOTO, astart);
+        if (exprctx1 != null || !allexit) {
+            execute.visitJumpInsn(Opcodes.GOTO, start);
         }
 
-        execute.visitLabel(pjump.end);
-        ploops.pop();
+        execute.visitLabel(branch.end);
+        adapter.popJump();
 
         return null;
     }
@@ -567,16 +237,16 @@ class Writer extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitContinue(final ContinueContext ctx) {
-        final PBranch pjump = ploops.peek();
-        execute.visitJumpInsn(Opcodes.GOTO, pjump.begin);
+        final Branch jump = adapter.peekJump();
+        execute.visitJumpInsn(Opcodes.GOTO, jump.begin);
 
         return null;
     }
 
     @Override
     public Void visitBreak(final BreakContext ctx) {
-        final PBranch pjump = ploops.peek();
-        execute.visitJumpInsn(Opcodes.GOTO, pjump.end);
+        final Branch jump = adapter.peekJump();
+        execute.visitJumpInsn(Opcodes.GOTO, jump.end);
 
         return null;
     }
@@ -619,8 +289,8 @@ class Writer extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitDeclaration(DeclarationContext ctx) {
-        for (final DeclvarContext dctx1 : ctx.declvar()) {
-            visit(dctx1);
+        for (final DeclvarContext declctx : ctx.declvar()) {
+            visit(declctx);
         }
 
         return null;
@@ -633,60 +303,33 @@ class Writer extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitDeclvar(final DeclvarContext ctx) {
-        final PMetadata declvarmd = getPMetadata(ctx);
-        final PVariable pvariable = (PVariable)declvarmd.getConstPost();
+        final String name = ctx.ID().getText();
+        final Variable variable = adapter.getVariable(name);
 
-        final ExpressionContext ectx = ctx.expression();
-        final boolean def = ectx == null;
+        final ExpressionContext exprctx = ctx.expression();
+        final boolean initialize = exprctx == null;
 
-        if (!def) {
-            visit(ectx);
+        if (!initialize) {
+            visit(exprctx);
         }
 
-        final TypeMetadata psort = pvariable.getType().getTypeMetadata();
-        final int slot = pvariable.getASlot();
-
-        switch (psort) {
+        switch (variable.type.metadata) {
             case VOID:
                 throw new IllegalStateException(); // TODO: message
             case BOOL:
             case BYTE:
             case SHORT:
             case CHAR:
-            case INT:
-                if (def) {
-                    writePNumeric(0);
-                }
-
-                execute.visitVarInsn(Opcodes.ISTORE, slot);
-                break;
-            case LONG:
-                if (def) {
-                    writePNumeric(0L);
-                }
-
-                execute.visitVarInsn(Opcodes.LSTORE, slot);
-                break;
-            case FLOAT:
-                if (def) {
-                    writePNumeric(0.0F);
-                }
-
-                execute.visitVarInsn(Opcodes.FSTORE, slot);
-                break;
-            case DOUBLE:
-                if (def) {
-                    writePNumeric(0.0);
-                }
-
-                execute.visitVarInsn(Opcodes.DSTORE, slot);
-                break;
+            case INT:    if (initialize) writeNumeric(0);    execute.visitVarInsn(Opcodes.ISTORE, variable.slot); break;
+            case LONG:   if (initialize) writeNumeric(0L);   execute.visitVarInsn(Opcodes.LSTORE, variable.slot); break;
+            case FLOAT:  if (initialize) writeNumeric(0.0F); execute.visitVarInsn(Opcodes.FSTORE, variable.slot); break;
+            case DOUBLE: if (initialize) writeNumeric(0.0);  execute.visitVarInsn(Opcodes.DSTORE, variable.slot); break;
             default:
-                if (def) {
+                if (initialize) {
                     execute.visitInsn(Opcodes.ACONST_NULL);
                 }
 
-                execute.visitVarInsn(Opcodes.ASTORE, slot);
+                execute.visitVarInsn(Opcodes.ASTORE, variable.slot);
         }
 
         return null;
@@ -694,93 +337,75 @@ class Writer extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitPrecedence(final PrecedenceContext ctx) {
-        final PBranch pbranch = pbranches.get(ctx);
-        final ExpressionContext ectx = ctx.expression();
-
-        if (pbranch != null) {
-            pbranches.put(ectx, pbranch);
-        }
-
-        visit(ectx);
-
-        return null;
+        throw new UnsupportedOperationException(); // TODO: message
     }
 
     @Override
     public Void visitNumeric(final NumericContext ctx) {
-        final PMetadata stringmd = getPMetadata(ctx);
-        final Object constpost = stringmd.getConstPost();
-        final PBranch pbranch = pbranches.get(ctx);
+        final ExpressionMetadata numericemd = adapter.getExpressionMetadata(ctx);
+        final Object postConst = numericemd.postConst;
 
-        if (constpost == null) {
-            final Object constpre = stringmd.getConstPre();
-
-            writePNumeric(constpre);
-            checkWriteCast(stringmd);
+        if (postConst == null) {
+            writeNumeric(numericemd.preConst);
+            caster.checkWriteCast(execute, numericemd);
         } else {
-            writePConstant(constpost);
+            writeConstant(postConst);
         }
 
-        checkWritePBranch(pbranch);
+        adapter.checkWriteBranch(execute, ctx);
 
         return null;
     }
 
     @Override
     public Void visitString(final StringContext ctx) {
-        final PMetadata stringmd = getPMetadata(ctx);
-        final Object constpost = stringmd.getConstPost();
-        final PBranch pbranch = pbranches.get(ctx);
+        final ExpressionMetadata stringemd = adapter.getExpressionMetadata(ctx);
+        final Object postConst = stringemd.postConst;
 
-        if (constpost == null) {
-            final Object constpre = stringmd.getConstPre();
-
-            writePString(constpre);
-            checkWriteCast(stringmd);
+        if (postConst == null) {
+            writeString(stringemd.preConst);
+            caster.checkWriteCast(execute, stringemd);
         } else {
-            writePConstant(constpost);
+            writeConstant(postConst);
         }
 
-        checkWritePBranch(pbranch);
+        adapter.checkWriteBranch(execute, ctx);
 
         return null;
     }
 
     @Override
     public Void visitChar(final CharContext ctx) {
-        final PMetadata stringmd = getPMetadata(ctx);
-        final Object constpost = stringmd.getConstPost();
-        final PBranch pbranch = pbranches.get(ctx);
+        final ExpressionMetadata charemd = adapter.getExpressionMetadata(ctx);
+        final Object postConst = charemd.postConst;
 
-        if (constpost != null) {
-            final Object constpre = stringmd.getConstPre();
-
-            writePNumeric((int)(char)constpre);
-            checkWriteCast(stringmd);
+        if (postConst == null) {
+            writeString(charemd.preConst);
+            caster.checkWriteCast(execute, charemd);
         } else {
-            writePConstant(constpost);
+            writeConstant(postConst);
         }
 
-        checkWritePBranch(pbranch);
+        adapter.checkWriteBranch(execute, ctx);
 
         return null;
     }
 
     @Override
     public Void visitTrue(final TrueContext ctx) {
-        final PMetadata truemd = getPMetadata(ctx);
-        final Object constpost = truemd.getConstPost();
-        final PBranch pbranch = pbranches.get(ctx);
+        final ExpressionMetadata trueemd = adapter.getExpressionMetadata(ctx);
+        final Object postConst = trueemd.postConst;
+        final Branch branch = adapter.getBranch(ctx);
 
-        if (pbranch == null) {
-            if (constpost == null) {
-                writePBoolean(true);
-                checkWriteCast(truemd);
+        if (branch == null) {
+            if (postConst == null) {
+                writeBoolean(true);
+                caster.checkWriteCast(execute, trueemd);
             } else {
-                writePConstant(constpost);
+                writeConstant(postConst);
             }
-        } else if (pbranch.tru != null) {
-            execute.visitJumpInsn(Opcodes.GOTO, pbranch.tru);
+        } else if (branch.tru != null) {
+            execute.visitJumpInsn(Opcodes.GOTO, branch.tru);
         }
 
         return null;
@@ -788,19 +413,19 @@ class Writer extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitFalse(final FalseContext ctx) {
-        final PMetadata truemd = getPMetadata(ctx);
-        final Object constpost = truemd.getConstPost();
-        final PBranch pbranch = pbranches.get(ctx);
+        final ExpressionMetadata falseemd = adapter.getExpressionMetadata(ctx);
+        final Object postConst = falseemd.postConst;
+        final Branch branch = adapter.getBranch(ctx);
 
-        if (pbranch == null) {
-            if (constpost == null) {
-                writePBoolean(false);
-                checkWriteCast(truemd);
+        if (branch == null) {
+            if (postConst == null) {
+                writeBoolean(false);
+                caster.checkWriteCast(execute, falseemd);
             } else {
-                writePConstant(constpost);
+                writeConstant(postConst);
             }
-        } else if (pbranch.tru != null) {
-            execute.visitJumpInsn(Opcodes.GOTO, pbranch.tru);
+        } else if (branch.fals != null) {
+            execute.visitJumpInsn(Opcodes.GOTO, branch.fals);
         }
 
         return null;
@@ -808,17 +433,16 @@ class Writer extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitNull(final NullContext ctx) {
-        final PMetadata nullmd = getPMetadata(ctx);
-        final PBranch pbranch = pbranches.get(ctx);
+        final ExpressionMetadata nullemd = adapter.getExpressionMetadata(ctx);
 
         execute.visitInsn(Opcodes.ACONST_NULL);
-        checkWriteCast(nullmd);
-        checkWritePBranch(pbranch);
+        caster.checkWriteCast(execute, nullemd);
+        adapter.checkWriteBranch(execute, ctx);
 
         return null;
     }
 
-    @Override
+   /* @Override
     public Void visitExt(final ExtContext ctx) {
         final PBranch pbranch = pbranches.get(ctx);
         final ExtstartContext ectx = ctx.extstart();
@@ -830,83 +454,77 @@ class Writer extends PainlessBaseVisitor<Void>{
         visit(ectx);
 
         return null;
-    }
+    }*/
 
     @Override
     public Void visitUnary(final UnaryContext ctx) {
-        final PMetadata unarymd = getPMetadata(ctx);
-        final Object constpost = unarymd.getConstPost();
-        final PBranch pbranch = pbranches.get(ctx);
+        final ExpressionMetadata unaryemd = adapter.getExpressionMetadata(ctx);
+        final Object postConst = unaryemd.postConst;
+        final Branch branch = adapter.getBranch(ctx);
 
-        if (constpost == null) {
-            final ExpressionContext ectx = ctx.expression();
+        if (postConst == null) {
+            final ExpressionContext exprctx = ctx.expression();
 
             if (ctx.BOOLNOT() != null) {
-                if (pbranch == null) {
-                    final PBranch localpbranch = new PBranch(ctx);
-                    localpbranch.fals = new Label();
+                final Branch local = adapter.markBranch(ctx, exprctx);
+
+                if (branch == null) {
+                    local.fals = new Label();
                     final Label aend = new Label();
 
-                    pbranches.put(ectx, localpbranch);
-                    visit(ectx);
+                    visit(exprctx);
 
                     execute.visitInsn(Opcodes.ICONST_0);
                     execute.visitJumpInsn(Opcodes.GOTO, aend);
-                    execute.visitLabel(localpbranch.fals);
+                    execute.visitLabel(local.fals);
                     execute.visitInsn(Opcodes.ICONST_1);
                     execute.visitLabel(aend);
 
-                    checkWriteCast(unarymd);
+                    caster.checkWriteCast(execute, unaryemd);
                 } else {
-                    final PBranch localpbranch = new PBranch(ctx);
-                    localpbranch.tru = pbranch.fals;
-                    localpbranch.fals = pbranch.tru;
+                    local.tru = branch.fals;
+                    local.fals = branch.tru;
 
-                    pbranches.put(ectx, localpbranch);
-                    visit(ectx);
+                    visit(exprctx);
                 }
             } else {
-                final TypeMetadata psort = unarymd.getFromType().getTypeMetadata();
+                final TypeMetadata metadata = unaryemd.from.metadata;
 
-                visit(ectx);
+                visit(exprctx);
 
                 if (ctx.BWNOT() != null) {
-                    if (psort == TypeMetadata.INT) {
-                        writePConstant(-1);
-                        execute.visitInsn(Opcodes.IXOR);
-                    } else {
-                        writePConstant(-1L);
-                        execute.visitInsn(Opcodes.LXOR);
+                    if      (metadata == TypeMetadata.INT)  { writeConstant(-1);  execute.visitInsn(Opcodes.IXOR); }
+                    else if (metadata == TypeMetadata.LONG) { writeConstant(-1L); execute.visitInsn(Opcodes.LXOR); }
+                    else {
+                        throw new IllegalStateException(); // TODO: message
                     }
                 } else if (ctx.SUB() != null) {
-                    if (psort == TypeMetadata.INT) {
-                        execute.visitInsn(Opcodes.INEG);
-                    } else if (psort == TypeMetadata.LONG) {
-                        execute.visitInsn(Opcodes.LNEG);
-                    } else if (psort == TypeMetadata.FLOAT) {
-                        execute.visitInsn(Opcodes.FNEG);
-                    } else {
-                        execute.visitInsn(Opcodes.DNEG);
+                    if      (metadata == TypeMetadata.INT)    execute.visitInsn(Opcodes.INEG);
+                    else if (metadata == TypeMetadata.LONG)   execute.visitInsn(Opcodes.LNEG);
+                    else if (metadata == TypeMetadata.FLOAT)  execute.visitInsn(Opcodes.FNEG);
+                    else if (metadata == TypeMetadata.DOUBLE) execute.visitInsn(Opcodes.DNEG);
+                    else {
+                        throw new IllegalStateException(); // TODO: message
                     }
                 }
 
-                checkWriteCast(unarymd);
-                checkWritePBranch(pbranch);
+                caster.checkWriteCast(execute, unaryemd);
+                adapter.checkWriteBranch(execute, ctx);
             }
         } else {
             if (ctx.BOOLNOT() != null) {
-                if (pbranch == null) {
-                    writePConstant(constpost);
+                if (branch == null) {
+                    writeConstant(postConst);
                 } else {
-                    if ((boolean)constpost && pbranch.tru != null) {
-                        execute.visitJumpInsn(Opcodes.GOTO, pbranch.tru);
-                    } else if (!(boolean)constpost && pbranch.fals != null) {
-                        execute.visitJumpInsn(Opcodes.GOTO, pbranch.fals);
+                    if ((boolean)postConst && branch.tru != null) {
+                        execute.visitJumpInsn(Opcodes.GOTO, branch.tru);
+                    } else if (!(boolean)postConst && branch.fals != null) {
+                        execute.visitJumpInsn(Opcodes.GOTO, branch.fals);
                     }
                 }
             } else {
-                writePConstant(constpost);
-                checkWritePBranch(pbranch);
+                writeConstant(postConst);
+                adapter.checkWriteBranch(execute, ctx);
             }
         }
 
@@ -915,179 +533,149 @@ class Writer extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitCast(final CastContext ctx) {
-        final PMetadata castmd = getPMetadata(ctx);
-        final Object constpost = castmd.getConstPost();
-        final PBranch pbranch = pbranches.get(ctx);
+        final ExpressionMetadata castemd = adapter.getExpressionMetadata(ctx);
+        final Object postConst = castemd.postConst;
 
-        if (constpost == null) {
+        if (postConst == null) {
             visit(ctx.expression());
-            checkWriteCast(castmd);
+            caster.checkWriteCast(execute, castemd);
         } else {
-            writePConstant(constpost);
+            writeConstant(postConst);
         }
 
-        checkWritePBranch(pbranch);
+        adapter.checkWriteBranch(execute, ctx);
 
         return null;
     }
 
     @Override
     public Void visitBinary(final BinaryContext ctx) {
-        final PMetadata compmd = getPMetadata(ctx);
-        final Object constpost = compmd.getConstPost();
-        final PBranch pbranch = pbranches.get(ctx);
+        final ExpressionMetadata binaryemd = adapter.getExpressionMetadata(ctx);
+        final Object postConst = binaryemd.postConst;
 
-        if (constpost == null) {
+        if (postConst == null) {
             final ExpressionContext expr0 = ctx.expression(0);
             final ExpressionContext expr1 = ctx.expression(1);
 
             visit(expr0);
             visit(expr1);
 
-            final TypeMetadata psort = compmd.getFromType().getTypeMetadata();
+            final TypeMetadata metadata = binaryemd.from.metadata;
 
-            switch (psort) {
+            switch (metadata) {
                 case INT:
-                    if (ctx.MUL() != null) {
-                        execute.visitInsn(Opcodes.IMUL);
-                    } else if (ctx.DIV() != null) {
-                        execute.visitInsn(Opcodes.IDIV);
-                    } else if (ctx.REM() != null) {
-                        execute.visitInsn(Opcodes.IREM);
-                    } else if (ctx.ADD() != null) {
-                        execute.visitInsn(Opcodes.IADD);
-                    } else if (ctx.SUB() != null) {
-                        execute.visitInsn(Opcodes.ISUB);
-                    } else if (ctx.LSH() != null) {
-                        execute.visitInsn(Opcodes.ISHL);
-                    } else if (ctx.USH() != null) {
-                        execute.visitInsn(Opcodes.IUSHR);
-                    } else if (ctx.RSH() != null) {
-                        execute.visitInsn(Opcodes.ISHR);
-                    } else if (ctx.BWAND() != null) {
-                        execute.visitInsn(Opcodes.IAND);
-                    } else if (ctx.BWXOR() != null) {
-                        execute.visitInsn(Opcodes.IXOR);
-                    } else if (ctx.BWOR() != null) {
-                        execute.visitInsn(Opcodes.IOR);
-                    } else {
+                    if      (ctx.MUL()   != null) execute.visitInsn(Opcodes.IMUL);
+                    else if (ctx.DIV()   != null) execute.visitInsn(Opcodes.IDIV);
+                    else if (ctx.REM()   != null) execute.visitInsn(Opcodes.IREM);
+                    else if (ctx.ADD()   != null) execute.visitInsn(Opcodes.IADD);
+                    else if (ctx.SUB()   != null) execute.visitInsn(Opcodes.ISUB);
+                    else if (ctx.LSH()   != null) execute.visitInsn(Opcodes.ISHL);
+                    else if (ctx.USH()   != null) execute.visitInsn(Opcodes.IUSHR);
+                    else if (ctx.RSH()   != null) execute.visitInsn(Opcodes.ISHR);
+                    else if (ctx.BWAND() != null) execute.visitInsn(Opcodes.IAND);
+                    else if (ctx.BWXOR() != null) execute.visitInsn(Opcodes.IXOR);
+                    else if (ctx.BWOR()  != null) execute.visitInsn(Opcodes.IOR);
+                    else {
                         throw new IllegalStateException(); // TODO: message
                     }
 
                     break;
                 case LONG:
-                    if (ctx.MUL() != null) {
-                        execute.visitInsn(Opcodes.LMUL);
-                    } else if (ctx.DIV() != null) {
-                        execute.visitInsn(Opcodes.LDIV);
-                    } else if (ctx.REM() != null) {
-                        execute.visitInsn(Opcodes.LREM);
-                    } else if (ctx.ADD() != null) {
-                        execute.visitInsn(Opcodes.LADD);
-                    } else if (ctx.SUB() != null) {
-                        execute.visitInsn(Opcodes.LSUB);
-                    } else if (ctx.LSH() != null) {
-                        execute.visitInsn(Opcodes.LSHL);
-                    } else if (ctx.USH() != null) {
-                        execute.visitInsn(Opcodes.LUSHR);
-                    } else if (ctx.RSH() != null) {
-                        execute.visitInsn(Opcodes.LSHR);
-                    } else if (ctx.BWAND() != null) {
-                        execute.visitInsn(Opcodes.LAND);
-                    } else if (ctx.BWXOR() != null) {
-                        execute.visitInsn(Opcodes.LXOR);
-                    } else if (ctx.BWOR() != null) {
-                        execute.visitInsn(Opcodes.LOR);
-                    } else {
+                    if      (ctx.MUL()   != null) execute.visitInsn(Opcodes.LMUL);
+                    else if (ctx.DIV()   != null) execute.visitInsn(Opcodes.LDIV);
+                    else if (ctx.REM()   != null) execute.visitInsn(Opcodes.LREM);
+                    else if (ctx.ADD()   != null) execute.visitInsn(Opcodes.LADD);
+                    else if (ctx.SUB()   != null) execute.visitInsn(Opcodes.LSUB);
+                    else if (ctx.LSH()   != null) execute.visitInsn(Opcodes.LSHL);
+                    else if (ctx.USH()   != null) execute.visitInsn(Opcodes.LUSHR);
+                    else if (ctx.RSH()   != null) execute.visitInsn(Opcodes.LSHR);
+                    else if (ctx.BWAND() != null) execute.visitInsn(Opcodes.LAND);
+                    else if (ctx.BWXOR() != null) execute.visitInsn(Opcodes.LXOR);
+                    else if (ctx.BWOR()  != null) execute.visitInsn(Opcodes.LOR);
+                    else {
                         throw new IllegalStateException(); // TODO: message
                     }
 
                     break;
                 case FLOAT:
-                    if (ctx.MUL() != null) {
-                        execute.visitInsn(Opcodes.FMUL);
-                    } else if (ctx.DIV() != null) {
-                        execute.visitInsn(Opcodes.FDIV);
-                    } else if (ctx.REM() != null) {
-                        execute.visitInsn(Opcodes.FREM);
-                    } else if (ctx.ADD() != null) {
-                        execute.visitInsn(Opcodes.FADD);
-                    } else if (ctx.SUB() != null) {
-                        execute.visitInsn(Opcodes.FSUB);
-                    } else {
+                    if      (ctx.MUL() != null) execute.visitInsn(Opcodes.FMUL);
+                    else if (ctx.DIV() != null) execute.visitInsn(Opcodes.FDIV);
+                    else if (ctx.REM() != null) execute.visitInsn(Opcodes.FREM);
+                    else if (ctx.ADD() != null) execute.visitInsn(Opcodes.FADD);
+                    else if (ctx.SUB() != null) execute.visitInsn(Opcodes.FSUB);
+                    else {
                         throw new IllegalStateException(); // TODO: message
                     }
 
                     break;
                 case DOUBLE:
-                    if (ctx.MUL() != null) {
-                        execute.visitInsn(Opcodes.DMUL);
-                    } else if (ctx.DIV() != null) {
-                        execute.visitInsn(Opcodes.DDIV);
-                    } else if (ctx.REM() != null) {
-                        execute.visitInsn(Opcodes.DREM);
-                    } else if (ctx.ADD() != null) {
-                        execute.visitInsn(Opcodes.DADD);
-                    } else if (ctx.SUB() != null) {
-                        execute.visitInsn(Opcodes.DSUB);
-                    } else {
+                    if      (ctx.MUL() != null) execute.visitInsn(Opcodes.DMUL);
+                    else if (ctx.DIV() != null) execute.visitInsn(Opcodes.DDIV);
+                    else if (ctx.REM() != null) execute.visitInsn(Opcodes.DREM);
+                    else if (ctx.ADD() != null) execute.visitInsn(Opcodes.DADD);
+                    else if (ctx.SUB() != null) execute.visitInsn(Opcodes.DSUB);
+                    else {
                         throw new IllegalStateException(); // TODO: message
                     }
 
                     break;
+                case STRING:
+                    if (ctx.MUL() != null) {
+                        //TODO: handle binary strings
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
                 default:
                     throw new IllegalStateException(); // TODO: message
             }
 
-            checkWriteCast(compmd);
-            checkWritePBranch(pbranch);
+            caster.checkWriteCast(execute, binaryemd);
         } else {
-            writePConstant(constpost);
-            checkWritePBranch(pbranch);
+            writeConstant(postConst);
         }
+
+        adapter.checkWriteBranch(execute, ctx);
 
         return null;
     }
 
     @Override
     public Void visitComp(final CompContext ctx) {
-        final PMetadata compmd = getPMetadata(ctx);
-        final Object constpost = compmd.getConstPost();
-        final PBranch pbranch = pbranches.get(ctx);
+        final ExpressionMetadata compemd = adapter.getExpressionMetadata(ctx);
+        final Object postConst = compemd.postConst;
+        final Branch branch = adapter.getBranch(ctx);
 
-        if (constpost == null) {
-            final ExpressionContext ectx0 = ctx.expression(0);
-            final ExpressionContext ectx1 = ctx.expression(1);
-            final PMetadata expressionmd1 = getPMetadata(ectx1);
-            final TypeMetadata psort = expressionmd1.getToType().getTypeMetadata();
+        if (postConst == null) {
+            final ExpressionContext exprctx0 = ctx.expression(0);
+            final ExpressionContext exprctx1 = ctx.expression(1);
+            final ExpressionMetadata expremd1 = adapter.getExpressionMetadata(exprctx1);
+            final TypeMetadata metadata = expremd1.to.metadata;
 
-            visit(ectx0);
+            visit(exprctx0);
 
-            if (!expressionmd1.getIsNull()) {
-                visit(ectx1);
+            if (!expremd1.isNull) {
+                visit(exprctx1);
             }
 
-            final boolean ptrue = pbranch != null && pbranch.tru != null;
-            final boolean pfalse = pbranch != null && pbranch.fals != null;
-            final Label ajump = ptrue ? pbranch.tru : pfalse ? pbranch.fals : new Label();
-            final Label aend = new Label();
+            final boolean tru = branch != null && branch.tru != null;
+            final boolean fals = branch != null && branch.fals != null;
+            final Label jump = tru ? branch.tru : fals ? branch.fals : new Label();
+            final Label end = new Label();
 
-            final boolean eq  = ctx.EQ()  != null && (ptrue || !pfalse) || ctx.NE()  != null && pfalse;
-            final boolean ne  = ctx.NE()  != null && (ptrue || !pfalse) || ctx.EQ()  != null && pfalse;
-            final boolean lt  = ctx.LT()  != null && (ptrue || !pfalse) || ctx.GTE() != null && pfalse;
-            final boolean lte = ctx.LTE() != null && (ptrue || !pfalse) || ctx.GT()  != null && pfalse;
-            final boolean gt  = ctx.GT()  != null && (ptrue || !pfalse) || ctx.LTE() != null && pfalse;
-            final boolean gte = ctx.GTE() != null && (ptrue || !pfalse) || ctx.LT()  != null && pfalse;
+            final boolean eq  = ctx.EQ()  != null && (tru || !fals) || ctx.NE()  != null && fals;
+            final boolean ne  = ctx.NE()  != null && (tru || !fals) || ctx.EQ()  != null && fals;
+            final boolean lt  = ctx.LT()  != null && (tru || !fals) || ctx.GTE() != null && fals;
+            final boolean lte = ctx.LTE() != null && (tru || !fals) || ctx.GT()  != null && fals;
+            final boolean gt  = ctx.GT()  != null && (tru || !fals) || ctx.LTE() != null && fals;
+            final boolean gte = ctx.GTE() != null && (tru || !fals) || ctx.LT()  != null && fals;
 
-            switch (psort) {
+            switch (metadata) {
                 case VOID:
                     throw new IllegalStateException(); // TODO: message
                 case BOOL:
-                    if (eq) {
-                        execute.visitJumpInsn(Opcodes.IF_ICMPEQ, ajump);
-                    } else if (ne) {
-                        execute.visitJumpInsn(Opcodes.IF_ICMPNE, ajump);
-                    } else {
+                    if      (eq) execute.visitJumpInsn(Opcodes.IF_ICMPEQ, jump);
+                    else if (ne) execute.visitJumpInsn(Opcodes.IF_ICMPNE, jump);
+                    else {
                         throw new IllegalStateException(); // TODO: message
                     }
 
@@ -1097,19 +685,13 @@ class Writer extends PainlessBaseVisitor<Void>{
                 case CHAR:
                     throw new IllegalStateException(); // TODO: message
                 case INT:
-                    if (eq) {
-                        execute.visitJumpInsn(Opcodes.IF_ICMPEQ, ajump);
-                    } else if (ne) {
-                        execute.visitJumpInsn(Opcodes.IF_ICMPNE, ajump);
-                    } else if (lt) {
-                        execute.visitJumpInsn(Opcodes.IF_ICMPLT, ajump);
-                    } else if (lte) {
-                        execute.visitJumpInsn(Opcodes.IF_ICMPLE, ajump);
-                    } else if (gt) {
-                        execute.visitJumpInsn(Opcodes.IF_ICMPGT, ajump);
-                    } else if (gte) {
-                        execute.visitJumpInsn(Opcodes.IF_ICMPGE, ajump);
-                    } else {
+                    if      (eq)  execute.visitJumpInsn(Opcodes.IF_ICMPEQ, jump);
+                    else if (ne)  execute.visitJumpInsn(Opcodes.IF_ICMPNE, jump);
+                    else if (lt)  execute.visitJumpInsn(Opcodes.IF_ICMPLT, jump);
+                    else if (lte) execute.visitJumpInsn(Opcodes.IF_ICMPLE, jump);
+                    else if (gt)  execute.visitJumpInsn(Opcodes.IF_ICMPGT, jump);
+                    else if (gte) execute.visitJumpInsn(Opcodes.IF_ICMPGE, jump);
+                    else {
                         throw new IllegalStateException(); // TODO: message
                     }
 
@@ -1117,106 +699,76 @@ class Writer extends PainlessBaseVisitor<Void>{
                 case LONG:
                     execute.visitInsn(Opcodes.LCMP);
 
-                    if (eq) {
-                        execute.visitJumpInsn(Opcodes.IFEQ, ajump);
-                    } else if (ne) {
-                        execute.visitJumpInsn(Opcodes.IFNE, ajump);
-                    } else if (lt) {
-                        execute.visitJumpInsn(Opcodes.IFLT, ajump);
-                    } else if (lte) {
-                        execute.visitJumpInsn(Opcodes.IFLE, ajump);
-                    } else if (gt) {
-                        execute.visitJumpInsn(Opcodes.IFGT, ajump);
-                    } else if (gte) {
-                        execute.visitJumpInsn(Opcodes.IFGE, ajump);
-                    } else {
+                    if      (eq)  execute.visitJumpInsn(Opcodes.IFEQ, jump);
+                    else if (ne)  execute.visitJumpInsn(Opcodes.IFNE, jump);
+                    else if (lt)  execute.visitJumpInsn(Opcodes.IFLT, jump);
+                    else if (lte) execute.visitJumpInsn(Opcodes.IFLE, jump);
+                    else if (gt)  execute.visitJumpInsn(Opcodes.IFGT, jump);
+                    else if (gte) execute.visitJumpInsn(Opcodes.IFGE, jump);
+                    else {
                         throw new IllegalStateException(); // TODO: message
                     }
 
                     break;
                 case FLOAT:
-                    if (eq) {
-                        execute.visitInsn(Opcodes.FCMPL);
-                        execute.visitJumpInsn(Opcodes.IFEQ, ajump);
-                    } else if (ne) {
-                        execute.visitInsn(Opcodes.FCMPL);
-                        execute.visitJumpInsn(Opcodes.IFNE, ajump);
-                    } else if (lt) {
-                        execute.visitInsn(Opcodes.FCMPG);
-                        execute.visitJumpInsn(Opcodes.IFLT, ajump);
-                    } else if (lte) {
-                        execute.visitInsn(Opcodes.FCMPG);
-                        execute.visitJumpInsn(Opcodes.IFLE, ajump);
-                    } else if (gt) {
-                        execute.visitInsn(Opcodes.FCMPL);
-                        execute.visitJumpInsn(Opcodes.IFGT, ajump);
-                    } else if (gte) {
-                        execute.visitInsn(Opcodes.FCMPL);
-                        execute.visitJumpInsn(Opcodes.IFGE, ajump);
-                    } else {
+                    if      (eq)  { execute.visitInsn(Opcodes.FCMPL); execute.visitJumpInsn(Opcodes.IFEQ, jump); }
+                    else if (ne)  { execute.visitInsn(Opcodes.FCMPL); execute.visitJumpInsn(Opcodes.IFNE, jump); }
+                    else if (lt)  { execute.visitInsn(Opcodes.FCMPG); execute.visitJumpInsn(Opcodes.IFLT, jump); }
+                    else if (lte) { execute.visitInsn(Opcodes.FCMPG); execute.visitJumpInsn(Opcodes.IFLE, jump); }
+                    else if (gt)  { execute.visitInsn(Opcodes.FCMPL); execute.visitJumpInsn(Opcodes.IFGT, jump); }
+                    else if (gte) { execute.visitInsn(Opcodes.FCMPL); execute.visitJumpInsn(Opcodes.IFGE, jump); }
+                    else {
                         throw new IllegalStateException(); // TODO: message
                     }
 
                     break;
                 case DOUBLE:
-                    if (eq) {
-                        execute.visitInsn(Opcodes.DCMPL);
-                        execute.visitJumpInsn(Opcodes.IFEQ, ajump);
-                    } else if (ne) {
-                        execute.visitInsn(Opcodes.DCMPL);
-                        execute.visitJumpInsn(Opcodes.IFNE, ajump);
-                    } else if (lt) {
-                        execute.visitInsn(Opcodes.DCMPG);
-                        execute.visitJumpInsn(Opcodes.IFLT, ajump);
-                    } else if (lte) {
-                        execute.visitInsn(Opcodes.DCMPG);
-                        execute.visitJumpInsn(Opcodes.IFLE, ajump);
-                    } else if (gt) {
-                        execute.visitInsn(Opcodes.DCMPL);
-                        execute.visitJumpInsn(Opcodes.IFGT, ajump);
-                    } else if (gte) {
-                        execute.visitInsn(Opcodes.DCMPL);
-                        execute.visitJumpInsn(Opcodes.IFGE, ajump);
-                    } else {
+                    if      (eq)  { execute.visitInsn(Opcodes.DCMPL); execute.visitJumpInsn(Opcodes.IFEQ, jump); }
+                    else if (ne)  { execute.visitInsn(Opcodes.DCMPL); execute.visitJumpInsn(Opcodes.IFNE, jump); }
+                    else if (lt)  { execute.visitInsn(Opcodes.DCMPG); execute.visitJumpInsn(Opcodes.IFLT, jump); }
+                    else if (lte) { execute.visitInsn(Opcodes.DCMPG); execute.visitJumpInsn(Opcodes.IFLE, jump); }
+                    else if (gt)  { execute.visitInsn(Opcodes.DCMPL); execute.visitJumpInsn(Opcodes.IFGT, jump); }
+                    else if (gte) { execute.visitInsn(Opcodes.DCMPL); execute.visitJumpInsn(Opcodes.IFGE, jump); }
+                    else {
                         throw new IllegalStateException(); // TODO: message
                     }
 
                     break;
                 default:
                     if (eq) {
-                        if (expressionmd1.getIsNull()) {
-                            execute.visitJumpInsn(Opcodes.IFNULL, ajump);
+                        if (expremd1.isNull) {
+                            execute.visitJumpInsn(Opcodes.IFNULL, jump);
                         } else {
-                            execute.visitJumpInsn(Opcodes.IF_ACMPEQ, ajump);
+                            execute.visitJumpInsn(Opcodes.IF_ACMPEQ, jump);
                         }
                     } else if (ne) {
-                        if (expressionmd1.getIsNull()) {
-                            execute.visitJumpInsn(Opcodes.IFNONNULL, ajump);
+                        if (expremd1.isNull) {
+                            execute.visitJumpInsn(Opcodes.IFNONNULL, jump);
                         } else {
-                            execute.visitJumpInsn(Opcodes.IF_ACMPNE, ajump);
+                            execute.visitJumpInsn(Opcodes.IF_ACMPNE, jump);
                         }
                     } else {
                         throw new IllegalStateException(); // TODO: message
                     }
             }
 
-            if (pbranch == null) {
+            if (branch == null) {
                 execute.visitInsn(Opcodes.ICONST_0);
-                execute.visitJumpInsn(Opcodes.GOTO, aend);
-                execute.visitLabel(ajump);
+                execute.visitJumpInsn(Opcodes.GOTO, end);
+                execute.visitLabel(jump);
                 execute.visitInsn(Opcodes.ICONST_1);
-                execute.visitLabel(aend);
+                execute.visitLabel(end);
 
-                checkWriteCast(compmd);
+                caster.checkWriteCast(execute, compemd);
             }
         } else {
-            if (pbranch == null) {
-                writePConstant(constpost);
+            if (branch == null) {
+                writeConstant(postConst);
             } else {
-                if ((boolean)constpost && pbranch.tru != null) {
-                    execute.visitLabel(pbranch.tru);
-                } else if (!(boolean)constpost && pbranch.fals != null) {
-                    execute.visitLabel(pbranch.fals);
+                if ((boolean)postConst && branch.tru != null) {
+                    execute.visitLabel(branch.tru);
+                } else if (!(boolean)postConst && branch.fals != null) {
+                    execute.visitLabel(branch.fals);
                 }
             }
         }
@@ -1226,96 +778,89 @@ class Writer extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitBool(final BoolContext ctx) {
-        final PMetadata boolmd = getPMetadata(ctx);
-        final Object constpost = boolmd.getConstPost();
-        final PBranch pbranch = pbranches.get(ctx);
+        final ExpressionMetadata boolemd = adapter.getExpressionMetadata(ctx);
+        final Object postConst = boolemd.postConst;
+        final Branch branch = adapter.getBranch(ctx);
 
-        if (constpost == null) {
-            final ExpressionContext ectx0 = ctx.expression(0);
-            final ExpressionContext ectx1 = ctx.expression(1);
+        if (postConst == null) {
+            final ExpressionContext exprctx0 = ctx.expression(0);
+            final ExpressionContext exprctx1 = ctx.expression(1);
 
-            if (pbranch == null) {
+            if (branch == null) {
                 if (ctx.BOOLAND() != null) {
-                    final PBranch localpbranch = new PBranch(ctx);
-                    localpbranch.fals = new Label();
-                    final Label aend = new Label();
+                    final Branch local = adapter.markBranch(ctx, exprctx0);
+                    adapter.markBranch(exprctx0, exprctx1);
+                    local.fals = new Label();
+                    final Label end = new Label();
 
-                    pbranches.put(ectx0, localpbranch);
-                    visit(ectx0);
-                    pbranches.put(ectx1, localpbranch);
-                    visit(ectx1);
+                    visit(exprctx0);
+                    visit(exprctx1);
 
                     execute.visitInsn(Opcodes.ICONST_1);
-                    execute.visitJumpInsn(Opcodes.GOTO, aend);
-                    execute.visitLabel(localpbranch.fals);
+                    execute.visitJumpInsn(Opcodes.GOTO, end);
+                    execute.visitLabel(local.fals);
                     execute.visitInsn(Opcodes.ICONST_0);
-                    execute.visitLabel(aend);
+                    execute.visitLabel(end);
                 } else if (ctx.BOOLOR() != null) {
-                    final PBranch pbranch0 = new PBranch(ctx);
-                    pbranch0.tru = new Label();
-                    final PBranch pbranch1 = new PBranch(ctx);
-                    pbranch1.fals = new Label();
+                    final Branch branch0 = adapter.markBranch(ctx, exprctx0);
+                    branch0.tru = new Label();
+                    final Branch branch1 = adapter.markBranch(ctx, exprctx1);
+                    branch1.fals = new Label();
                     final Label aend = new Label();
 
-                    pbranches.put(ectx0, pbranch0);
-                    visit(ectx0);
-                    pbranches.put(ectx1, pbranch1);
-                    visit(ectx1);
+                    visit(exprctx0);
+                    visit(exprctx1);
 
-                    execute.visitLabel(pbranch0.tru);
+                    execute.visitLabel(branch0.tru);
                     execute.visitInsn(Opcodes.ICONST_1);
                     execute.visitJumpInsn(Opcodes.GOTO, aend);
-                    execute.visitLabel(pbranch1.fals);
+                    execute.visitLabel(branch1.fals);
                     execute.visitInsn(Opcodes.ICONST_0);
                     execute.visitLabel(aend);
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
 
-                checkWriteCast(boolmd);
+                caster.checkWriteCast(execute, boolemd);
             } else {
                 if (ctx.BOOLAND() != null) {
-                    final PBranch pbranch0 = new PBranch(ctx);
-                    pbranch0.fals = pbranch.fals == null ? new Label() : pbranch.fals;
-                    final PBranch pbranch1 = new PBranch(ctx);
-                    pbranch1.tru = pbranch.tru;
-                    pbranch1.fals = pbranch.fals;
+                    final Branch branch0 = adapter.markBranch(ctx, exprctx0);
+                    branch0.fals = branch.fals == null ? new Label() : branch.fals;
+                    final Branch branch1 = adapter.markBranch(ctx, exprctx1);
+                    branch1.tru = branch.tru;
+                    branch1.fals = branch.fals;
 
-                    pbranches.put(ectx0, pbranch0);
-                    visit(ectx0);
-                    pbranches.put(ectx1, pbranch1);
-                    visit(ectx1);
+                    visit(exprctx0);
+                    visit(exprctx1);
 
-                    if (pbranch.fals == null) {
-                        execute.visitLabel(pbranch0.fals);
+                    if (branch.fals == null) {
+                        execute.visitLabel(branch0.fals);
                     }
                 } else if (ctx.BOOLOR() != null) {
-                    final PBranch pbranch0 = new PBranch(ctx);
-                    pbranch0.tru = pbranch.tru == null ? new Label() : pbranch.tru;
-                    final PBranch pbranch1 = new PBranch(ctx);
-                    pbranch1.tru = pbranch.tru;
-                    pbranch1.fals = pbranch.fals;
+                    final Branch branch0 = adapter.markBranch(ctx, exprctx0);
+                    branch0.tru = branch.tru == null ? new Label() : branch.tru;
+                    final Branch branch1 = adapter.markBranch(ctx, exprctx1);
+                    branch1.tru = branch.tru;
+                    branch1.fals = branch.fals;
 
-                    pbranches.put(ectx0, pbranch0);
-                    visit(ectx0);
-                    pbranches.put(ectx1, pbranch1);
-                    visit(ectx1);
+                    visit(exprctx0);
+                    visit(exprctx1);
 
-                    if (pbranch.tru == null) {
-                        execute.visitLabel(pbranch0.tru);
+                    if (branch.tru == null) {
+                        execute.visitLabel(branch0.tru);
                     }
                 } else {
                     throw new IllegalStateException(); // TODO: message
                 }
             }
         } else {
-            if (pbranch == null) {
-                writePConstant(constpost);
+            if (branch == null) {
+                writeConstant(postConst);
             } else {
-                if ((boolean)constpost && pbranch.tru != null) {
-                    execute.visitLabel(pbranch.tru);
-                } else if (!(boolean)constpost && pbranch.fals != null) {
-                    execute.visitLabel(pbranch.fals);
+                if ((boolean)postConst && branch.tru != null) {
+                    execute.visitLabel(branch.tru);
+                } else if (!(boolean)postConst && branch.fals != null) {
+                    execute.visitLabel(branch.fals);
                 }
             }
         }
@@ -1325,27 +870,26 @@ class Writer extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitConditional(final ConditionalContext ctx) {
-        final PMetadata conditionalmd = getPMetadata(ctx);
-        final PBranch pbranch = pbranches.get(ctx);
+        final ExpressionMetadata condemd = adapter.getExpressionMetadata(ctx);
+        final Branch branch = adapter.getBranch(ctx);
 
         final ExpressionContext expr0 = ctx.expression(0);
         final ExpressionContext expr1 = ctx.expression(1);
         final ExpressionContext expr2 = ctx.expression(2);
 
-        final PBranch localpbranch = new PBranch(ctx);
-        localpbranch.fals = new Label();
-        localpbranch.end = new Label();
-        pbranches.put(expr0, localpbranch);
+        final Branch local = adapter.markBranch(ctx, expr0);
+        local.fals = new Label();
+        local.end = new Label();
 
         visit(expr0);
         visit(expr1);
-        execute.visitJumpInsn(Opcodes.GOTO, localpbranch.end);
-        execute.visitLabel(localpbranch.fals);
+        execute.visitJumpInsn(Opcodes.GOTO, local.end);
+        execute.visitLabel(local.fals);
         visit(expr2);
-        execute.visitLabel(localpbranch.end);
+        execute.visitLabel(local.end);
 
-        if (pbranch == null) {
-            checkWriteCast(conditionalmd);
+        if (branch == null) {
+            caster.checkWriteCast(execute, condemd);
         }
 
         return null;
@@ -1589,7 +1133,7 @@ class Writer extends PainlessBaseVisitor<Void>{
         return null;
     }*/
 
-    /*@Override
+    @Override
     public Void visitExtprec(final ExtprecContext ctx) {
         throw new UnsupportedOperationException(); // TODO: message
     }
@@ -1627,6 +1171,104 @@ class Writer extends PainlessBaseVisitor<Void>{
     @Override
     public Void visitArguments(final ArgumentsContext ctx) {
         throw new UnsupportedOperationException(); // TODO: message
+    }
+
+    private void writeConstant(final Object constant) {
+        if (constant instanceof Number) {
+            writeNumeric(constant);
+        } else if (constant instanceof Character) {
+            writeNumeric((int)(char)constant);
+        } else if (constant instanceof String) {
+            writeString(constant);
+        } else if (constant instanceof Boolean) {
+            writeBoolean(constant);
+        } else if (constant != null) {
+            throw new IllegalStateException(); // TODO: message
+        }
+    }
+
+    private void writeNumeric(final Object numeric) {
+        if (numeric instanceof Double) {
+            final long bits = Double.doubleToLongBits((Double)numeric);
+
+            if (bits == 0L) {
+                execute.visitInsn(Opcodes.DCONST_0);
+            } else if (bits == 0x3ff0000000000000L) {
+                execute.visitInsn(Opcodes.DCONST_1);
+            } else {
+                execute.visitLdcInsn(numeric);
+            }
+        } else if (numeric instanceof Float) {
+            final int bits = Float.floatToIntBits((Float)numeric);
+
+            if (bits == 0L) {
+                execute.visitInsn(Opcodes.FCONST_0);
+            } else if (bits == 0x3f800000) {
+                execute.visitInsn(Opcodes.FCONST_1);
+            } else if (bits == 0x40000000) {
+                execute.visitInsn(Opcodes.FCONST_2);
+            } else {
+                execute.visitLdcInsn(numeric);
+            }
+        } else if (numeric instanceof Long) {
+            final long value = (long)numeric;
+
+            if (value == 0L) {
+                execute.visitInsn(Opcodes.LCONST_0);
+            } else if (value == 1L) {
+                execute.visitInsn(Opcodes.LCONST_1);
+            } else {
+                execute.visitLdcInsn(value);
+            }
+        } else if (numeric instanceof Number) {
+            final int value = ((Number)numeric).intValue();
+
+            if (value == -1) {
+                execute.visitInsn(Opcodes.ICONST_M1);
+            } else if (value == 0) {
+                execute.visitInsn(Opcodes.ICONST_0);
+            } else if (value == 1) {
+                execute.visitInsn(Opcodes.ICONST_1);
+            } else if (value == 2) {
+                execute.visitInsn(Opcodes.ICONST_2);
+            } else if (value == 3) {
+                execute.visitInsn(Opcodes.ICONST_3);
+            } else if (value == 4) {
+                execute.visitInsn(Opcodes.ICONST_4);
+            } else if (value == 5) {
+                execute.visitInsn(Opcodes.ICONST_5);
+            } else if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
+                execute.visitIntInsn(Opcodes.BIPUSH, value);
+            } else if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
+                execute.visitIntInsn(Opcodes.SIPUSH, value);
+            } else {
+                execute.visitLdcInsn(value);
+            }
+        } else {
+            throw new IllegalStateException(); // TODO: message
+        }
+    }
+
+    private void writeString(final Object constant) {
+        if (constant instanceof String) {
+            execute.visitLdcInsn(constant);
+        } else {
+            throw new IllegalStateException(); // TODO: message
+        }
+    }
+
+    private void writeBoolean(final Object constant) {
+        if (constant instanceof Boolean) {
+            boolean value = (boolean)constant;
+
+            if (value) {
+                execute.visitInsn(Opcodes.ICONST_1);
+            } else {
+                execute.visitInsn(Opcodes.ICONST_0);
+            }
+        } else {
+            throw new IllegalStateException(); // TODO: message
+        }
     }
 
     private void writeEnd() {

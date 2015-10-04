@@ -1,5 +1,7 @@
 package painless;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.util.Properties;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
@@ -51,19 +53,18 @@ final class Compiler {
         System.out.println("analyze: " + end);
         start = System.currentTimeMillis();
 
-        //final byte[] bytes = Writer.write(source, root, pmetadata);
+        final byte[] bytes = Writer.write(adapter);
 
         end = System.currentTimeMillis() - start;
         System.out.println("write: " + end);
         start = System.currentTimeMillis();
 
-        //final Executable executable = createExecutable(name, source, parent, bytes);
+        final Executable executable = createExecutable(name, source, parent, bytes);
 
         end = System.currentTimeMillis() - start;
         System.out.println("create: " + end);
 
-        //return executable;
-        return null;
+        return executable;
     }
 
     private static ParseTree createParseTree(String source, Definition definition) {
@@ -79,7 +80,7 @@ final class Compiler {
     }
 
     private static Executable createExecutable(String name, String source, ClassLoader parent, byte[] bytes) {
-        /*try {
+        try {
             try {
                 FileOutputStream f = new FileOutputStream(new File("/Users/jdconrad/lang/generated/out.class"), false);
                 f.write(bytes);
@@ -90,15 +91,13 @@ final class Compiler {
 
             final Loader loader = new Loader(parent);
             final Class<? extends Executable> clazz = loader.define(Writer.CLASS_NAME, bytes);
-            final Constructor<? extends Executable> constructor =
+            final java.lang.reflect.Constructor<? extends Executable> constructor =
                     clazz.getConstructor(String.class, String.class);
 
             return constructor.newInstance(name, source);
         } catch (ReflectiveOperationException exception) {
             throw new IllegalStateException(exception);
-        }*/
-
-        return null;
+        }
     }
 
     private Compiler() {}

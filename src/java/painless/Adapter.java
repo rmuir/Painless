@@ -8,6 +8,8 @@ import java.util.Map;
 
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 import static painless.Caster.*;
 import static painless.Default.*;
@@ -118,7 +120,7 @@ class Adapter {
     private final Map<ParseTree, External> externals;
 
     private final HashMap<ParseTree, Branch> branches;
-    private final Deque<Branch> loops;
+    private final Deque<Branch> jumps;
 
     Adapter(final Definition definition, final Standard standard, final Caster caster,
             final String source, final ParseTree root) {
@@ -136,7 +138,7 @@ class Adapter {
         externals = new HashMap<>();
 
         this.branches = new HashMap<>();
-        this.loops = new ArrayDeque<>();
+        this.jumps = new ArrayDeque<>();
     }
 
     void incrementScope() {
@@ -210,10 +212,10 @@ class Adapter {
         return sourceemd;
     }
 
-    void updateExpressionMetadata(final ParseTree source, final ExpressionMetadata exprmd) {
-        expressionMetadata.remove(exprmd.source);
-        exprmd.source = source;
-        expressionMetadata.put(source, exprmd);
+    void updateExpressionMetadata(final ParseTree source, final ExpressionMetadata expremd) {
+        expressionMetadata.remove(expremd.source);
+        expremd.source = source;
+        expressionMetadata.put(source, expremd);
     }
     
     ExpressionMetadata getExpressionMetadata(final ParseTree source) {
@@ -240,24 +242,52 @@ class Adapter {
         return external;
     }
 
-    Branch createBranch(final ParseTree source, boolean loop) {
+    /*Branch markBranch(final ParseTree source) {
         final Branch branch = new Branch(source);
         branches.put(source, branch);
 
         return branch;
-    }
+    }*/
 
-    Branch propagateBranch(final ParseTree node, Branch branch) {
-        branches.put(source, branch);
-    }
-
-    Branch getBranch(final ParseTree source) {
-        final Branch branch = branches.get(source);
+    Branch markBranch(final ParseTree source, final ParseTree node) {
+        Branch branch = getBranch(source);
 
         if (branch == null) {
-            throw new IllegalStateException(); // TODO: message
+            branch = new Branch(source);
+        }
+
+        if (node != null) {
+            branches.put(node, branch);
         }
 
         return branch;
+    }
+
+    Branch getBranch(final ParseTree source) {
+        return branches.get(source);
+    }
+
+    void pushJump(final Branch branch) {
+        jumps.push(branch);
+    }
+
+    Branch peekJump() {
+        return jumps.peek();
+    }
+
+    void popJump() {
+        jumps.pop();
+    }
+
+    void checkWriteBranch(final MethodVisitor visitor, final ParseTree source) {
+        final Branch branch = getBranch(source);
+
+        if (branch != null) {
+            if (branch.tru != null) {
+                visitor.visitJumpInsn(Opcodes.IFNE, branch.tru);
+            } else if (branch.fals != null) {
+                visitor.visitJumpInsn(Opcodes.IFEQ, branch.fals);
+            }
+        }
     }
 }

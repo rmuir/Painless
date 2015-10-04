@@ -1,5 +1,8 @@
 package painless;
 
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -10,7 +13,7 @@ import static painless.Adapter.*;
 import static painless.Default.*;
 import static painless.Definition.*;
 
-public class Caster {
+class Caster {
     private enum PromotionType {
         SAME_TYPE,
         ANY_TYPE,
@@ -182,7 +185,7 @@ public class Caster {
                             emd.postConst = number.shortValue();
                             break;
                         case CHAR:
-                            emd.postConst = (char)number.longValue();
+                            emd.postConst = (char)number.intValue();
                             break;
                         case INT:
                             emd.postConst = number.intValue();
@@ -443,5 +446,130 @@ public class Caster {
         }
 
         throw new ClassCastException(); // TODO: message
+    }
+
+    void checkWriteCast(final MethodVisitor visitor, final ExpressionMetadata metadata) {
+        if (metadata.cast != null) {
+            writeCast(visitor, metadata.cast);
+        } else if (metadata.transform != null) {
+            writeTransform(visitor, metadata.transform);
+        } else {
+            throw new IllegalStateException(); // TODO: message
+        }
+    }
+
+    void writeCast(final MethodVisitor visitor, final Cast cast) {
+        final Type from = cast.from;
+        final Type to = cast.to;
+
+        if (from.equals(to)) {
+            return;
+        }
+
+        if (from.metadata.numeric && to.metadata.numeric) {
+            switch (from.metadata) {
+                case BYTE:
+                    switch (to.metadata) {
+                        case SHORT:  visitor.visitInsn(Opcodes.I2S); break;
+                        case CHAR:   visitor.visitInsn(Opcodes.I2C); break;
+                        case LONG:   visitor.visitInsn(Opcodes.I2L); break;
+                        case FLOAT:  visitor.visitInsn(Opcodes.I2F); break;
+                        case DOUBLE: visitor.visitInsn(Opcodes.I2D); break;
+                    }
+                    break;
+                case SHORT:
+                    switch (to.metadata) {
+                        case BYTE:   visitor.visitInsn(Opcodes.I2B); break;
+                        case CHAR:   visitor.visitInsn(Opcodes.I2C); break;
+                        case LONG:   visitor.visitInsn(Opcodes.I2L); break;
+                        case FLOAT:  visitor.visitInsn(Opcodes.I2F); break;
+                        case DOUBLE: visitor.visitInsn(Opcodes.I2D); break;
+                    }
+                    break;
+                case CHAR:
+                    switch (to.metadata) {
+                        case BYTE:   visitor.visitInsn(Opcodes.I2B); break;
+                        case SHORT:  visitor.visitInsn(Opcodes.I2S); break;
+                        case LONG:   visitor.visitInsn(Opcodes.I2L); break;
+                        case FLOAT:  visitor.visitInsn(Opcodes.I2F); break;
+                        case DOUBLE: visitor.visitInsn(Opcodes.I2D); break;
+                    }
+                    break;
+                case INT:
+                    switch (to.metadata) {
+                        case BYTE:   visitor.visitInsn(Opcodes.I2B); break;
+                        case SHORT:  visitor.visitInsn(Opcodes.I2S); break;
+                        case CHAR:   visitor.visitInsn(Opcodes.I2C); break;
+                        case LONG:   visitor.visitInsn(Opcodes.I2L); break;
+                        case FLOAT:  visitor.visitInsn(Opcodes.I2F); break;
+                        case DOUBLE: visitor.visitInsn(Opcodes.I2D); break;
+                    }
+                    break;
+                case LONG:
+                    switch (to.metadata) {
+                        case BYTE:   visitor.visitInsn(Opcodes.L2I); visitor.visitInsn(Opcodes.I2B); break;
+                        case SHORT:  visitor.visitInsn(Opcodes.L2I); visitor.visitInsn(Opcodes.I2S); break;
+                        case CHAR:   visitor.visitInsn(Opcodes.L2I); visitor.visitInsn(Opcodes.I2C); break;
+                        case INT:    visitor.visitInsn(Opcodes.L2I); break;
+                        case FLOAT:  visitor.visitInsn(Opcodes.L2F); break;
+                        case DOUBLE: visitor.visitInsn(Opcodes.L2D); break;
+                    }
+                    break;
+                case FLOAT:
+                    switch (to.metadata) {
+                        case BYTE:   visitor.visitInsn(Opcodes.F2I); visitor.visitInsn(Opcodes.I2B); break;
+                        case SHORT:  visitor.visitInsn(Opcodes.F2I); visitor.visitInsn(Opcodes.I2S); break;
+                        case CHAR:   visitor.visitInsn(Opcodes.F2I); visitor.visitInsn(Opcodes.I2C); break;
+                        case INT:    visitor.visitInsn(Opcodes.F2I); break;
+                        case LONG:   visitor.visitInsn(Opcodes.F2L); break;
+                        case DOUBLE: visitor.visitInsn(Opcodes.F2D); break;
+                    }
+                    break;
+                case DOUBLE:
+                    switch (to.metadata) {
+                        case BYTE:  visitor.visitInsn(Opcodes.D2I); visitor.visitInsn(Opcodes.I2B); break;
+                        case SHORT: visitor.visitInsn(Opcodes.D2I); visitor.visitInsn(Opcodes.I2S); break;
+                        case CHAR:  visitor.visitInsn(Opcodes.D2I); visitor.visitInsn(Opcodes.I2C); break;
+                        case INT:   visitor.visitInsn(Opcodes.D2I); break;
+                        case LONG:  visitor.visitInsn(Opcodes.D2L); break;
+                        case FLOAT: visitor.visitInsn(Opcodes.D2F); break;
+                    }
+                    break;
+            }
+        } else {
+            try {
+                from.clazz.asSubclass(to.clazz);
+            } catch (ClassCastException exception) {
+                visitor.visitTypeInsn(Opcodes.CHECKCAST, to.internal);
+            }
+        }
+    }
+
+    void writeTransform(final MethodVisitor visitor, final Transform transform) {
+        final Class clazz = transform.method.owner.clazz;
+        final java.lang.reflect.Method method = transform.method.method;
+
+        final String name = method.getName();
+        final String internal = transform.method.owner.internal;
+        final String descriptor = transform.method.descriptor;
+
+        final Type from = transform.from;
+        final Type to = transform.to;
+
+        if (from != null) {
+            visitor.visitTypeInsn(Opcodes.CHECKCAST, from.internal);
+        }
+
+        if (java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
+            visitor.visitMethodInsn(Opcodes.INVOKESTATIC, internal, name, descriptor, false);
+        } else if (java.lang.reflect.Modifier.isInterface(clazz.getModifiers())) {
+            visitor.visitMethodInsn(Opcodes.INVOKEINTERFACE, internal, name, descriptor, true);
+        } else {
+            visitor.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, name, descriptor, false);
+        }
+
+        if (to != null) {
+            visitor.visitTypeInsn(Opcodes.CHECKCAST, to.internal);
+        }
     }
 }
