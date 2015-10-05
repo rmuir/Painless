@@ -152,8 +152,6 @@ class External {
 
         @Override
         void write() {
-            Type type = getTypeWithArrayDimensions(this.type.struct, 0);
-
             switch (type.metadata) {
                 case BOOL:
                 case BYTE:
@@ -372,6 +370,8 @@ class External {
             brace(bracectx);
             --prec;
         }
+
+        statement = false;
     }
 
     public void cast(final ExtcastContext ctx) {
@@ -409,6 +409,7 @@ class External {
             throw new IllegalStateException(); // TODO: message
         }
 
+        statement = false;
         current = to;
     }
 
@@ -430,8 +431,6 @@ class External {
             dot(dotctx);
         } else if (bracectx != null) {
             brace(bracectx);
-        } else {
-            throw new IllegalStateException();
         }
     }
 
@@ -525,7 +524,7 @@ class External {
             } else if (read) {
                 segments.add(new VariableSegment(variable, false));
             } else {
-                throw new IllegalStateException(); // TODO: message
+                throw new IllegalArgumentException(); // TODO: message
             }
         } else {
             segments.add(new VariableSegment(variable, false));
@@ -579,7 +578,7 @@ class External {
                 } else if (read) {
                     segments.add(new FieldSegment(field, false));
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalArgumentException(); // TODO: message
                 }
             } else {
                 segments.add(new FieldSegment(field, false));
@@ -669,12 +668,39 @@ class External {
 
     private void array(final ExpressionContext exprctx, final boolean last) {
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
-
         expremd.to = standard.intType;
-        analyzer.visit(exprctx);
-        current = getTypeWithArrayDimensions(current.struct, current.dimensions - 1);
         segments.add(new NodeSegment(exprctx));
-        segments.add(new ArraySegment(current, false));
+
+        current = getTypeWithArrayDimensions(current.struct, current.dimensions - 1);
+
+        if (last) {
+            if (write != null) {
+                final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
+                writeemd.to = current;
+                analyzer.visit(write);
+                segments.add(new NodeSegment(write));
+
+                if (read) {
+                    if (current.metadata.size == 1) {
+                        segments.add(new InstructionSegment(Opcodes.DUP_X2));
+                    } else if (current.metadata.size == 2) {
+                        segments.add(new InstructionSegment(Opcodes.DUP2_X2));
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+                }
+
+                segments.add(new ArraySegment(current, true));
+            } else if (read) {
+                segments.add(new ArraySegment(current, false));
+            } else {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+        } else {
+            segments.add(new ArraySegment(current, false));
+        }
+
+        analyzer.visit(exprctx);
     }
 
     private void shortcut(final ExpressionContext exprctx, final boolean last) {

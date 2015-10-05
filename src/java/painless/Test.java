@@ -9,6 +9,7 @@ public class Test {
 
     void stest(Integer x) {
         //itest(++x);
-        x = new Integer(5);
+        int[] y = new int[1];
+        int z = y[0] = 5;
     }
 }

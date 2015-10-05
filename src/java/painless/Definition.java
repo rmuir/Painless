@@ -1002,7 +1002,7 @@ class Definition {
             final String internal = clazz.getName().replace('.', '/');
             final String descriptor = getDescriptorFromClass(clazz);
 
-            return new Type(struct, clazz, internal, descriptor, 0, TypeMetadata.ARRAY);
+            return new Type(struct, clazz, internal, descriptor, dimensions, TypeMetadata.ARRAY);
         }
     }
 
