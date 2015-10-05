@@ -421,8 +421,8 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         final ExpressionMetadata declvaremd = adapter.getExpressionMetadata(ctx);
 
         final String name = ctx.ID().getText();
-        declvaremd.postConst = name;
-        adapter.addVariable(name, declvaremd.to);
+        final Variable variable = adapter.addVariable(name, declvaremd.to);
+        declvaremd.postConst = variable;
 
         final ExpressionContext exprctx = ctx.expression();
 
@@ -616,7 +616,7 @@ class Analyzer extends PainlessBaseVisitor<Void> {
 
     @Override
     public Void visitExt(final ExtContext ctx) {
-        External external = new External(this, adapter);
+        External external = new External(adapter, this);
         external.ext(ctx);
         adapter.putExternal(ctx, external);
 
@@ -830,14 +830,14 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         final ExpressionMetadata castemd = adapter.getExpressionMetadata(ctx);
 
         final DecltypeContext decltypectx = ctx.decltype();
-        final ExpressionMetadata decltypemd = adapter.getExpressionMetadata(decltypectx);
+        final ExpressionMetadata decltypemd = adapter.createExpressionMetadata(decltypectx);
         visit(decltypectx);
 
         final Type type = decltypemd.from;
         castemd.from = type;
 
         final ExpressionContext exprctx = ctx.expression();
-        final ExpressionMetadata expremd = adapter.getExpressionMetadata(exprctx);
+        final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = type;
         expremd.explicit = true;
         visit(exprctx);
@@ -1195,7 +1195,7 @@ class Analyzer extends PainlessBaseVisitor<Void> {
 
     @Override
     public Void visitAssignment(final AssignmentContext ctx) {
-        External external = new External(this, adapter);
+        External external = new External(adapter, this);
         external.assignment(ctx);
         adapter.putExternal(ctx, external);
 

@@ -303,8 +303,8 @@ class Writer extends PainlessBaseVisitor<Void>{
 
     @Override
     public Void visitDeclvar(final DeclvarContext ctx) {
-        final String name = ctx.ID().getText();
-        final Variable variable = adapter.getVariable(name);
+        final ExpressionMetadata declemd = adapter.getExpressionMetadata(ctx);
+        final Variable variable = (Variable)declemd.postConst;
 
         final ExpressionContext exprctx = ctx.expression();
         final boolean initialize = exprctx == null;
@@ -442,19 +442,14 @@ class Writer extends PainlessBaseVisitor<Void>{
         return null;
     }
 
-   /* @Override
+    @Override
     public Void visitExt(final ExtContext ctx) {
-        final PBranch pbranch = pbranches.get(ctx);
-        final ExtstartContext ectx = ctx.extstart();
-
-        if (pbranch != null) {
-            pbranches.put(ectx, pbranch);
-        }
-
-        visit(ectx);
+        final External external = adapter.getExternal(ctx);
+        external.setWriter(this, execute);
+        external.write(ctx);
 
         return null;
-    }*/
+    }
 
     @Override
     public Void visitUnary(final UnaryContext ctx) {
@@ -895,22 +890,18 @@ class Writer extends PainlessBaseVisitor<Void>{
         return null;
     }
 
-    /*@Override
+    @Override
     public Void visitAssignment(final AssignmentContext ctx) {
-        final PMetadata assignmentmd = getPMetadata(ctx);
-        final PBranch pbranch = pbranches.get(ctx);
-
-        visit(ctx.extstart());
-
-        checkWriteCast(assignmentmd);
-        checkWritePBranch(pbranch);
+        final External external = adapter.getExternal(ctx);
+        external.setWriter(this, execute);
+        external.write(ctx);
 
         return null;
     }
 
     @Override
     public Void visitExtstart(ExtstartContext ctx) {
-        final PMetadata extstartmd = getPMetadata(ctx);
+        /*final PMetadata extstartmd = getPMetadata(ctx);
         final PBranch pbranch = pbranches.get(ctx);
         final PExternal pexternal = extstartmd.getPExternal();
         final Iterator<PSegment> psegments = pexternal.getIterator();
@@ -927,31 +918,7 @@ class Writer extends PainlessBaseVisitor<Void>{
                 } case VARIABLE: {
                     final PVariable pvariable = (PVariable)svalue0;
                     final boolean write = (Boolean)svalue1;
-                    final TypeMetadata psort = pvariable.getType().getTypeMetadata();
-                    final int aslot = pvariable.getASlot();
 
-                    switch (psort) {
-                        case VOID:
-                            throw new IllegalStateException();
-                        case BOOL:
-                        case BYTE:
-                        case SHORT:
-                        case CHAR:
-                        case INT:
-                            execute.visitVarInsn(write ? Opcodes.ISTORE : Opcodes.ILOAD, aslot);
-                            break;
-                        case LONG:
-                            execute.visitVarInsn(write ? Opcodes.LSTORE : Opcodes.LLOAD, aslot);
-                            break;
-                        case FLOAT:
-                            execute.visitVarInsn(write ? Opcodes.FSTORE : Opcodes.FLOAD, aslot);
-                            break;
-                        case DOUBLE:
-                            execute.visitVarInsn(write ? Opcodes.DSTORE : Opcodes.DLOAD, aslot);
-                            break;
-                        default:
-                            execute.visitVarInsn(write ? Opcodes.ASTORE : Opcodes.ALOAD, aslot);
-                    }
 
                     break;
                 } case CONSTRUCTOR: {
@@ -1128,10 +1095,10 @@ class Writer extends PainlessBaseVisitor<Void>{
         }
 
         checkWriteCast(extstartmd);
-        checkWritePBranch(pbranch);
+        checkWritePBranch(pbranch);*/
 
-        return null;
-    }*/
+        throw new UnsupportedOperationException(); // TODO: message
+    }
 
     @Override
     public Void visitExtprec(final ExtprecContext ctx) {

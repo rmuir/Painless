@@ -91,7 +91,7 @@ class Caster {
         }
 
         if (emd.to != null) {
-            final Object object = getLegalCast(emd.to, emd.from, emd.explicit, false);
+            final Object object = getLegalCast(emd.from, emd.to, emd.explicit, false);
 
             if (object instanceof Cast) {
                 emd.cast = (Cast)object;

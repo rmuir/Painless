@@ -3,6 +3,7 @@ package painless;
 
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -16,31 +17,49 @@ import static painless.PainlessParser.*;
 
 class External {
     private abstract class Segment {
-        abstract void write(MethodVisitor vistor);
+        abstract void write();
     }
 
     private class VariableSegment extends Segment {
         private final Variable variable;
+        private final boolean store;
 
-        VariableSegment(final Variable variable) {
+        VariableSegment(final Variable variable, final boolean store) {
             this.variable = variable;
+            this.store = store;
         }
 
         @Override
-        void write(MethodVisitor visitor) {
+        void write() {
+            final TypeMetadata metadata = variable.type.metadata;
+            final int size = metadata.size;
 
+            switch (metadata) {
+                case VOID:   throw new IllegalStateException();
+                case BOOL:
+                case BYTE:
+                case SHORT:
+                case CHAR:
+                case INT:    visitor.visitVarInsn(store ? Opcodes.ISTORE : Opcodes.ILOAD, size); break;
+                case LONG:   visitor.visitVarInsn(store ? Opcodes.LSTORE : Opcodes.LLOAD, size); break;
+                case FLOAT:  visitor.visitVarInsn(store ? Opcodes.FSTORE : Opcodes.FLOAD, size); break;
+                case DOUBLE: visitor.visitVarInsn(store ? Opcodes.DSTORE : Opcodes.DLOAD, size); break;
+                default:     visitor.visitVarInsn(store ? Opcodes.ASTORE : Opcodes.ALOAD, size);
+            }
         }
     }
 
     private class FieldSegment extends Segment {
         private final Field field;
+        private final boolean store;
 
-        FieldSegment(final Field field) {
+        FieldSegment(final Field field, final boolean store) {
             this.field = field;
+            this.store = store;
         }
 
         @Override
-        void write(MethodVisitor visitor) {
+        void write() {
 
         }
     }
@@ -53,7 +72,7 @@ class External {
         }
 
         @Override
-        void write(MethodVisitor visitor) {
+        void write() {
 
         }
     }
@@ -66,7 +85,7 @@ class External {
         }
 
         @Override
-        void write(MethodVisitor visitor) {
+        void write() {
 
         }
     }
@@ -79,20 +98,22 @@ class External {
         }
 
         @Override
-        void write(MethodVisitor visitor) {
-
+        void write() {
+            writer.visit(node);
         }
     }
 
     private class ArraySegment extends Segment {
         private final Type type;
+        private final boolean store;
 
-        ArraySegment(final Type type) {
+        ArraySegment(final Type type, final boolean store) {
             this.type = type;
+            this.store = store;
         }
 
         @Override
-        void write(MethodVisitor visitor) {
+        void write() {
 
         }
     }
@@ -105,14 +126,14 @@ class External {
         }
 
         @Override
-        void write(MethodVisitor visitor) {
+        void write() {
 
         }
     }
 
     private class LengthSegment extends Segment {
         @Override
-        void write(MethodVisitor visitor) {
+        void write() {
 
         }
     }
@@ -125,7 +146,7 @@ class External {
         }
 
         @Override
-        void write(MethodVisitor visitor) {
+        void write() {
 
         }
     }
@@ -138,29 +159,31 @@ class External {
         }
 
         @Override
-        void write(MethodVisitor visitor) {
+        void write() {
 
         }
     }
-    
-    private class Pop extends Segment {
-        private final int size;
 
-        Pop(final int size) {
-            this.size = size;
+    private class Instruction extends Segment {
+        private final int instruction;
+
+        Instruction(final int instruction) {
+            this.instruction = instruction;
         }
 
         @Override
-        void write(MethodVisitor visitor) {
-
+        void write() {
+            visitor.visitInsn(instruction);
         }
     }
 
-    private final Analyzer analyzer;
     private final Adapter adapter;
     private final Definition definition;
     private final Standard standard;
     private final Caster caster;
+    private final Analyzer analyzer;
+    private Writer writer;
+    private MethodVisitor visitor;
 
     private boolean read;
     private ParseTree write;
@@ -173,12 +196,12 @@ class External {
 
     private final Deque<Segment> segments;
 
-    External(final Analyzer analyzer, final Adapter adapter) {
-        this.analyzer = analyzer;
+    External(final Adapter adapter, final Analyzer analyzer) {
         this.adapter = adapter;
         definition = adapter.definition;
         standard = adapter.standard;
         caster = adapter.caster;
+        this.analyzer = analyzer;
 
         read = false;
         write = null;
@@ -192,10 +215,20 @@ class External {
         segments = new ArrayDeque<>();
     }
 
-    void write(MethodVisitor visitor) {
+    void setWriter(final Writer writer, final MethodVisitor visitor) {
+        this.writer = writer;
+        this.visitor = visitor;
+    }
+
+    void write(final ParseTree ctx) {
+        final ExpressionMetadata writeemd = adapter.getExpressionMetadata(ctx);
+
         for (Segment segment : segments) {
-            segment.write(visitor);
+            segment.write();
         }
+
+        caster.markCast(writeemd);
+        adapter.checkWriteBranch(visitor, ctx);
     }
 
     void ext(ExtContext ctx) {
@@ -320,72 +353,24 @@ class External {
 
     public void brace(final ExtbraceContext ctx) {
         final ExpressionContext exprctx = ctx.expression();
-        final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
-        final Struct struct = current.struct;
-
-        if (current.dimensions > 0) {
-            expremd.to = standard.intType;
-            analyzer.visit(exprctx);
-            current = getTypeWithArrayDimensions(current.struct, current.dimensions - 1);
-            segments.add(new NodeSegment(exprctx));
-            segments.add(new ArraySegment(current));
-        } else {
-            expremd.promotions = caster.brace;
-            analyzer.visit(exprctx);
-
-            final boolean list = expremd.from.metadata.numeric;
-            expremd.to = list ? standard.intType : standard.objectType;
-            caster.markCast(expremd);
-            segments.add(new NodeSegment(exprctx));
-
-            final Object object = caster.getLegalCast(current, list ? standard.listType : standard.mapType, true, true);
-
-            if (object instanceof Cast) {
-                segments.add(new CastSegment((Cast)object));
-            } else if (object instanceof Transform) {
-                segments.add(new CastSegment((Cast)object));
-            } else {
-                throw new IllegalArgumentException(); // TODO: message
-            }
-
-            if (list) {
-                /*final Struct pclass = object == null ? current : pstandard.plist.getPClass();
-                final PMethod read = pclass.getPMethod("get");
-                final PMethod write = pclass.getPMethod("add");
-
-                if (read == null) {
-                    throw new IllegalArgumentException(); // TOOD: message
-                }
-
-                if (write == null) {
-                    throw new IllegalArgumentException(); // TOOD: message
-                }
-
-                pexternal.addSegment(SType.SHORTCUT, read, write);*/
-            } else {
-                /*final Struct pclass = object == null ? ptype.getPClass() : pstandard.pmap.getPClass();
-                final PMethod read = pclass.getPMethod("get");
-                final PMethod write = pclass.getPMethod("put");
-
-                if (read == null) {
-                    throw new IllegalArgumentException(); // TOOD: message
-                }
-
-                if (write == null) {
-                    throw new IllegalArgumentException(); // TOOD: message
-                }
-
-                pexternal.addSegment(SType.SHORTCUT, read, write);*/
-            }
-        }
 
         final ExtdotContext dotctx = ctx.extdot();
         final ExtbraceContext bracectx = ctx.extbrace();
+
+        final boolean last = prec == 0 && dotctx == null && bracectx == null;
+
+        if (current.dimensions > 0) {
+            array(exprctx, last);
+        } else {
+            shortcut(exprctx, last);
+        }
 
         if (dotctx != null) {
             dot(dotctx);
         } else if (bracectx != null) {
             brace(bracectx);
+        } else {
+            throw new IllegalStateException();
         }
     }
 
@@ -409,15 +394,109 @@ class External {
         current = getTypeFromCanonicalName(definition, typestr);
         statik = true;
 
-        final ExtdotContext dotctx = ctx.extdot();
-        dot(dotctx);
+        dot(ctx.extdot());
     }
 
     public void call(final ExtcallContext ctx) {
         final String name = ctx.ID().getText();
+        final List<ExpressionContext> arguments = ctx.arguments().expression();
+
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        final boolean last = prec == 0 && dotctx == null && bracectx == null;
+
+        method(name, arguments, last);
+
+        if (dotctx != null) {
+            dot(dotctx);
+        } else if (bracectx != null) {
+            brace(bracectx);
+        }
+    }
+
+    public void member(final ExtmemberContext ctx) {
+        final String name = ctx.ID().getText();
+
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        final boolean last = prec == 0 && dotctx == null && bracectx == null;
+
+        if (current == null) {
+            variable(name, last);
+        } else {
+            field(name, last);
+        }
+
+        if (dotctx != null) {
+            dot(dotctx);
+        } else if (bracectx != null) {
+            brace(bracectx);
+        }
+    }
+
+    private void variable(final String name, final boolean last) {
+        final Variable variable = adapter.getVariable(name);
+
+        if (variable == null) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        if (last) {
+            if (write != null) {
+                final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
+                writeemd.to = variable.type;
+                analyzer.visit(write);
+                segments.add(new NodeSegment(write));
+
+                if (read) {
+                    if (variable.type.metadata.size == 1) {
+                        segments.add(new Instruction(Opcodes.DUP));
+                    } else if (variable.type.metadata.size == 2) {
+                        segments.add(new Instruction(Opcodes.DUP2));
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+                }
+
+                segments.add(new VariableSegment(variable, true));
+            } else if (read) {
+                segments.add(new VariableSegment(variable, false));
+            } else {
+                throw new IllegalStateException(); // TODO: message
+            }
+        } else {
+            segments.add(new VariableSegment(variable, false));
+        }
+
+        current = variable.type;
+    }
+
+    private void field(final String name, final boolean last) {
+        if (current.metadata == TypeMetadata.ARRAY) {
+            if ("length".equals(name)) {
+                current = standard.intType;
+                segments.add(new LengthSegment());
+            } else {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+        } else {
+            final Struct struct = current.struct;
+            final Field field = statik ? struct.statics.get(name) : struct.members.get(name);
+
+            if (field == null) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            current = field.type;
+            segments.add(new FieldSegment(field, false));
+        }
+    }
+
+    private void method(final String name, final List<ExpressionContext> arguments, final boolean last) {
         final Struct struct = current.struct;
 
-        final List<ExpressionContext> arguments = ctx.arguments().expression();
         Type[] types;
 
         Segment segment;
@@ -463,57 +542,67 @@ class External {
         }
 
         segments.add(segment);
-
-        final ExtdotContext dotctx = ctx.extdot();
-        final ExtbraceContext bracectx = ctx.extbrace();
-
-        if (dotctx != null) {
-            dot(dotctx);
-        } else if (bracectx != null) {
-            brace(bracectx);
-        }
     }
 
-    public void member(final ExtmemberContext ctx) {
-        final String name = ctx.ID().getText();
+    private void array(final ExpressionContext exprctx, final boolean last) {
+        final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
 
-        if (current == null) {
-            final Variable variable = adapter.getVariable(name);
+        expremd.to = standard.intType;
+        analyzer.visit(exprctx);
+        current = getTypeWithArrayDimensions(current.struct, current.dimensions - 1);
+        segments.add(new NodeSegment(exprctx));
+        segments.add(new ArraySegment(current, false));
+    }
 
-            if (variable == null) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
+    private void shortcut(final ExpressionContext exprctx, final boolean last) {
+        final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
 
-            current = variable.type;
-            segments.add(new VariableSegment(variable));
+        expremd.promotions = caster.brace;
+        analyzer.visit(exprctx);
+
+        final boolean list = expremd.from.metadata.numeric;
+        expremd.to = list ? standard.intType : standard.objectType;
+        caster.markCast(expremd);
+        segments.add(new NodeSegment(exprctx));
+
+        final Object object = caster.getLegalCast(current, list ? standard.listType : standard.mapType, true, true);
+
+        if (object instanceof Cast) {
+            segments.add(new CastSegment((Cast)object));
+        } else if (object instanceof Transform) {
+            segments.add(new CastSegment((Cast)object));
         } else {
-            if (current.metadata == TypeMetadata.ARRAY) {
-                if ("length".equals(name)) {
-                    current = standard.intType;
-                    segments.add(new LengthSegment());
-                } else {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-            } else {
-                final Struct struct = current.struct;
-                final Field field = statik ? struct.statics.get(name) : struct.members.get(name);
-
-                if (field == null) {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-
-                current = field.type;
-                segments.add(new FieldSegment(field));
-            }
+            throw new IllegalArgumentException(); // TODO: message
         }
 
-        final ExtdotContext dotctx = ctx.extdot();
-        final ExtbraceContext bracectx = ctx.extbrace();
+        if (list) {
+                /*final Struct pclass = object == null ? current : pstandard.plist.getPClass();
+                final PMethod read = pclass.getPMethod("get");
+                final PMethod write = pclass.getPMethod("add");
 
-        if (dotctx != null) {
-            dot(dotctx);
-        } else if (bracectx != null) {
-            brace(bracectx);
+                if (read == null) {
+                    throw new IllegalArgumentException(); // TOOD: message
+                }
+
+                if (write == null) {
+                    throw new IllegalArgumentException(); // TOOD: message
+                }
+
+                pexternal.addSegment(SType.SHORTCUT, read, write);*/
+        } else {
+                /*final Struct pclass = object == null ? ptype.getPClass() : pstandard.pmap.getPClass();
+                final PMethod read = pclass.getPMethod("get");
+                final PMethod write = pclass.getPMethod("put");
+
+                if (read == null) {
+                    throw new IllegalArgumentException(); // TOOD: message
+                }
+
+                if (write == null) {
+                    throw new IllegalArgumentException(); // TOOD: message
+                }
+
+                pexternal.addSegment(SType.SHORTCUT, read, write);*/
         }
     }
 }

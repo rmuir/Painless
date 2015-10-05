@@ -168,23 +168,25 @@ class Adapter {
         return null;
     }
 
-     void addVariable(final String name, final Type ptype) {
-        if (getVariable(name) != null) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
+     Variable addVariable(final String name, final Type ptype) {
+         if (getVariable(name) != null) {
+             throw new IllegalArgumentException(); // TODO: message
+         }
 
-        final Variable previous = variables.peekLast();
-        int aslot = 0;
+         final Variable previous = variables.peekLast();
+         int aslot = 0;
 
-        if (previous != null) {
-            aslot += previous.slot + previous.type.metadata.size;
-        }
+         if (previous != null) {
+             aslot += previous.slot + previous.type.metadata.size;
+         }
 
-        final Variable pvariable = new Variable(name, ptype, aslot);
-        variables.add(pvariable);
+         final Variable variable = new Variable(name, ptype, aslot);
+         variables.add(variable);
 
-        final int update = scopes.pop() + 1;
+         final int update = scopes.pop() + 1;
          scopes.push(update);
+
+         return variable;
     }
 
     StatementMetadata createStatementMetadata(final ParseTree source) {

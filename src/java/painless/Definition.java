@@ -223,13 +223,13 @@ class Definition {
                 return false;
             }
 
-            final Cast pcast = (Cast)object;
+            final Cast cast = (Cast)object;
 
-            if (!from.equals(pcast.from)) {
+            if (!from.equals(cast.from)) {
                 return false;
             }
 
-            return to.equals(pcast.to);
+            return to.equals(cast.to);
         }
 
         @Override
