@@ -421,8 +421,7 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         final ExpressionMetadata declvaremd = adapter.getExpressionMetadata(ctx);
 
         final String name = ctx.ID().getText();
-        final Variable variable = adapter.addVariable(name, declvaremd.to);
-        declvaremd.postConst = variable;
+        declvaremd.postConst = adapter.addVariable(name, declvaremd.to);
 
         final ExpressionContext exprctx = ctx.expression();
 
@@ -452,6 +451,7 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         }
 
         adapter.updateExpressionMetadata(exprctx, precemd);
+        visit(exprctx);
 
         return null;
     }

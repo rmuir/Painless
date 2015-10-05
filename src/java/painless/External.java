@@ -32,7 +32,7 @@ class External {
         @Override
         void write() {
             final TypeMetadata metadata = variable.type.metadata;
-            final int size = metadata.size;
+            final int slot = variable.slot;
 
             switch (metadata) {
                 case VOID:   throw new IllegalStateException();
@@ -40,11 +40,11 @@ class External {
                 case BYTE:
                 case SHORT:
                 case CHAR:
-                case INT:    visitor.visitVarInsn(store ? Opcodes.ISTORE : Opcodes.ILOAD, size); break;
-                case LONG:   visitor.visitVarInsn(store ? Opcodes.LSTORE : Opcodes.LLOAD, size); break;
-                case FLOAT:  visitor.visitVarInsn(store ? Opcodes.FSTORE : Opcodes.FLOAD, size); break;
-                case DOUBLE: visitor.visitVarInsn(store ? Opcodes.DSTORE : Opcodes.DLOAD, size); break;
-                default:     visitor.visitVarInsn(store ? Opcodes.ASTORE : Opcodes.ALOAD, size);
+                case INT:    visitor.visitVarInsn(store ? Opcodes.ISTORE : Opcodes.ILOAD, slot); break;
+                case LONG:   visitor.visitVarInsn(store ? Opcodes.LSTORE : Opcodes.LLOAD, slot); break;
+                case FLOAT:  visitor.visitVarInsn(store ? Opcodes.FSTORE : Opcodes.FLOAD, slot); break;
+                case DOUBLE: visitor.visitVarInsn(store ? Opcodes.DSTORE : Opcodes.DLOAD, slot); break;
+                default:     visitor.visitVarInsn(store ? Opcodes.ASTORE : Opcodes.ALOAD, slot);
             }
         }
     }
@@ -60,7 +60,33 @@ class External {
 
         @Override
         void write() {
+            final String internal = field.owner.internal;
+            final String name = field.field.getName();
+            final String descriptor = field.type.descriptor;
 
+            int opcode;
+
+            if (java.lang.reflect.Modifier.isStatic(field.field.getModifiers())) {
+                opcode = store ? Opcodes.PUTSTATIC : Opcodes.GETSTATIC;
+            } else {
+                opcode = store ? Opcodes.PUTFIELD : Opcodes.GETFIELD;
+            }
+
+            visitor.visitFieldInsn(opcode, internal, name, descriptor);
+        }
+    }
+
+    private class NewSegment extends Segment {
+        private final Struct struct;
+
+        NewSegment(final Struct struct) {
+            this.struct = struct;
+        }
+
+        @Override
+        void write() {
+            final String internal = struct.internal;
+            visitor.visitTypeInsn(Opcodes.NEW, internal);
         }
     }
 
@@ -73,7 +99,9 @@ class External {
 
         @Override
         void write() {
-
+            final String internal = constructor.owner.internal;
+            final String descriptor = constructor.descriptor;
+            visitor.visitMethodInsn(Opcodes.INVOKESPECIAL, internal, "<init>", descriptor, false);
         }
     }
 
@@ -86,7 +114,17 @@ class External {
 
         @Override
         void write() {
+            final String internal = method.owner.internal;
+            final String name = method.method.getName();
+            final String descriptor = method.descriptor;
 
+            if (java.lang.reflect.Modifier.isStatic(method.method.getModifiers())) {
+                visitor.visitMethodInsn(Opcodes.INVOKESTATIC, internal, name, descriptor, false);
+            } else if (java.lang.reflect.Modifier.isInterface(method.owner.clazz.getModifiers())) {
+                visitor.visitMethodInsn(Opcodes.INVOKEINTERFACE, internal, name, descriptor, true);
+            } else {
+                visitor.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, name, descriptor, false);
+            }
         }
     }
 
@@ -114,7 +152,19 @@ class External {
 
         @Override
         void write() {
+            Type type = getTypeWithArrayDimensions(this.type.struct, 0);
 
+            switch (type.metadata) {
+                case BOOL:
+                case BYTE:
+                case SHORT:
+                case CHAR:
+                case INT:    visitor.visitInsn(store ? Opcodes.IASTORE : Opcodes.IALOAD); break;
+                case LONG:   visitor.visitInsn(store ? Opcodes.LASTORE : Opcodes.LALOAD); break;
+                case FLOAT:  visitor.visitInsn(store ? Opcodes.FASTORE : Opcodes.FALOAD); break;
+                case DOUBLE: visitor.visitInsn(store ? Opcodes.DASTORE : Opcodes.DALOAD); break;
+                default:     visitor.visitInsn(store ? Opcodes.AASTORE : Opcodes.AALOAD); break;
+            }
         }
     }
 
@@ -127,14 +177,24 @@ class External {
 
         @Override
         void write() {
-
+            switch (type.metadata) {
+                case VOID:   throw new IllegalStateException(); // TODO: message
+                case BOOL:   visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_BOOLEAN); break;
+                case SHORT:  visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_SHORT);   break;
+                case CHAR:   visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_CHAR);    break;
+                case INT:    visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_INT);     break;
+                case LONG:   visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_LONG);    break;
+                case FLOAT:  visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_FLOAT);   break;
+                case DOUBLE: visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_DOUBLE);  break;
+                default:     visitor.visitTypeInsn(Opcodes.ANEWARRAY, type.internal);
+            }
         }
     }
 
     private class LengthSegment extends Segment {
         @Override
         void write() {
-
+            visitor.visitInsn(Opcodes.ARRAYLENGTH);
         }
     }
 
@@ -147,7 +207,7 @@ class External {
 
         @Override
         void write() {
-
+            caster.writeCast(visitor, cast);
         }
     }
 
@@ -160,14 +220,14 @@ class External {
 
         @Override
         void write() {
-
+            caster.writeTransform(visitor, transform);
         }
     }
 
-    private class Instruction extends Segment {
+    private class InstructionSegment extends Segment {
         private final int instruction;
 
-        Instruction(final int instruction) {
+        InstructionSegment(final int instruction) {
             this.instruction = instruction;
         }
 
@@ -193,6 +253,7 @@ class External {
     private int prec;
     private Type current;
     private boolean statik;
+    private boolean statement;
 
     private final Deque<Segment> segments;
 
@@ -211,6 +272,7 @@ class External {
         prec = 0;
         current = null;
         statik = false;
+        statement = false;
 
         segments = new ArrayDeque<>();
     }
@@ -227,7 +289,7 @@ class External {
             segment.write();
         }
 
-        caster.markCast(writeemd);
+        caster.checkWriteCast(visitor, writeemd);
         adapter.checkWriteBranch(visitor, ctx);
     }
 
@@ -237,8 +299,7 @@ class External {
         read = extemd.to.metadata != TypeMetadata.VOID;
         start(ctx.extstart());
 
-        final Segment last = segments.getLast();
-        extemd.statement = last instanceof ConstructorSegment || last instanceof MethodSegment;
+        extemd.statement = statement; // TODO: what decides a statement?
         extemd.from = read ? current : standard.voidType;
         caster.markCast(extemd);
     }
@@ -336,11 +397,9 @@ class External {
         analyzer.visit(declctx);
 
         final Type from = current;
-        final Type to = declemd.to;
+        final Type to = declemd.from;
 
         final Object object = caster.getLegalCast(from, to, true, false);
-
-        current = to;
 
         if (object instanceof Cast) {
             segments.add(new CastSegment((Cast)object));
@@ -349,6 +408,8 @@ class External {
         } else {
             throw new IllegalStateException(); // TODO: message
         }
+
+        current = to;
     }
 
     public void brace(final ExtbraceContext ctx) {
@@ -452,9 +513,9 @@ class External {
 
                 if (read) {
                     if (variable.type.metadata.size == 1) {
-                        segments.add(new Instruction(Opcodes.DUP));
+                        segments.add(new InstructionSegment(Opcodes.DUP));
                     } else if (variable.type.metadata.size == 2) {
-                        segments.add(new Instruction(Opcodes.DUP2));
+                        segments.add(new InstructionSegment(Opcodes.DUP2));
                     } else {
                         throw new IllegalStateException(); // TODO: message
                     }
@@ -476,8 +537,12 @@ class External {
     private void field(final String name, final boolean last) {
         if (current.metadata == TypeMetadata.ARRAY) {
             if ("length".equals(name)) {
-                current = standard.intType;
+                if (last && write != null) {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+
                 segments.add(new LengthSegment());
+                current = standard.intType;
             } else {
                 throw new IllegalArgumentException(); // TODO: message
             }
@@ -489,8 +554,38 @@ class External {
                 throw new IllegalArgumentException(); // TODO: message
             }
 
+            if (last) {
+                if (write != null) {
+                    if (java.lang.reflect.Modifier.isFinal(field.field.getModifiers())) {
+                        throw new IllegalArgumentException(); // TODO: message
+                    }
+
+                    final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
+                    writeemd.to = field.type;
+                    analyzer.visit(write);
+                    segments.add(new NodeSegment(write));
+
+                    if (read) {
+                        if (field.type.metadata.size == 1) {
+                            segments.add(new InstructionSegment(Opcodes.DUP_X1));
+                        } else if (field.type.metadata.size == 2) {
+                            segments.add(new InstructionSegment(Opcodes.DUP2_X1));
+                        } else {
+                            throw new IllegalStateException(); // TODO: message
+                        }
+                    }
+
+                    segments.add(new FieldSegment(field, true));
+                } else if (read) {
+                    segments.add(new FieldSegment(field, false));
+                } else {
+                    throw new IllegalStateException(); // TODO: message
+                }
+            } else {
+                segments.add(new FieldSegment(field, false));
+            }
+
             current = field.type;
-            segments.add(new FieldSegment(field, false));
         }
     }
 
@@ -498,18 +593,22 @@ class External {
         final Struct struct = current.struct;
 
         Type[] types;
+        Segment segment0 = null;
+        Segment segment1;
 
-        Segment segment;
+        if (current.dimensions > 0) {
+            throw new IllegalArgumentException(); // TODO: message
+        } else if (last && write != null) {
+            throw new IllegalArgumentException(); // TODO: message
+        } else if (statik && "makearray".equals(name)) {
+            if (!read) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
 
-        if (current.metadata == TypeMetadata.ARRAY) {
-            throw new IllegalArgumentException(); // TODO : message
-        }
-
-        if (statik && "makearray".equals(name)) {
             types = new Type[arguments.size()];
             Arrays.fill(types, standard.intType);
+            segment1 = new MakeSegment(current);
             current = getTypeWithArrayDimensions(struct, arguments.size());
-            segment = new MakeSegment(current);
         } else {
             final Constructor constructor = statik ? struct.constructors.get(name) : null;
             final Method method = statik ? struct.functions.get(name) : struct.methods.get(name);
@@ -517,12 +616,32 @@ class External {
             if (constructor != null) {
                 types = new Type[constructor.arguments.size()];
                 constructor.arguments.toArray(types);
-                segment = new ConstructorSegment(constructor);
+
+                segments.add(new NewSegment(constructor.owner));
+
+                if (read) {
+                    segments.add(new InstructionSegment(Opcodes.DUP));
+                }
+
+                segment1 = new ConstructorSegment(constructor);
+                statement = true;
             } else if (method != null) {
                 types = new Type[method.arguments.size()];
                 method.arguments.toArray(types);
+
+                if (!read) {
+                    final int size = method.rtn.metadata.size;
+
+                    if (size == 1) {
+                        segment0 = new InstructionSegment(Opcodes.POP);
+                    } else if (size == 2) {
+                        segment0 = new InstructionSegment(Opcodes.POP2);
+                    }
+                }
+
+                segment1 = new MethodSegment(method);
+                statement = true;
                 current = method.rtn;
-                segment = new MethodSegment(method);
             } else {
                 throw new IllegalArgumentException(); // TODO: message
             }
@@ -541,7 +660,11 @@ class External {
             segments.add(new NodeSegment(exprctx));
         }
 
-        segments.add(segment);
+        if (segment0 != null) {
+            segments.add(segment0);
+        }
+
+        segments.add(segment1);
     }
 
     private void array(final ExpressionContext exprctx, final boolean last) {

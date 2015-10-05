@@ -244,13 +244,6 @@ class Adapter {
         return external;
     }
 
-    /*Branch markBranch(final ParseTree source) {
-        final Branch branch = new Branch(source);
-        branches.put(source, branch);
-
-        return branch;
-    }*/
-
     Branch markBranch(final ParseTree source, final ParseTree node) {
         Branch branch = getBranch(source);
 
@@ -269,18 +262,6 @@ class Adapter {
         return branches.get(source);
     }
 
-    void pushJump(final Branch branch) {
-        jumps.push(branch);
-    }
-
-    Branch peekJump() {
-        return jumps.peek();
-    }
-
-    void popJump() {
-        jumps.pop();
-    }
-
     void checkWriteBranch(final MethodVisitor visitor, final ParseTree source) {
         final Branch branch = getBranch(source);
 
@@ -291,5 +272,17 @@ class Adapter {
                 visitor.visitJumpInsn(Opcodes.IFEQ, branch.fals);
             }
         }
+    }
+
+    void pushJump(final Branch branch) {
+        jumps.push(branch);
+    }
+
+    Branch peekJump() {
+        return jumps.peek();
+    }
+
+    void popJump() {
+        jumps.pop();
     }
 }

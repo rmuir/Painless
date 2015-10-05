@@ -477,7 +477,7 @@ class Definition {
 
     private static void loadStruct(final Definition definition, final String namestr,
                                    final String clazzstr, final boolean generic) {
-        if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]+$")) {
+        if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
@@ -500,7 +500,7 @@ class Definition {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (!namestr.matches("^[a-zA-Z][a-zA-Z0-9]+$")) {
+        if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
@@ -558,7 +558,7 @@ class Definition {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]+$")) {
+        if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
@@ -651,7 +651,7 @@ class Definition {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (!namestr.matches("^[a-zA-Z][a-zA-Z0-9]+$")) {
+        if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
             throw new IllegalArgumentException(); // TODO: message
         }
 

@@ -8,6 +8,7 @@ public class Test {
     }
 
     void stest(Integer x) {
-        itest(++x);
+        //itest(++x);
+        x = new Integer(5);
     }
 }

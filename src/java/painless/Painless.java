@@ -8,7 +8,7 @@ import java.util.Properties;
 
 public final class Painless {
     public static void main(String args[]) throws Exception {
-        Executable executable = compile("test", "int b = 2; if ((bool)b = 1) return 2; else return 1;");
+        Executable executable = compile("test", "longobj.new(5);");
         //Executable executable = compile("test", "int x = 0; while (true) {x = x + 1; if (x >= 5) continue; if (x <= 6) {break;}}");
         //Executable executable = compile("test", "for (int x = 0; x < 5; x = x + 1);");
         //Executable executable = compile("test", "bool x = true; x = false; if (x) return !x;");
@@ -48,7 +48,12 @@ public final class Painless {
             Object value = executable.execute(input);
             final long end = System.currentTimeMillis() - start;
             System.out.println("execute: " + end);
-            System.out.println(value);
+
+            if (value != null) {
+                System.out.println(value.getClass().getName() + ": " + value);
+            } else {
+                System.out.println("NULL");
+            }
         //}
     }
 
