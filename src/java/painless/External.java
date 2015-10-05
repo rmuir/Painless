@@ -195,23 +195,32 @@ class External {
 
     private class MakeSegment extends Segment {
         private final Type type;
+        private final int dimensions;
 
-        MakeSegment(final Type type) {
+        MakeSegment(final Type type, final int dimensions) {
             this.type = type;
+            this.dimensions = dimensions;
         }
 
         @Override
         void write() {
-            switch (type.metadata) {
-                case VOID:   throw new IllegalStateException(); // TODO: message
-                case BOOL:   visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_BOOLEAN); break;
-                case SHORT:  visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_SHORT);   break;
-                case CHAR:   visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_CHAR);    break;
-                case INT:    visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_INT);     break;
-                case LONG:   visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_LONG);    break;
-                case FLOAT:  visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_FLOAT);   break;
-                case DOUBLE: visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_DOUBLE);  break;
-                default:     visitor.visitTypeInsn(Opcodes.ANEWARRAY, type.internal);
+            if (dimensions == 1) {
+                switch (type.metadata) {
+                    case VOID:   throw new IllegalStateException(); // TODO: message
+                    case BOOL:   visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_BOOLEAN); break;
+                    case SHORT:  visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_SHORT);   break;
+                    case CHAR:   visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_CHAR);    break;
+                    case INT:    visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_INT);     break;
+                    case LONG:   visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_LONG);    break;
+                    case FLOAT:  visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_FLOAT);   break;
+                    case DOUBLE: visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_DOUBLE);  break;
+                    default:     visitor.visitTypeInsn(Opcodes.ANEWARRAY, type.internal);
+                }
+            } else if (dimensions > 0) {
+                final String descriptor = getTypeWithArrayDimensions(type.struct, dimensions).descriptor;
+                visitor.visitMultiANewArrayInsn(descriptor, dimensions);
+            } else {
+                throw new IllegalStateException(); // TODO: message
             }
         }
     }
@@ -272,6 +281,7 @@ class External {
 
     private boolean read;
     private ParseTree write;
+    private int token;
     private boolean post;
     private boolean pre;
 
@@ -526,6 +536,8 @@ class External {
         }
 
         if (last && write != null) {
+            if (token)
+
             final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
             writeemd.to = variable.type;
             analyzer.visit(write);
@@ -626,7 +638,7 @@ class External {
 
             types = new Type[arguments.size()];
             Arrays.fill(types, standard.intType);
-            segment1 = new MakeSegment(current);
+            segment1 = new MakeSegment(current, arguments.size());
             current = getTypeWithArrayDimensions(struct, arguments.size());
         } else {
             final Constructor constructor = statik ? struct.constructors.get(name) : null;
