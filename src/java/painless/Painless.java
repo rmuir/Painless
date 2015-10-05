@@ -8,7 +8,7 @@ import java.util.Properties;
 
 public final class Painless {
     public static void main(String args[]) throws Exception {
-        Executable executable = compile("test", "int[] x = int.makearray(1); int y; y = x[0] = 2; return x[0];");
+        //Executable executable = compile("test", "int[] x = int.makearray(1); int y; y = x[0] = 2; return x[0];");
         //Executable executable = compile("test", "int x = 0; while (true) {x = x + 1; if (x >= 5) continue; if (x <= 6) {break;}}");
         //Executable executable = compile("test", "for (int x = 0; x < 5; x = x + 1);");
         //Executable executable = compile("test", "bool x = true; x = false; if (x) return !x;");
@@ -28,7 +28,7 @@ public final class Painless {
         input.put("inner", inner);
 
         //for (int count = 0; count < 10; ++count) {
-            /*Executable executable = compile("test",
+            Executable executable = compile("test",
                     "\nlist nums = input[\"inner\"][\"list\"];\n" +
                             "int size = nums.size();\n" +
                             "int total;\n" +
@@ -38,7 +38,7 @@ public final class Painless {
                             "}\n" +
                             "\n" +
                             "return total;"
-            );*/
+            );
 
         //Executable executable = compile("test",
         //            "list nums = input[\"inner\"][\"list\"]; int size = nums.size(); nums[size] = \"idiot\"; return nums[size];"

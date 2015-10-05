@@ -321,7 +321,7 @@ class External {
     void ext(ExtContext ctx) {
         final ExpressionMetadata extemd = adapter.getExpressionMetadata(ctx);
 
-        read = extemd.to.metadata != TypeMetadata.VOID;
+        read = extemd.promotions != null || extemd.to.metadata != TypeMetadata.VOID;
         start(ctx.extstart());
 
         extemd.statement = statement;
@@ -332,7 +332,7 @@ class External {
     void assignment(AssignmentContext ctx) {
         final ExpressionMetadata assignemd = adapter.getExpressionMetadata(ctx);
 
-        read = assignemd.to.metadata != TypeMetadata.VOID;
+        read = assignemd.promotions != null || assignemd.to.metadata != TypeMetadata.VOID;
         write = ctx.expression();
 
         start(ctx.extstart());
@@ -737,7 +737,6 @@ class External {
         final boolean list = expremd.from.metadata.numeric;
         expremd.to = list ? standard.intType : standard.objectType;
         caster.markCast(expremd);
-        segments.add(new NodeSegment(exprctx));
 
         try {
             current.clazz.asSubclass(list ? standard.listType.clazz : standard.mapType.clazz);
@@ -756,6 +755,8 @@ class External {
                 throw new IllegalArgumentException(); // TODO: message
             }
         }
+
+        segments.add(new NodeSegment(exprctx));
 
         if (list) {
             if (last && write != null) {
