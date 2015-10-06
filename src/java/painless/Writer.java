@@ -111,7 +111,7 @@ class Writer extends PainlessBaseVisitor<Void>{
         visit(blockctx0);
 
         if (els) {
-            if (!blockmd0.allExit) { // TODO: this needs to check fo all paths exit
+            if (!blockmd0.allExit) { // TODO: this needs downcast check fo all paths exit
                 execute.visitJumpInsn(Opcodes.GOTO, branch.end);
             }
 

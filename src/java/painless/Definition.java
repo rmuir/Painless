@@ -125,7 +125,7 @@ class Definition {
             this.originals = Collections.unmodifiableList(originals);
             this.method = method;
             this.descriptor = descriptor;
-    }
+        }
     }
 
     static class Field {
@@ -244,14 +244,14 @@ class Definition {
     static class Transform {
         final Cast cast;
         final Method method;
-        final Type from;
-        final Type to;
+        final Type upcast;
+        final Type downcast;
 
-        private Transform(final Cast cast, Method method, final Type from, final Type to) {
+        private Transform(final Cast cast, Method method, final Type upcast, final Type downcast) {
             this.cast = cast;
             this.method = method;
-            this.from = from;
-            this.to = to;
+            this.upcast = upcast;
+            this.downcast = downcast;
         }
     }
 
@@ -718,8 +718,8 @@ class Definition {
         }
 
         Method method;
-        Type castfrom = null;
-        Type castto = null;
+        Type upcast = null;
+        Type downcast = null;
 
         if ("function".equals(staticstr)) {
             method = owner.functions.get(methodstr);
@@ -739,7 +739,7 @@ class Definition {
             } catch (ClassCastException cce0) {
                 try {
                     argument.clazz.asSubclass(from.clazz);
-                    castfrom = argument;
+                    upcast = argument;
                 } catch (ClassCastException cce1) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
@@ -752,7 +752,7 @@ class Definition {
             } catch (ClassCastException cce0) {
                 try {
                     to.clazz.asSubclass(rtn.clazz);
-                    castto = to;
+                    downcast = to;
                 } catch (ClassCastException cce1) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
@@ -773,7 +773,7 @@ class Definition {
             } catch (ClassCastException cce0) {
                 try {
                     owner.clazz.asSubclass(from.clazz);
-                    castfrom = getTypeFromCanonicalName(definition, owner.name);
+                    upcast = getTypeFromCanonicalName(definition, owner.name);
                 } catch (ClassCastException cce1) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
@@ -786,7 +786,7 @@ class Definition {
             } catch (ClassCastException cce0) {
                 try {
                     to.clazz.asSubclass(rtn.clazz);
-                    castto = to;
+                    downcast = to;
                 } catch (ClassCastException cce1) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
@@ -795,7 +795,7 @@ class Definition {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        final Transform transform = new Transform(cast, method, castfrom, castto);
+        final Transform transform = new Transform(cast, method, upcast, downcast);
 
         if ("explicit".equals(typestr)) {
             if (definition.explicits.containsKey(cast)) {

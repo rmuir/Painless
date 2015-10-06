@@ -24,7 +24,7 @@ public final class Painless {
         list.add(2);
         list.add(-3L);
         list.add(4);
-        list.add(5);
+        list.add(-Short.MAX_VALUE);
         list.add(6);
         input.put("inner", inner);
 
@@ -32,10 +32,10 @@ public final class Painless {
             Executable executable = compile("test",
                     "\nlist nums = input[\"inner\"][\"list\"];\n" +
                             "int size = nums.size();\n" +
-                            "double total;\n" +
+                            "byte total;\n" +
                             "\n" +
                             "for (int count = 0; count < size; ++count) {\n" +
-                            "    total = total + (double)nums[count];\n" +
+                            "    total = (byte)(total + (int)nums[count]);\n" +
                             "}\n" +
                             "\n" +
                             "return total;"

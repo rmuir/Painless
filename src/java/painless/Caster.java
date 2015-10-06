@@ -545,8 +545,8 @@ class Caster {
         final String internal = transform.method.owner.internal;
         final String descriptor = transform.method.descriptor;
 
-        final Type from = transform.from;
-        final Type to = transform.to;
+        final Type from = transform.upcast;
+        final Type to = transform.downcast;
 
         if (from != null) {
             visitor.visitTypeInsn(Opcodes.CHECKCAST, from.internal);
