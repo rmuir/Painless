@@ -57,7 +57,7 @@ class Caster {
         this.definition = definition;
         this.standard = standard;
 
-        final List<Promotion> promotions = new ArrayList<>();
+        List<Promotion> promotions = new ArrayList<>();
         promotions.add(new Promotion(PromotionType.SAME_TYPE, null));
         promotions.add(new Promotion(PromotionType.ANY_TYPE, standard.boolType));
         promotions.add(new Promotion(PromotionType.ANY_DECIMAL, null));
@@ -65,22 +65,22 @@ class Caster {
         promotions.add(new Promotion(PromotionType.TO_SUBCLASS, null));
         equality = new Promotions(promotions);
 
-        promotions.clear();
+        promotions = new ArrayList<>();
         promotions.add(new Promotion(PromotionType.ANY_TYPE, standard.stringType));
-        promotions.add(new Promotion(PromotionType.ANY_DECIMAL, null));
+        promotions.add(new Promotion(PromotionType.TO_DECIMAL, null));
         promotions.add(new Promotion(PromotionType.TO_TYPE, standard.stringType));
         add = new Promotions(promotions);
 
-        promotions.clear();
+        promotions = new ArrayList<>();
         promotions.add(new Promotion(PromotionType.TO_DECIMAL, null));
         decimal = new Promotions(promotions);
 
-        promotions.clear();
+        promotions = new ArrayList<>();
         promotions.add(new Promotion(PromotionType.TO_NUMERIC, null));
         numeric = new Promotions(promotions);
 
-        promotions.clear();
-        promotions.add(new Promotion(PromotionType.TO_NUMERIC, null));
+        promotions = new ArrayList<>();
+        promotions.add(new Promotion(PromotionType.ANY_NUMERIC, null));
         promotions.add(new Promotion(PromotionType.TO_TYPE, standard.objectType));
         brace = new Promotions(promotions);
     }
@@ -233,8 +233,14 @@ class Caster {
                         return to;
                     }
 
-                    if (getLegalCast(eq0 ? from1 : from0, to, false, false) != null) {
-                        return to;
+                    if (eq0 || eq1) {
+                        try {
+                            getLegalCast(eq0 ? from1 : from0, to, false, false);
+
+                            return to;
+                        } catch (ClassCastException exception) {
+                            // Do nothing.
+                        }
                     }
 
                     break;

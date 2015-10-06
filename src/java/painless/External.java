@@ -701,8 +701,11 @@ class External {
             }
 
             if (last && write != null) {
-                final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
+                if (java.lang.reflect.Modifier.isFinal(field.field.getModifiers())) {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
 
+                final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
                 final Type type = field.type;
 
                 if (token > 0) {
@@ -971,7 +974,7 @@ class External {
                 java.lang.reflect.Method method;
 
                 try {
-                    method = current.clazz.getMethod("get", Object.class);
+                    method = current.clazz.getMethod("get", int.class);
                 } catch (NoSuchMethodException exception) {
                     throw new IllegalStateException(); // TODO: message
                 }

@@ -8,7 +8,7 @@ import java.util.Properties;
 
 public final class Painless {
     public static void main(String args[]) throws Exception {
-        Executable executable = compile("test", "int[] x = int.makearray(1); this.x = ++x[0]; return ++x[0] + this.x;");
+        //Executable executable = compile("test", "int y = this.x += 5; return y += --this.x;");
         //Executable executable = compile("test", "byte y = 1, x, z; x = ++y; z = y++; return x + z + y;");
         //Executable executable = compile("test", "int x = 0; while (true) {x = x + 1; if (x >= 5) continue; if (x <= 6) {break;}}");
         //Executable executable = compile("test", "for (int x = 0; x < 5; x = x + 1);");
@@ -22,24 +22,24 @@ public final class Painless {
         inner.put("list", list);
         list.add(1);
         list.add(2);
-        list.add(3);
+        list.add(-3L);
         list.add(4);
         list.add(5);
         list.add(6);
         input.put("inner", inner);
 
         //for (int count = 0; count < 10; ++count) {
-            /*Executable executable = compile("test",
+            Executable executable = compile("test",
                     "\nlist nums = input[\"inner\"][\"list\"];\n" +
                             "int size = nums.size();\n" +
-                            "int total;\n" +
+                            "double total;\n" +
                             "\n" +
-                            "for (int count = 0; count < size; count = count + 1) {\n" +
-                            "    total = total + (int)nums.get(count);\n" +
+                            "for (int count = 0; count < size; ++count) {\n" +
+                            "    total = total + (double)nums[count];\n" +
                             "}\n" +
                             "\n" +
                             "return total;"
-            );*/
+            );
 
         //Executable executable = compile("test",
         //            "list nums = input[\"inner\"][\"list\"]; int size = nums.size(); nums[size] = \"idiot\"; return nums[size];"
