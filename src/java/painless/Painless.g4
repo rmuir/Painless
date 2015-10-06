@@ -66,8 +66,8 @@ expression
     |               FALSE                                                          # false
     |               NULL                                                           # null
     |               extstart                                                       # ext
-    |               extstart ( INCR | DECR )                                       # postinc
-    |               ( INCR | DECR ) extstart                                       # preinc
+    |               extstart increment                                             # postinc
+    |               increment extstart                                             # preinc
     |               ( BOOLNOT | BWNOT | ADD | SUB ) expression                     # unary
     |               LP decltype RP expression                                      # cast
     |               expression ( MUL | DIV | REM ) expression                      # binary
@@ -102,6 +102,11 @@ extmember: {!isType()}? ID (extdot | extbrace )?;
 
 arguments
     : ( LP ( expression ( COMMA expression )* )? RP )
+    ;
+
+increment
+    : INCR
+    | DECR
     ;
 
 WS: [ \t\n\r]+ -> skip;

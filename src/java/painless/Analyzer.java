@@ -623,131 +623,23 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         return null;
     }
 
-    /*@Override
+    @Override
     public Void visitPostinc(final PostincContext ctx) {
-        PMetadata postincmd = getPMetadata(ctx);
-
-        int increment;
-
-        if (ctx.INCR() != null) {
-            increment = 1;
-        } else if (ctx.DECR() != null) {
-            increment = -1;
-        } else {
-            throw new IllegalStateException(); // TODO: message
-        }
-
-        final ExtstartContext ectx = ctx.extstart();
-        final PMetadata extstartmd = createPMetadata(ectx);
-        extstartmd.anypnumeric = true;
-        visit(ectx);
-
-        PType ptype = extstartmd.pexternal.getPType();
-        PType promoteptype = getUnaryNumericPromotion(ptype, true);
-
-        if (promoteptype == null) {
-            throw new ClassCastException(); // TODO: message
-        }
-
-        Object castpre = getLegalCast(ptype, promoteptype, false, true);
-        Object castpost = getLegalCast(promoteptype, ptype, true, true);
-
-        if (castpre != null && castpost == null || castpre == null && castpost != null) {
-            throw new ClassCastException();
-        }
-
-        if (pstandard.pvoid.equals(postincmd.toptype)) {
-            postincmd.fromptype = pstandard.pvoid;
-        }
-
-        if (castpre instanceof PCast) {
-            extstartmd.pexternal.addSegment(SType.CAST, castpre, null);
-        } else if (castpre instanceof PTransform) {
-            extstartmd.pexternal.addSegment(SType.CAST, castpre, null);
-        }
-
-        extstartmd.pexternal.addSegment(SType.INCREMENT, extstartmd.pexternal.getPType(), increment);
-
-        if (castpost instanceof PCast) {
-            extstartmd.pexternal.addSegment(SType.CAST, castpre, null);
-        } else if (castpost instanceof PTransform) {
-            extstartmd.pexternal.addSegment(SType.CAST, castpre, null);
-        }
-
-        extstartmd.pexternal.addSegment(SType.WRITE, null, null);
-
-        if (!pstandard.pvoid.equals(postincmd.toptype)) {
-            postincmd.fromptype = extstartmd.pexternal.getPType();
-        }
-
-        postincmd.statement = true;
-        markCast(postincmd);
+        External external = new External(adapter, this);
+        external.postinc(ctx);
+        adapter.putExternal(ctx, external);
 
         return null;
     }
 
     @Override
     public Void visitPreinc(final PreincContext ctx) {
-        PMetadata preincmd = getPMetadata(ctx);
-
-        int increment;
-
-        if (ctx.INCR() != null) {
-            increment = 1;
-        } else if (ctx.DECR() != null) {
-            increment = -1;
-        } else {
-            throw new IllegalStateException(); // TODO: message
-        }
-
-        final ExtstartContext ectx = ctx.extstart();
-        final PMetadata extstartmd = createPMetadata(ectx);
-        extstartmd.anypnumeric = true;
-        visit(ectx);
-
-        PType ptype = extstartmd.pexternal.getPType();
-        PType promoteptype = getUnaryNumericPromotion(ptype, true);
-
-        if (promoteptype == null) {
-            throw new ClassCastException(); // TODO: message
-        }
-
-        Object castpre = getLegalCast(ptype, promoteptype, false, true);
-        Object castpost = getLegalCast(promoteptype, ptype, true, true);
-
-        if (castpre != null && castpost == null || castpre == null && castpost != null) {
-            throw new ClassCastException();
-        }
-
-        if (pstandard.pvoid.equals(preincmd.toptype)) {
-            preincmd.fromptype = pstandard.pvoid;
-        }
-
-        if (castpre instanceof PCast) {
-            extstartmd.pexternal.addSegment(SType.CAST, castpre, null);
-        } else if (castpre instanceof PTransform) {
-            extstartmd.pexternal.addSegment(SType.CAST, castpre, null);
-        }
-
-        extstartmd.pexternal.addSegment(SType.INCREMENT, extstartmd.pexternal.getPType(), increment);
-
-        if (castpost instanceof PCast) {
-            extstartmd.pexternal.addSegment(SType.CAST, castpre, null);
-        } else if (castpost instanceof PTransform) {
-            extstartmd.pexternal.addSegment(SType.CAST, castpre, null);
-        }
-
-        extstartmd.pexternal.addSegment(SType.WRITE, null, null);
-
-        if (!pstandard.pvoid.equals(preincmd.toptype)) {
-            preincmd.fromptype = extstartmd.pexternal.getPType();
-        }
-
-        preincmd.statement = true;
-        markCast(preincmd);
+        External external = new External(adapter, this);
+        external.preinc(ctx);
+        adapter.putExternal(ctx, external);
 
         return null;
-    }*/
+    }
 
     @Override
     public Void visitUnary(final UnaryContext ctx) {
@@ -1245,5 +1137,36 @@ class Analyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitArguments(final ArgumentsContext ctx) {
         throw new UnsupportedOperationException(); // TODO: message
+    }
+
+    @Override
+    public Void visitIncrement(IncrementContext ctx) {
+        final ExpressionMetadata incremd = adapter.getExpressionMetadata(ctx);
+        final TypeMetadata metadata = incremd.to == null ? null : incremd.to.metadata;
+        final boolean positive = ctx.INCR() != null;
+
+        if (incremd.to == null) {
+            incremd.preConst = positive ? 1 : -1;
+            incremd.from = standard.intType;
+        } else {
+            switch (metadata) {
+                case LONG:
+                    incremd.preConst = positive ? 1L : -1L;
+                    incremd.from = standard.longType;
+                case FLOAT:
+                    incremd.preConst = positive ? 1.0F : -1.0F;
+                    incremd.from = standard.floatType;
+                case DOUBLE:
+                    incremd.preConst = positive ? 1.0 : -1.0;
+                    incremd.from = standard.doubleType;
+                default:
+                    incremd.preConst = positive ? 1 : -1;
+                    incremd.from = standard.intType;
+            }
+        }
+
+        caster.markCast(incremd);
+
+        return null;
     }
 }

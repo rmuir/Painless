@@ -99,8 +99,8 @@ class Caster {
                 emd.transform = (Transform)object;
             }
 
-            if (emd.to.metadata.constant) {
-                constCast(emd);
+            if (emd.preConst != null && emd.to.metadata.constant) {
+                emd.postConst = constCast(emd.preConst, object);
             }
         } else if (emd.promotions == null) {
             throw new IllegalStateException(); // TODO: message
@@ -158,56 +158,42 @@ class Caster {
         }
     }
 
-    private void constCast(final ExpressionMetadata emd) {
-        if (emd.preConst != null) {
-            if (emd.transform != null) {
-                emd.postConst = invokeTransform(emd.transform, emd.preConst);
-            } else if (emd.cast != null) {
-                final TypeMetadata fromTMD = emd.cast.from.metadata;
-                final TypeMetadata toTMD = emd.cast.to.metadata;
+    Object constCast(final Object constant, final Object object) {
+        if (object instanceof Transform) {
+            final Transform transform = (Transform)object;
+            return invokeTransform(transform, constant);
+        } else if (object instanceof Cast) {
+            final Cast cast = (Cast)object;
+            final TypeMetadata fromTMD = cast.from.metadata;
+            final TypeMetadata toTMD = cast.to.metadata;
 
-                if (fromTMD == toTMD) {
-                    emd.postConst = emd.preConst;
-                } else if (fromTMD.numeric && toTMD.numeric) {
-                    Number number;
+            if (fromTMD == toTMD) {
+                return constant;
+            } else if (fromTMD.numeric && toTMD.numeric) {
+                Number number;
 
-                    if (fromTMD == TypeMetadata.CHAR) {
-                        number = (int)(char)emd.preConst;
-                    } else {
-                        number = (Number)emd.preConst;
-                    }
-
-                    switch (toTMD) {
-                        case BYTE:
-                            emd.postConst = number.byteValue();
-                            break;
-                        case SHORT:
-                            emd.postConst = number.shortValue();
-                            break;
-                        case CHAR:
-                            emd.postConst = (char)number.intValue();
-                            break;
-                        case INT:
-                            emd.postConst = number.intValue();
-                            break;
-                        case LONG:
-                            emd.postConst = number.longValue();
-                            break;
-                        case FLOAT:
-                            emd.postConst = number.floatValue();
-                            break;
-                        case DOUBLE:
-                            emd.postConst = number.doubleValue();
-                            break;
-                        default:
-                            throw new IllegalStateException();
-                    }
+                if (fromTMD == TypeMetadata.CHAR) {
+                    number = (int)(char)constant;
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    number = (Number)constant;
+                }
+
+                switch (toTMD) {
+                    case BYTE:   return number.byteValue();
+                    case SHORT:  return number.shortValue();
+                    case CHAR:   return (char)number.intValue();
+                    case INT:    return number.intValue();
+                    case LONG:   return number.longValue();
+                    case FLOAT:  return number.floatValue();
+                    case DOUBLE: return number.doubleValue();
+                    default:
+                        throw new IllegalStateException();
                 }
             } else {
                 throw new IllegalStateException(); // TODO: message
             }
+        } else {
+            throw new IllegalStateException(); // TODO: message
         }
     }
 

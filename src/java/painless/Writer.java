@@ -451,6 +451,25 @@ class Writer extends PainlessBaseVisitor<Void>{
         return null;
     }
 
+
+    @Override
+    public Void visitPostinc(final PostincContext ctx) {
+        final External external = adapter.getExternal(ctx);
+        external.setWriter(this, execute);
+        external.write(ctx);
+
+        return null;
+    }
+
+    @Override
+    public Void visitPreinc(final PreincContext ctx) {
+        final External external = adapter.getExternal(ctx);
+        external.setWriter(this, execute);
+        external.write(ctx);
+
+        return null;
+    }
+
     @Override
     public Void visitUnary(final UnaryContext ctx) {
         final ExpressionMetadata unaryemd = adapter.getExpressionMetadata(ctx);
@@ -557,71 +576,19 @@ class Writer extends PainlessBaseVisitor<Void>{
 
             final TypeMetadata metadata = binaryemd.from.metadata;
 
-            switch (metadata) {
-                case INT:
-                    if      (ctx.MUL()   != null) execute.visitInsn(Opcodes.IMUL);
-                    else if (ctx.DIV()   != null) execute.visitInsn(Opcodes.IDIV);
-                    else if (ctx.REM()   != null) execute.visitInsn(Opcodes.IREM);
-                    else if (ctx.ADD()   != null) execute.visitInsn(Opcodes.IADD);
-                    else if (ctx.SUB()   != null) execute.visitInsn(Opcodes.ISUB);
-                    else if (ctx.LSH()   != null) execute.visitInsn(Opcodes.ISHL);
-                    else if (ctx.USH()   != null) execute.visitInsn(Opcodes.IUSHR);
-                    else if (ctx.RSH()   != null) execute.visitInsn(Opcodes.ISHR);
-                    else if (ctx.BWAND() != null) execute.visitInsn(Opcodes.IAND);
-                    else if (ctx.BWXOR() != null) execute.visitInsn(Opcodes.IXOR);
-                    else if (ctx.BWOR()  != null) execute.visitInsn(Opcodes.IOR);
-                    else {
-                        throw new IllegalStateException(); // TODO: message
-                    }
-
-                    break;
-                case LONG:
-                    if      (ctx.MUL()   != null) execute.visitInsn(Opcodes.LMUL);
-                    else if (ctx.DIV()   != null) execute.visitInsn(Opcodes.LDIV);
-                    else if (ctx.REM()   != null) execute.visitInsn(Opcodes.LREM);
-                    else if (ctx.ADD()   != null) execute.visitInsn(Opcodes.LADD);
-                    else if (ctx.SUB()   != null) execute.visitInsn(Opcodes.LSUB);
-                    else if (ctx.LSH()   != null) execute.visitInsn(Opcodes.LSHL);
-                    else if (ctx.USH()   != null) execute.visitInsn(Opcodes.LUSHR);
-                    else if (ctx.RSH()   != null) execute.visitInsn(Opcodes.LSHR);
-                    else if (ctx.BWAND() != null) execute.visitInsn(Opcodes.LAND);
-                    else if (ctx.BWXOR() != null) execute.visitInsn(Opcodes.LXOR);
-                    else if (ctx.BWOR()  != null) execute.visitInsn(Opcodes.LOR);
-                    else {
-                        throw new IllegalStateException(); // TODO: message
-                    }
-
-                    break;
-                case FLOAT:
-                    if      (ctx.MUL() != null) execute.visitInsn(Opcodes.FMUL);
-                    else if (ctx.DIV() != null) execute.visitInsn(Opcodes.FDIV);
-                    else if (ctx.REM() != null) execute.visitInsn(Opcodes.FREM);
-                    else if (ctx.ADD() != null) execute.visitInsn(Opcodes.FADD);
-                    else if (ctx.SUB() != null) execute.visitInsn(Opcodes.FSUB);
-                    else {
-                        throw new IllegalStateException(); // TODO: message
-                    }
-
-                    break;
-                case DOUBLE:
-                    if      (ctx.MUL() != null) execute.visitInsn(Opcodes.DMUL);
-                    else if (ctx.DIV() != null) execute.visitInsn(Opcodes.DDIV);
-                    else if (ctx.REM() != null) execute.visitInsn(Opcodes.DREM);
-                    else if (ctx.ADD() != null) execute.visitInsn(Opcodes.DADD);
-                    else if (ctx.SUB() != null) execute.visitInsn(Opcodes.DSUB);
-                    else {
-                        throw new IllegalStateException(); // TODO: message
-                    }
-
-                    break;
-                case STRING:
-                    if (ctx.MUL() != null) {
-                        //TODO: handle binary strings
-                    } else {
-                        throw new IllegalStateException(); // TODO: message
-                    }
-                default:
-                    throw new IllegalStateException(); // TODO: message
+            if      (ctx.MUL()   != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.MUL));
+            else if (ctx.DIV()   != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.DIV));
+            else if (ctx.REM()   != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.REM));
+            else if (ctx.ADD()   != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.ADD));
+            else if (ctx.SUB()   != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.SUB));
+            else if (ctx.LSH()   != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.LSH));
+            else if (ctx.USH()   != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.USH));
+            else if (ctx.RSH()   != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.RSH));
+            else if (ctx.BWAND() != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.BWAND));
+            else if (ctx.BWXOR() != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.BWXOR));
+            else if (ctx.BWOR()  != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.BWOR));
+            else {
+                throw new IllegalStateException(); // TODO: message
             }
 
             caster.checkWriteCast(execute, binaryemd);
@@ -944,7 +911,24 @@ class Writer extends PainlessBaseVisitor<Void>{
         throw new UnsupportedOperationException(); // TODO: message
     }
 
-    private void writeConstant(final Object constant) {
+    @Override
+    public Void visitIncrement(IncrementContext ctx) {
+        final ExpressionMetadata incremd = adapter.getExpressionMetadata(ctx);
+        final Object postConst = incremd.postConst;
+
+        if (postConst == null) {
+            writeString(incremd.preConst);
+            caster.checkWriteCast(execute, incremd);
+        } else {
+            writeConstant(postConst);
+        }
+
+        adapter.checkWriteBranch(execute, ctx);
+
+        return null;
+    }
+
+    void writeConstant(final Object constant) {
         if (constant instanceof Number) {
             writeNumeric(constant);
         } else if (constant instanceof Character) {
@@ -1039,6 +1023,65 @@ class Writer extends PainlessBaseVisitor<Void>{
             }
         } else {
             throw new IllegalStateException(); // TODO: message
+        }
+    }
+
+    static int getBinaryInstruction(final TypeMetadata metadata, final int token) {
+        switch (metadata) {
+            case INT:
+                switch (token) {
+                    case MUL:   return Opcodes.IMUL;
+                    case DIV:   return Opcodes.IDIV;
+                    case REM:   return Opcodes.IREM;
+                    case ADD:   return Opcodes.IADD;
+                    case SUB:   return Opcodes.ISUB;
+                    case LSH:   return Opcodes.ISHL;
+                    case USH:   return Opcodes.IUSHR;
+                    case RSH:   return Opcodes.ISHR;
+                    case BWAND: return Opcodes.IAND;
+                    case BWXOR: return Opcodes.IXOR;
+                    case BWOR:  return Opcodes.IOR;
+                    default:
+                        throw new IllegalStateException(); // TODO: message
+                }
+            case LONG:
+                switch (token) {
+                    case MUL:   return Opcodes.LMUL;
+                    case DIV:   return Opcodes.LDIV;
+                    case REM:   return Opcodes.LREM;
+                    case ADD:   return Opcodes.LADD;
+                    case SUB:   return Opcodes.LSUB;
+                    case LSH:   return Opcodes.LSHL;
+                    case USH:   return Opcodes.LUSHR;
+                    case RSH:   return Opcodes.LSHR;
+                    case BWAND: return Opcodes.LAND;
+                    case BWXOR: return Opcodes.LXOR;
+                    case BWOR:  return Opcodes.LOR;
+                    default:
+                        throw new IllegalStateException(); // TODO: message
+                }
+            case FLOAT:
+                switch (token) {
+                    case MUL: return Opcodes.FMUL;
+                    case DIV: return Opcodes.FDIV;
+                    case REM: return Opcodes.FREM;
+                    case ADD: return Opcodes.FADD;
+                    case SUB: return Opcodes.FSUB;
+                    default:
+                        throw new IllegalStateException(); // TODO: message
+                }
+            case DOUBLE:
+                switch (token) {
+                    case MUL: return Opcodes.DMUL;
+                    case DIV: return Opcodes.DDIV;
+                    case REM: return Opcodes.DREM;
+                    case ADD: return Opcodes.DADD;
+                    case SUB: return Opcodes.DSUB;
+                    default:
+                        throw new IllegalStateException(); // TODO: message
+                }
+            default:
+                throw new IllegalStateException(); // TODO: message
         }
     }
 

@@ -11,9 +11,11 @@ import java.util.Deque;
 import java.util.List;
 
 import static painless.Adapter.*;
+import static painless.Caster.*;
 import static painless.Default.*;
 import static painless.Definition.*;
 import static painless.PainlessParser.*;
+import static painless.Writer.*;
 
 class External {
     private abstract class Segment {
@@ -271,6 +273,34 @@ class External {
         }
     }
 
+    private class IncrementSegment extends Segment {
+        private final Variable variable;
+        private final int value;
+
+        IncrementSegment(final Variable variable, final int value) {
+            this.variable = variable;
+            this.value = value;
+        }
+
+        @Override
+        void write() {
+            visitor.visitIincInsn(variable.slot, value);
+        }
+    }
+
+    private class ConstantSegment extends Segment {
+        private final Object constant;
+
+        ConstantSegment(final Object constant) {
+            this.constant = constant;
+        }
+
+        @Override
+        void write() {
+            writer.writeConstant(constant);
+        }
+    }
+
     private final Adapter adapter;
     private final Definition definition;
     private final Standard standard;
@@ -298,9 +328,12 @@ class External {
         standard = adapter.standard;
         caster = adapter.caster;
         this.analyzer = analyzer;
+        writer = null;
+        visitor = null;
 
         read = false;
         write = null;
+        token = 0;
         post = false;
         pre = false;
 
@@ -342,14 +375,56 @@ class External {
     void assignment(AssignmentContext ctx) {
         final ExpressionMetadata assignemd = adapter.getExpressionMetadata(ctx);
 
-        read = assignemd.promotions != null || assignemd.to.metadata != TypeMetadata.VOID;
+        read = assignemd.to.metadata != TypeMetadata.VOID;
         write = ctx.expression();
+
+        if      (ctx.AMUL() != null) token = PainlessLexer.MUL;
+        else if (ctx.ADIV() != null) token = PainlessLexer.DIV;
+        else if (ctx.AREM() != null) token = PainlessLexer.REM;
+        else if (ctx.AADD() != null) token = PainlessLexer.ADD;
+        else if (ctx.ASUB() != null) token = PainlessLexer.SUB;
+        else if (ctx.ALSH() != null) token = PainlessLexer.LSH;
+        else if (ctx.AUSH() != null) token = PainlessLexer.USH;
+        else if (ctx.ARSH() != null) token = PainlessLexer.RSH;
+        else if (ctx.AAND() != null) token = PainlessLexer.BWAND;
+        else if (ctx.AXOR() != null) token = PainlessLexer.BWXOR;
+        else if (ctx.AOR()  != null) token = PainlessLexer.BWOR;
 
         start(ctx.extstart());
 
         assignemd.from = current;
         assignemd.statement = true;
         caster.markCast(assignemd);
+    }
+
+    void postinc(PostincContext ctx) {
+        final ExpressionMetadata postincemd = adapter.getExpressionMetadata(ctx);
+
+        read = postincemd.promotions != null || postincemd.to.metadata != TypeMetadata.VOID;
+        write = ctx.increment();
+        token = ADD;
+        post = true;
+
+        start(ctx.extstart());
+
+        postincemd.from = current;
+        postincemd.statement = true;
+        caster.markCast(postincemd);
+    }
+
+    void preinc(PreincContext ctx) {
+        final ExpressionMetadata preincemd = adapter.getExpressionMetadata(ctx);
+
+        read = preincemd.promotions != null || preincemd.to.metadata != TypeMetadata.VOID;
+        write = ctx.increment();
+        token = ADD;
+        pre = true;
+
+        start(ctx.extstart());
+
+        preincemd.from = current;
+        preincemd.statement = true;
+        caster.markCast(preincemd);
     }
 
     private void start(final ExtstartContext startctx) {
@@ -432,17 +507,8 @@ class External {
         final Type to = declemd.from;
 
         final Object object = caster.getLegalCast(from, to, true, false);
-
-        if (object instanceof Cast) {
-            segments.add(new CastSegment((Cast)object));
-        } else if (object instanceof Transform) {
-            segments.add(new TransformSegment((Transform)object));
-        } else {
-            throw new IllegalStateException(); // TODO: message
-        }
-
+        current = addCastSegment(object);
         statement = false;
-        current = to;
     }
 
     public void brace(final ExtbraceContext ctx) {
@@ -535,35 +601,84 @@ class External {
             throw new IllegalArgumentException(); // TODO: message
         }
 
+        current = variable.type;
+
         if (last && write != null) {
-            if (token)
-
             final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
-            writeemd.to = variable.type;
-            analyzer.visit(write);
-            segments.add(new NodeSegment(write));
 
-            if (read) {
-                if (variable.type.metadata.size == 1) {
-                    segments.add(new InstructionSegment(Opcodes.DUP));
-                } else if (variable.type.metadata.size == 2) {
-                    segments.add(new InstructionSegment(Opcodes.DUP2));
+            if (token > 0) {
+                final boolean increment = current.metadata == TypeMetadata.INT && (token == ADD || token == SUB);
+                final Object[] casts = getTokenCasts();
+                writeemd.to = current;
+                analyzer.visit(write);
+
+                if (increment && writeemd.postConst != null) {
+                    if (read && post) {
+                        segments.add(new VariableSegment(variable, false));
+                    }
+
+                    final int value = token == SUB ? -1*(int)writeemd.postConst : (int)writeemd.postConst;
+                    segments.add(new IncrementSegment(variable, value));
+
+                    if (read && !post) {
+                        segments.add(new VariableSegment(variable, false));
+                    }
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    segments.add(new VariableSegment(variable, false));
+
+                    if (read && post) {
+                        if (variable.type.metadata.size == 1) {
+                            segments.add(new InstructionSegment(Opcodes.DUP));
+                        } else if (variable.type.metadata.size == 2) {
+                            segments.add(new InstructionSegment(Opcodes.DUP2));
+                        } else {
+                            throw new IllegalStateException(); // TODO: message
+                        }
+                    }
+
+                    addCastSegment(casts[0]);
+                    segments.add(new NodeSegment(write));
+                    final int instruction = getBinaryInstruction(current.metadata, token);
+                    segments.add(new InstructionSegment(instruction));
+                    addCastSegment(casts[1]);
+
+                    if (read && !post) {
+                        if (current.metadata.size == 1) {
+                            segments.add(new InstructionSegment(Opcodes.DUP));
+                        } else if (current.metadata.size == 2) {
+                            segments.add(new InstructionSegment(Opcodes.DUP2));
+                        } else {
+                            throw new IllegalStateException(); // TODO: message
+                        }
+                    }
+
+                    segments.add(new VariableSegment(variable, true));
+                }
+            } else {
+                writeemd.to = current;
+                analyzer.visit(write);
+
+                segments.add(new NodeSegment(write));
+
+                if (read && !post) {
+                    if (current.metadata.size == 1) {
+                        segments.add(new InstructionSegment(Opcodes.DUP));
+                    } else if (current.metadata.size == 2) {
+                        segments.add(new InstructionSegment(Opcodes.DUP2));
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
                 }
 
-                current = variable.type;
-            } else {
-                current = standard.voidType;
+                segments.add(new VariableSegment(variable, true));
             }
-
-            segments.add(new VariableSegment(variable, true));
         } else if (read) {
             segments.add(new VariableSegment(variable, false));
-            current = variable.type;
         } else {
             throw new IllegalArgumentException(); // TODO: message
         }
+
+        current = read ? variable.type : standard.voidType;
     }
 
     private void field(final String name, final boolean last) {
@@ -754,18 +869,7 @@ class External {
             current.clazz.asSubclass(list ? standard.listType.clazz : standard.mapType.clazz);
         } catch (ClassCastException exception) {
             final Object object = caster.getLegalCast(current, list ? standard.listType : standard.mapType, true, true);
-
-            if (object instanceof Cast) {
-                final Cast cast = (Cast)object;
-                segments.add(new CastSegment(cast));
-                current = cast.to;
-            } else if (object instanceof Transform) {
-                final Transform transform = (Transform)object;
-                segments.add(new TransformSegment(transform));
-                current = transform.to == null ? transform.cast.to : transform.to;
-            } else {
-                throw new IllegalArgumentException(); // TODO: message
-            }
+            current = addCastSegment(object);
         }
 
         segments.add(new NodeSegment(exprctx));
@@ -852,5 +956,43 @@ class External {
                 throw new IllegalStateException(); // TODO: message
             }
         }
+    }
+
+    private Type addCastSegment(final Object object) {
+        if (object instanceof Cast) {
+            final Cast cast = (Cast)object;
+            segments.add(new CastSegment(cast));
+
+            return cast.to;
+        } else if (object instanceof Transform) {
+            final Transform transform = (Transform)object;
+            segments.add(new TransformSegment(transform));
+
+            return transform.cast.to;
+        } else {
+            throw new IllegalStateException(); // TODO: message
+        }
+    }
+
+    private Object[] getTokenCasts() {
+        final boolean decimal = token == MUL || token == DIV || token == REM || token == ADD || token == SUB;
+        final boolean string = token == PainlessLexer.ADD && !post && !pre;
+        final Promotions promotions = decimal ? caster.decimal : caster.numeric;
+        final Type promote = caster.getTypePromotion(current, null, promotions);
+        final Object[] casts = new Object[2];
+
+        if (promote == null && string) {
+            casts[0] = caster.getLegalCast(current, standard.stringType, false, false);
+            casts[1] = caster.getLegalCast(standard.stringType, current, true, false);
+            current = standard.stringType;
+        } else if (promote != null) {
+            casts[0] = caster.getLegalCast(current, promote, false, false);
+            casts[1] = caster.getLegalCast(promote, current, true, false);
+            current = promote;
+        } else {
+            throw new ClassCastException(); // TODO: message
+        }
+
+        return casts;
     }
 }

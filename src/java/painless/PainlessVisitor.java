@@ -294,4 +294,10 @@ public interface PainlessVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitArguments(PainlessParser.ArgumentsContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link PainlessParser#increment}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitIncrement(PainlessParser.IncrementContext ctx);
 }

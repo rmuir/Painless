@@ -7,10 +7,7 @@ public class Test {
         //long i = (long)++(int)x.get(x))[0];
     }
 
-    void stest(Integer x) {
-        //itest(++x);
-        int z;
-        int[][] y = new int[1][1];
-        z = y[0][0] = 5;
+    Object stest(Map input) {
+        byte y = 1, x, z; x = ++y; z = y++; return x + z + y;
     }
 }
