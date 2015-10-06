@@ -487,6 +487,13 @@ class External {
         final ExttypeContext typectx = ctx.exttype();
         final ExtmemberContext memberctx = ctx.extmember();
 
+        final DecltypeContext declctx = ctx.decltype();
+        final ExpressionMetadata declemd = adapter.createExpressionMetadata(declctx);
+        analyzer.visit(declctx);
+
+        final Object object = caster.getLegalCast(current, declemd.from, true, false);
+        current = declemd.from;
+
         if (precctx != null) {
             prec(precctx);
         } else if (castctx != null) {
@@ -499,15 +506,7 @@ class External {
             throw new IllegalStateException(); // TODO: message
         }
 
-        final DecltypeContext declctx = ctx.decltype();
-        final ExpressionMetadata declemd = adapter.createExpressionMetadata(declctx);
-        analyzer.visit(declctx);
-
-        final Type from = current;
-        final Type to = declemd.from;
-
-        final Object object = caster.getLegalCast(from, to, true, false);
-        current = addCastSegment(object);
+        addCastSegment(object);
         statement = false;
     }
 
@@ -601,13 +600,14 @@ class External {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        current = variable.type;
+        final Type type = variable.type;
 
         if (last && write != null) {
             final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
 
             if (token > 0) {
-                final boolean increment = current.metadata == TypeMetadata.INT && (token == ADD || token == SUB);
+                final boolean increment = type.metadata == TypeMetadata.INT && (token == ADD || token == SUB);
+                current = type;
                 final Object[] casts = getTokenCasts();
                 writeemd.to = current;
                 analyzer.visit(write);
@@ -627,9 +627,9 @@ class External {
                     segments.add(new VariableSegment(variable, false));
 
                     if (read && post) {
-                        if (variable.type.metadata.size == 1) {
+                        if (type.metadata.size == 1) {
                             segments.add(new InstructionSegment(Opcodes.DUP));
-                        } else if (variable.type.metadata.size == 2) {
+                        } else if (type.metadata.size == 2) {
                             segments.add(new InstructionSegment(Opcodes.DUP2));
                         } else {
                             throw new IllegalStateException(); // TODO: message
@@ -643,9 +643,9 @@ class External {
                     addCastSegment(casts[1]);
 
                     if (read && !post) {
-                        if (current.metadata.size == 1) {
+                        if (type.metadata.size == 1) {
                             segments.add(new InstructionSegment(Opcodes.DUP));
-                        } else if (current.metadata.size == 2) {
+                        } else if (type.metadata.size == 2) {
                             segments.add(new InstructionSegment(Opcodes.DUP2));
                         } else {
                             throw new IllegalStateException(); // TODO: message
@@ -655,15 +655,15 @@ class External {
                     segments.add(new VariableSegment(variable, true));
                 }
             } else {
-                writeemd.to = current;
+                writeemd.to = type;
                 analyzer.visit(write);
 
                 segments.add(new NodeSegment(write));
 
                 if (read && !post) {
-                    if (current.metadata.size == 1) {
+                    if (type.metadata.size == 1) {
                         segments.add(new InstructionSegment(Opcodes.DUP));
-                    } else if (current.metadata.size == 2) {
+                    } else if (type.metadata.size == 2) {
                         segments.add(new InstructionSegment(Opcodes.DUP2));
                     } else {
                         throw new IllegalStateException(); // TODO: message
@@ -672,19 +672,18 @@ class External {
 
                 segments.add(new VariableSegment(variable, true));
             }
-        } else if (read) {
-            segments.add(new VariableSegment(variable, false));
-        } else {
-            throw new IllegalArgumentException(); // TODO: message
-        }
 
-        current = read ? variable.type : standard.voidType;
+            current = read ? type : standard.voidType;
+        } else {
+            segments.add(new VariableSegment(variable, false));
+            current = variable.type;
+        }
     }
 
     private void field(final String name, final boolean last) {
         if (current.metadata == TypeMetadata.ARRAY) {
             if ("length".equals(name)) {
-                if (last && write != null) {
+                if (!read || last && write != null) {
                     throw new IllegalArgumentException(); // TODO: message
                 }
 
@@ -702,35 +701,69 @@ class External {
             }
 
             if (last && write != null) {
-                if (java.lang.reflect.Modifier.isFinal(field.field.getModifiers())) {
-                    throw new IllegalArgumentException(); // TODO: message
-                }
-
                 final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
-                writeemd.to = field.type;
-                analyzer.visit(write);
-                segments.add(new NodeSegment(write));
 
-                if (read) {
-                    if (field.type.metadata.size == 1) {
-                        segments.add(new InstructionSegment(Opcodes.DUP_X1));
-                    } else if (field.type.metadata.size == 2) {
-                        segments.add(new InstructionSegment(Opcodes.DUP2_X1));
-                    } else {
-                        throw new IllegalStateException(); // TODO: message
+                final Type type = field.type;
+
+                if (token > 0) {
+                    current = type;
+                    final Object[] casts = getTokenCasts();
+                    writeemd.to = current;
+                    analyzer.visit(write);
+
+                    segments.add(new InstructionSegment(Opcodes.DUP));
+                    segments.add(new FieldSegment(field, false));
+
+                    if (read && post) {
+                        if (type.metadata.size == 1) {
+                            segments.add(new InstructionSegment(Opcodes.DUP_X1));
+                        } else if (type.metadata.size == 2) {
+                            segments.add(new InstructionSegment(Opcodes.DUP2_X1));
+                        } else {
+                            throw new IllegalStateException(); // TODO: message
+                        }
                     }
 
-                    current = field.type;
+                    addCastSegment(casts[0]);
+                    segments.add(new NodeSegment(write));
+                    final int instruction = getBinaryInstruction(current.metadata, token);
+                    segments.add(new InstructionSegment(instruction));
+                    addCastSegment(casts[1]);
+
+                    if (read && !post) {
+                        if (type.metadata.size == 1) {
+                            segments.add(new InstructionSegment(Opcodes.DUP_X1));
+                        } else if (type.metadata.size == 2) {
+                            segments.add(new InstructionSegment(Opcodes.DUP2_X1));
+                        } else {
+                            throw new IllegalStateException(); // TODO: message
+                        }
+                    }
+
+                    segments.add(new FieldSegment(field, true));
                 } else {
-                    current = standard.voidType;
+                    writeemd.to = type;
+                    analyzer.visit(write);
+
+                    segments.add(new NodeSegment(write));
+
+                    if (read && !post) {
+                        if (type.metadata.size == 1) {
+                            segments.add(new InstructionSegment(Opcodes.DUP_X1));
+                        } else if (type.metadata.size == 2) {
+                            segments.add(new InstructionSegment(Opcodes.DUP2_X1));
+                        } else {
+                            throw new IllegalStateException(); // TODO: message
+                        }
+                    }
+
+                    segments.add(new FieldSegment(field, true));
                 }
 
-                segments.add(new FieldSegment(field, true));
-            } else if (read) {
+                current = read ? type : standard.voidType;
+            } else {
                 segments.add(new FieldSegment(field, false));
                 current = field.type;
-            } else {
-                throw new IllegalArgumentException(); // TODO: message
             }
         }
     }
@@ -821,38 +854,74 @@ class External {
     private void array(final ExpressionContext exprctx, final boolean last) {
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = standard.intType;
+        analyzer.visit(exprctx);
         segments.add(new NodeSegment(exprctx));
 
-        current = getTypeWithArrayDimensions(current.struct, current.dimensions - 1);
+        final Type type = getTypeWithArrayDimensions(current.struct, current.dimensions - 1);
 
         if (last && write != null) {
             final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
-            writeemd.to = current;
-            analyzer.visit(write);
-            segments.add(new NodeSegment(write));
 
-            if (read) {
-                if (current.metadata.size == 1) {
-                    segments.add(new InstructionSegment(Opcodes.DUP_X2));
-                } else if (current.metadata.size == 2) {
-                    segments.add(new InstructionSegment(Opcodes.DUP2_X2));
-                } else {
-                    throw new IllegalStateException(); // TODO: message
+            if (token > 0) {
+                current = type;
+                final Object[] casts = getTokenCasts();
+                writeemd.to = current;
+                analyzer.visit(write);
+
+                segments.add(new InstructionSegment(Opcodes.DUP2));
+                segments.add(new ArraySegment(type, false));
+
+                if (read && post) {
+                    if (type.metadata.size == 1) {
+                        segments.add(new InstructionSegment(Opcodes.DUP_X2));
+                    } else if (type.metadata.size == 2) {
+                        segments.add(new InstructionSegment(Opcodes.DUP2_X2));
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
                 }
+
+                addCastSegment(casts[0]);
+                segments.add(new NodeSegment(write));
+                final int instruction = getBinaryInstruction(current.metadata, token);
+                segments.add(new InstructionSegment(instruction));
+                addCastSegment(casts[1]);
+
+                if (read && !post) {
+                    if (type.metadata.size == 1) {
+                        segments.add(new InstructionSegment(Opcodes.DUP_X2));
+                    } else if (type.metadata.size == 2) {
+                        segments.add(new InstructionSegment(Opcodes.DUP2_X2));
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+                }
+
+                segments.add(new ArraySegment(type, true));
+            } else {
+                writeemd.to = type;
+                analyzer.visit(write);
+
+                segments.add(new NodeSegment(write));
+
+                if (read && !post) {
+                    if (type.metadata.size == 1) {
+                        segments.add(new InstructionSegment(Opcodes.DUP_X2));
+                    } else if (type.metadata.size == 2) {
+                        segments.add(new InstructionSegment(Opcodes.DUP2_X2));
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+                }
+
+                segments.add(new ArraySegment(type, true));
             }
 
-            segments.add(new ArraySegment(current, true));
-
-            if (!read) {
-                current = standard.voidType;
-            }
-        } else if (read) {
-            segments.add(new ArraySegment(current, false));
+            current = read ? type : standard.voidType;
         } else {
-            throw new IllegalArgumentException(); // TODO: message
+            segments.add(new ArraySegment(current, false));
+            current = type;
         }
-
-        analyzer.visit(exprctx);
     }
 
     private void shortcut(final ExpressionContext exprctx, final boolean last) {
@@ -898,7 +967,7 @@ class External {
                 }
 
                 segments.add(new ShortcutSegment(struct, method));
-            } else if (read) {
+            } else {
                 java.lang.reflect.Method method;
 
                 try {
@@ -915,8 +984,6 @@ class External {
                 } else {
                     current = standard.objectType;
                 }
-            } else {
-                throw new IllegalStateException(); // TODO: message
             }
         } else {
             if (last && write != null) {
@@ -941,7 +1008,7 @@ class External {
                 } else {
                     current = standard.objectType;
                 }
-            } else if (read) {
+            } else {
                 java.lang.reflect.Method method;
 
                 try {
@@ -952,8 +1019,6 @@ class External {
 
                 segments.add(new ShortcutSegment(current.struct, method));
                 current = standard.objectType;
-            } else {
-                throw new IllegalStateException(); // TODO: message
             }
         }
     }

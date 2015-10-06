@@ -3,11 +3,20 @@ package painless;
 import java.util.Map;
 
 public class Test {
-    void itest(Integer x) {
-        //long i = (long)++(int)x.get(x))[0];
+    int x;
+
+    static class Test2 {
+        public Object[] t = new Object[] {new Test2()};
+        public int x;
     }
 
-    Object stest(Map input) {
-        byte y = 1, x, z; x = ++y; z = y++; return x + z + y;
+    void itest(Integer x) {
+    }
+
+    Test2 t;
+
+    void stest() {
+        int y, x[] = new int[1];
+        y = x[1]++;
     }
 }
