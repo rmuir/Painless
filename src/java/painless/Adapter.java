@@ -67,7 +67,6 @@ class Adapter {
         boolean explicit;
 
         Cast cast;
-        Transform transform;
 
         private ExpressionMetadata() {
             source = null;
@@ -84,7 +83,6 @@ class Adapter {
             explicit = false;
 
             cast = null;
-            transform = null;
         }
     }
 

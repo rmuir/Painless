@@ -241,13 +241,15 @@ class Definition {
         }
     }
 
-    static class Transform {
+    static class Transform extends Cast {
         final Cast cast;
         final Method method;
         final Type upcast;
         final Type downcast;
 
         private Transform(final Cast cast, Method method, final Type upcast, final Type downcast) {
+            super(cast.from, cast.to);
+
             this.cast = cast;
             this.method = method;
             this.upcast = upcast;
@@ -902,25 +904,25 @@ class Definition {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        final Cast pcast = new Cast(from, to);
+        final Cast cast = new Cast(from, to);
 
-        if (definition.disallowed.contains(pcast)) {
+        if (definition.disallowed.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (definition.upcasts.contains(pcast)) {
+        if (definition.upcasts.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (definition.explicits.containsKey(pcast)) {
+        if (definition.explicits.containsKey(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (definition.implicits.containsKey(pcast)) {
+        if (definition.implicits.containsKey(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        definition.disallowed.add(pcast);
+        definition.disallowed.add(cast);
     }
 
     private static String[][] parseArgumentsStr(final String argumentstr) {

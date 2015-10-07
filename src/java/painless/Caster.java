@@ -19,6 +19,7 @@ class Caster {
     }
 
     private static class SameTypeSegment extends Segment {
+        @Override
         Type promote(final Type from0, final Type from1) {
             if (from1 != null && from0.equals(from1)) {
                 return from0;
@@ -37,16 +38,12 @@ class Caster {
             this.to = to;
         }
 
+        @Override
         Type promote(final Type from0, final Type from1) {
             final boolean eq0 = from0.equals(to);
+            final boolean eq1 = from1 != null && from1.equals(to);
 
-            if (from1 == null && eq0) {
-                return to;
-            }
-
-            final boolean eq1 = from1.equals(to);
-
-            if (eq0 && eq1) {
+            if (eq0 && (from1 == null || eq1)) {
                 return to;
             }
 
@@ -73,6 +70,7 @@ class Caster {
             this.to = to;
         }
 
+        @Override
         Type promote(final Type from0, final Type from1) {
             final boolean eq0 = from0.equals(to);
             final boolean eq1 = from1 == null || from1.equals(to);
@@ -116,6 +114,7 @@ class Caster {
             this.decimal = decimal;
         }
 
+        @Override
         Type promote(final Type from0, final Type from1) {
             if (from0.metadata.numeric || from1 != null && from1.metadata.numeric) {
                 final Type type = caster.getNumericPromotion(from0, from1, decimal);
@@ -138,6 +137,7 @@ class Caster {
             this.decimal = decimal;
         }
 
+        @Override
         Type promote(final Type from0, final Type from1) {
             return caster.getNumericPromotion(from0, from1, decimal);
         }
@@ -150,6 +150,7 @@ class Caster {
             this.definition = definition;
         }
 
+        @Override
         Type promote(final Type from0, final Type from1) {
             if (from0.equals(from1)) {
                 return from0;
@@ -179,6 +180,7 @@ class Caster {
             this.standard = standard;
         }
 
+        @Override
         Type promote(final Type from0, final Type from1) {
             if (from0.equals(from1)) {
                 return from0;
@@ -287,23 +289,17 @@ class Caster {
         }
 
         if (emd.to != null) {
-            final Object object = getLegalCast(emd.from, emd.to, emd.explicit, false);
-
-            if (object instanceof Cast) {
-                emd.cast = (Cast)object;
-            } else if (object instanceof Transform) {
-                emd.transform = (Transform)object;
-            }
+            emd.cast = getLegalCast(emd.from, emd.to, emd.explicit, false);
 
             if (emd.preConst != null && emd.to.metadata.constant) {
-                emd.postConst = constCast(emd.preConst, object);
+                emd.postConst = constCast(emd.preConst, emd.cast);
             }
         } else if (emd.promotion == null) {
             throw new IllegalStateException(); // TODO: message
         }
     }
 
-    Object getLegalCast(final Type from, final Type to,
+    Cast getLegalCast(final Type from, final Type to,
                         final boolean force, final boolean ignore) {
         final Cast cast = new Cast(from, to);
 
@@ -354,12 +350,11 @@ class Caster {
         }
     }
 
-    Object constCast(final Object constant, final Object object) {
-        if (object instanceof Transform) {
-            final Transform transform = (Transform)object;
+    Object constCast(final Object constant, final Cast cast) {
+        if (cast instanceof Transform) {
+            final Transform transform = (Transform)cast;
             return invokeTransform(transform, constant);
-        } else if (object instanceof Cast) {
-            final Cast cast = (Cast)object;
+        } else {
             final TypeMetadata fromTMD = cast.from.metadata;
             final TypeMetadata toTMD = cast.to.metadata;
 
@@ -388,8 +383,6 @@ class Caster {
             } else {
                 throw new IllegalStateException(); // TODO: message
             }
-        } else {
-            throw new IllegalStateException(); // TODO: message
         }
     }
 
@@ -469,10 +462,14 @@ class Caster {
     }
 
     void checkWriteCast(final MethodVisitor visitor, final ExpressionMetadata metadata) {
-        if (metadata.cast != null) {
-            writeCast(visitor, metadata.cast);
-        } else if (metadata.transform != null) {
-            writeTransform(visitor, metadata.transform);
+        checkWriteCast(visitor, metadata.cast);
+    }
+
+    void checkWriteCast(final MethodVisitor visitor, final Cast cast) {
+        if (cast instanceof Transform) {
+            writeTransform(visitor, (Transform)cast);
+        } else if (cast != null) {
+            writeCast(visitor, cast);
         } else {
             throw new IllegalStateException(); // TODO: message
         }

@@ -243,20 +243,7 @@ class External {
 
         @Override
         void write() {
-            caster.writeCast(visitor, cast);
-        }
-    }
-
-    private class TransformSegment extends Segment {
-        private final Transform transform;
-
-        TransformSegment(final Transform transform) {
-            this.transform = transform;
-        }
-
-        @Override
-        void write() {
-            caster.writeTransform(visitor, transform);
+            caster.checkWriteCast(visitor, cast);
         }
     }
 
@@ -292,6 +279,7 @@ class External {
     private final Definition definition;
     private final Standard standard;
     private final Caster caster;
+
     private final Analyzer analyzer;
     private Writer writer;
     private MethodVisitor visitor;
@@ -300,7 +288,6 @@ class External {
     private ParseTree write;
     private int token;
     private boolean post;
-    private boolean pre;
 
     private int prec;
     private Type current;
@@ -314,6 +301,7 @@ class External {
         definition = adapter.definition;
         standard = adapter.standard;
         caster = adapter.caster;
+
         this.analyzer = analyzer;
         writer = null;
         visitor = null;
@@ -322,7 +310,6 @@ class External {
         write = null;
         token = 0;
         post = false;
-        pre = false;
 
         prec = 0;
         current = null;
@@ -405,7 +392,6 @@ class External {
         read = preincemd.promotion != null || preincemd.to.metadata != TypeMetadata.VOID;
         write = ctx.increment();
         token = ADD;
-        pre = true;
 
         start(ctx.extstart());
 
@@ -478,7 +464,7 @@ class External {
         final ExpressionMetadata declemd = adapter.createExpressionMetadata(declctx);
         analyzer.visit(declctx);
 
-        final Object object = caster.getLegalCast(current, declemd.from, true, false);
+        final Cast cast = caster.getLegalCast(current, declemd.from, true, false);
         current = declemd.from;
 
         if (precctx != null) {
@@ -493,7 +479,7 @@ class External {
             throw new IllegalStateException(); // TODO: message
         }
 
-        addCastSegment(object);
+        segments.add(new CastSegment(cast));
         statement = false;
     }
 
@@ -595,7 +581,7 @@ class External {
             if (token > 0) {
                 final boolean increment = type.metadata == TypeMetadata.INT && (token == ADD || token == SUB);
                 current = type;
-                final Object[] casts = getPromotionCasts();
+                final Cast[] casts = getPromotionCasts();
                 writeemd.to = current;
                 analyzer.visit(write);
 
@@ -623,11 +609,11 @@ class External {
                         }
                     }
 
-                    addCastSegment(casts[0]);
+                    segments.add(new CastSegment(casts[0]));
                     segments.add(new NodeSegment(write));
                     final int instruction = getBinaryInstruction(current.metadata, token);
                     segments.add(new InstructionSegment(instruction));
-                    addCastSegment(casts[1]);
+                    segments.add(new CastSegment(casts[1]));
 
                     if (read && !post) {
                         if (type.metadata.size == 1) {
@@ -697,7 +683,7 @@ class External {
 
                 if (token > 0) {
                     current = type;
-                    final Object[] casts = getPromotionCasts();
+                    final Cast[] casts = getPromotionCasts();
                     writeemd.to = current;
                     analyzer.visit(write);
 
@@ -714,11 +700,11 @@ class External {
                         }
                     }
 
-                    addCastSegment(casts[0]);
+                    segments.add(new CastSegment(casts[0]));
                     segments.add(new NodeSegment(write));
                     final int instruction = getBinaryInstruction(current.metadata, token);
                     segments.add(new InstructionSegment(instruction));
-                    addCastSegment(casts[1]);
+                    segments.add(new CastSegment(casts[1]));
 
                     if (read && !post) {
                         if (type.metadata.size == 1) {
@@ -854,7 +840,7 @@ class External {
 
             if (token > 0) {
                 current = type;
-                final Object[] casts = getPromotionCasts();
+                final Cast[] casts = getPromotionCasts();
                 writeemd.to = current;
                 analyzer.visit(write);
 
@@ -871,11 +857,11 @@ class External {
                     }
                 }
 
-                addCastSegment(casts[0]);
+                segments.add(new CastSegment(casts[0]));
                 segments.add(new NodeSegment(write));
                 final int instruction = getBinaryInstruction(current.metadata, token);
                 segments.add(new InstructionSegment(instruction));
-                addCastSegment(casts[1]);
+                segments.add(new CastSegment(casts[1]));
 
                 if (read && !post) {
                     if (type.metadata.size == 1) {
@@ -914,11 +900,8 @@ class External {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private void shortcut(final ExpressionContext exprctx, final boolean last) {
-        if (token > 0) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
 
         expremd.promotion = caster.shortcut;
@@ -931,14 +914,19 @@ class External {
         try {
             current.clazz.asSubclass(list ? standard.listType.clazz : standard.mapType.clazz);
         } catch (ClassCastException exception) {
-            final Object object = caster.getLegalCast(current, list ? standard.listType : standard.mapType, true, true);
-            current = addCastSegment(object);
+            final Cast cast = caster.getLegalCast(current, list ? standard.listType : standard.mapType, true, true);
+            segments.add(new CastSegment(cast));
+            current = cast.to;
         }
 
         segments.add(new NodeSegment(exprctx));
 
         if (list) {
             if (last && write != null) {
+                if (token > 0) {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+
                 final Struct struct = current.struct;
                 java.lang.reflect.Method method;
 
@@ -981,6 +969,10 @@ class External {
             }
         } else {
             if (last && write != null) {
+                if (token > 0) {
+                    throw new IllegalArgumentException(); // TODO: message
+                }
+
                 java.lang.reflect.Method method;
 
                 try {
@@ -1017,27 +1009,11 @@ class External {
         }
     }
 
-    private Type addCastSegment(final Object object) {
-        if (object instanceof Cast) {
-            final Cast cast = (Cast)object;
-            segments.add(new CastSegment(cast));
-
-            return cast.to;
-        } else if (object instanceof Transform) {
-            final Transform transform = (Transform)object;
-            segments.add(new TransformSegment(transform));
-
-            return transform.cast.to;
-        } else {
-            throw new IllegalStateException(); // TODO: message
-        }
-    }
-
-    private Object[] getPromotionCasts() {
+    private Cast[] getPromotionCasts() {
         final boolean decimal = token == MUL || token == DIV || token == REM || token == ADD || token == SUB;
         final Promotion promotion = decimal ? caster.decimal : caster.numeric;
         final Type promote = caster.getTypePromotion(current, null, promotion);
-        final Object[] casts = new Object[2];
+        final Cast[] casts = new Cast[2];
 
         casts[0] = caster.getLegalCast(current, promote, false, false);
         casts[1] = caster.getLegalCast(promote, current, true, false);
