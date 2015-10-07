@@ -117,10 +117,10 @@ class Caster {
         @Override
         Type promote(final Type from0, final Type from1) {
             if (from0.metadata.numeric || from1 != null && from1.metadata.numeric) {
-                final Type type = caster.getNumericPromotion(from0, from1, decimal);
-
-                if (type != null) {
-                    return type;
+                try {
+                    return caster.getNumericPromotion(from0, from1, decimal);
+                } catch (ClassCastException exception) {
+                    // Do nothing.
                 }
             }
 
@@ -139,7 +139,11 @@ class Caster {
 
         @Override
         Type promote(final Type from0, final Type from1) {
-            return caster.getNumericPromotion(from0, from1, decimal);
+            try {
+                return caster.getNumericPromotion(from0, from1, decimal);
+            } catch (ClassCastException exception) {
+                return null;
+            }
         }
     }
 
@@ -416,7 +420,7 @@ class Caster {
         throw new ClassCastException(); // TODO: message
     }
 
-    private Type getNumericPromotion(final Type from0, final Type from1, boolean decimal) {
+    Type getNumericPromotion(final Type from0, final Type from1, boolean decimal) {
         final Deque<Type> upcast = new ArrayDeque<>();
         final Deque<Type> downcast = new ArrayDeque<>();
 

@@ -182,6 +182,7 @@ class External {
         @Override
         void write() {
             switch (type.metadata) {
+                case VOID:   throw new IllegalStateException(); // TODO: message
                 case BOOL:
                 case BYTE:
                 case SHORT:
@@ -244,6 +245,21 @@ class External {
         @Override
         void write() {
             caster.checkWriteCast(visitor, cast);
+        }
+    }
+
+    private class TokenSegment extends Segment {
+        private final Type type;
+        private final int token;
+
+        TokenSegment(final Type type, final int token) {
+            this.type = type;
+            this.token = token;
+        }
+
+        @Override
+        void write() {
+            writer.writeBinaryInstruction(type.metadata, token);
         }
     }
 
@@ -351,18 +367,23 @@ class External {
 
         read = assignemd.to.metadata != TypeMetadata.VOID;
         write = ctx.expression();
+        
+        if      (ctx.AMUL() != null) token = MUL;
+        else if (ctx.ADIV() != null) token = DIV;
+        else if (ctx.AREM() != null) token = REM;
+        else if (ctx.AADD() != null) token = ADD;
+        else if (ctx.ASUB() != null) token = SUB;
+        else if (ctx.ALSH() != null) token = LSH;
+        else if (ctx.AUSH() != null) token = USH;
+        else if (ctx.ARSH() != null) token = RSH;
+        else if (ctx.AAND() != null) token = BWAND;
+        else if (ctx.AXOR() != null) token = BWXOR;
+        else if (ctx.AOR()  != null) token = BWOR;
+        else if (ctx.ACAT() != null) {
+            token = ACAT;
 
-        if      (ctx.AMUL() != null) token = PainlessLexer.MUL;
-        else if (ctx.ADIV() != null) token = PainlessLexer.DIV;
-        else if (ctx.AREM() != null) token = PainlessLexer.REM;
-        else if (ctx.AADD() != null) token = PainlessLexer.ADD;
-        else if (ctx.ASUB() != null) token = PainlessLexer.SUB;
-        else if (ctx.ALSH() != null) token = PainlessLexer.LSH;
-        else if (ctx.AUSH() != null) token = PainlessLexer.USH;
-        else if (ctx.ARSH() != null) token = PainlessLexer.RSH;
-        else if (ctx.AAND() != null) token = PainlessLexer.BWAND;
-        else if (ctx.AXOR() != null) token = PainlessLexer.BWXOR;
-        else if (ctx.AOR()  != null) token = PainlessLexer.BWOR;
+
+        }
 
         start(ctx.extstart());
 
@@ -581,7 +602,7 @@ class External {
             if (token > 0) {
                 final boolean increment = type.metadata == TypeMetadata.INT && (token == ADD || token == SUB);
                 current = type;
-                final Cast[] casts = getPromotionCasts();
+                final Cast[] casts = toNumericCasts();
                 writeemd.to = current;
                 analyzer.visit(write);
 
@@ -611,8 +632,7 @@ class External {
 
                     segments.add(new CastSegment(casts[0]));
                     segments.add(new NodeSegment(write));
-                    final int instruction = getBinaryInstruction(current.metadata, token);
-                    segments.add(new InstructionSegment(instruction));
+                    segments.add(new TokenSegment(current, token));
                     segments.add(new CastSegment(casts[1]));
 
                     if (read && !post) {
@@ -683,7 +703,7 @@ class External {
 
                 if (token > 0) {
                     current = type;
-                    final Cast[] casts = getPromotionCasts();
+                    final Cast[] casts = toNumericCasts();
                     writeemd.to = current;
                     analyzer.visit(write);
 
@@ -702,8 +722,7 @@ class External {
 
                     segments.add(new CastSegment(casts[0]));
                     segments.add(new NodeSegment(write));
-                    final int instruction = getBinaryInstruction(current.metadata, token);
-                    segments.add(new InstructionSegment(instruction));
+                    segments.add(new TokenSegment(current, token));
                     segments.add(new CastSegment(casts[1]));
 
                     if (read && !post) {
@@ -840,7 +859,7 @@ class External {
 
             if (token > 0) {
                 current = type;
-                final Cast[] casts = getPromotionCasts();
+                final Cast[] casts = toNumericCasts();
                 writeemd.to = current;
                 analyzer.visit(write);
 
@@ -859,8 +878,7 @@ class External {
 
                 segments.add(new CastSegment(casts[0]));
                 segments.add(new NodeSegment(write));
-                final int instruction = getBinaryInstruction(current.metadata, token);
-                segments.add(new InstructionSegment(instruction));
+                segments.add(new TokenSegment(current, token));
                 segments.add(new CastSegment(casts[1]));
 
                 if (read && !post) {
@@ -903,21 +921,17 @@ class External {
     @SuppressWarnings("unchecked")
     private void shortcut(final ExpressionContext exprctx, final boolean last) {
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
-
         expremd.promotion = caster.shortcut;
         analyzer.visit(exprctx);
 
-        final boolean list = expremd.from.metadata.numeric;
-        expremd.to = list ? standard.intType : standard.objectType;
+        final Type promote = caster.getTypePromotion(expremd.from, null, expremd.promotion);
+        final boolean list = promote.metadata == TypeMetadata.INT;
+        expremd.to = promote;
         caster.markCast(expremd);
 
-        try {
-            current.clazz.asSubclass(list ? standard.listType.clazz : standard.mapType.clazz);
-        } catch (ClassCastException exception) {
-            final Cast cast = caster.getLegalCast(current, list ? standard.listType : standard.mapType, true, true);
-            segments.add(new CastSegment(cast));
-            current = cast.to;
-        }
+        final Cast cast = caster.getLegalCast(current, list ? standard.listType : standard.mapType, true, true);
+        segments.add(new CastSegment(cast));
+        current = cast.to;
 
         segments.add(new NodeSegment(exprctx));
 
@@ -1009,7 +1023,7 @@ class External {
         }
     }
 
-    private Cast[] getPromotionCasts() {
+    private Cast[] toNumericCasts() {
         final boolean decimal = token == MUL || token == DIV || token == REM || token == ADD || token == SUB;
         final Promotion promotion = decimal ? caster.decimal : caster.numeric;
         final Type promote = caster.getTypePromotion(current, null, promotion);
