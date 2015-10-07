@@ -3,8 +3,10 @@ package painless;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.Label;
@@ -117,8 +119,9 @@ class Adapter {
     private final Map<ParseTree, ExpressionMetadata> expressionMetadata;
     private final Map<ParseTree, External> externals;
 
-    private final HashMap<ParseTree, Branch> branches;
+    private final Map<ParseTree, Branch> branches;
     private final Deque<Branch> jumps;
+    private final Set<ParseTree> strings;
 
     Adapter(final Definition definition, final Standard standard, final Caster caster,
             final String source, final ParseTree root) {
@@ -135,8 +138,9 @@ class Adapter {
         expressionMetadata = new HashMap<>();
         externals = new HashMap<>();
 
-        this.branches = new HashMap<>();
-        this.jumps = new ArrayDeque<>();
+        branches = new HashMap<>();
+        jumps = new ArrayDeque<>();
+        strings = new HashSet<>();
     }
 
     void incrementScope() {
@@ -282,5 +286,17 @@ class Adapter {
 
     void popJump() {
         jumps.pop();
+    }
+
+    void markStrings(final ParseTree node) {
+        strings.add(node);
+    }
+
+    void unmarkStrings(final ParseTree node) {
+        strings.remove(node);
+    }
+
+    boolean getStrings(final ParseTree node) {
+        return strings.contains(node);
     }
 }

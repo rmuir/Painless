@@ -16,7 +16,9 @@ public class Test {
     Test2 t;
 
     void stest() {
-        int y, x[] = new int[1];
-        y = x[1]++;
+        String x = "X";
+        String y = "y";
+
+        String z = x + y;
     }
 }

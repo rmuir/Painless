@@ -70,6 +70,7 @@ expression
     |               increment extstart                                             # preinc
     |               ( BOOLNOT | BWNOT | ADD | SUB ) expression                     # unary
     |               LP decltype RP expression                                      # cast
+    |               expression CAT expression                                      # cat
     |               expression ( MUL | DIV | REM ) expression                      # binary
     |               expression ( ADD | SUB ) expression                            # binary
     |               expression ( LSH | RSH | USH ) expression                      # binary
@@ -81,8 +82,9 @@ expression
     |               expression BOOLAND expression                                  # bool
     |               expression BOOLOR expression                                   # bool
     | <assoc=right> expression COND expression COLON expression                    # conditional
-    |               extstart ( ASSIGN | AADD | ASUB | AMUL | ADIV | AREM |
-                               AAND | AXOR | AOR | ALSH | ARSH | AUSH ) expression # assignment
+    |               extstart ( ASSIGN | AADD | ASUB | AMUL | ADIV
+                                      | AREM | AAND | AXOR | AOR
+                                      | ALSH | ARSH | AUSH | ACAT ) expression     # assignment
     ;
 
 extstart
@@ -94,7 +96,7 @@ extstart
 
 extprec:   LP ( extprec | extcast | exttype | extmember) RP ( extdot | extbrace )?;
 extcast:   LP decltype RP ( extprec | extcast | exttype | extmember );
-extbrace:  LBRACE expression RBRACE ( extdot | extbrace )?;
+extbrace:  LBRACE expression (COLON expression)? RBRACE ( extdot | extbrace )?;
 extdot:    DOT ( extcall | extmember );
 exttype:   {isType()}? ID extdot;
 extcall:   ID arguments ( extdot | extbrace )?;
@@ -117,18 +119,6 @@ LBRACE:    '[';
 RBRACE:    ']';
 LP:        '(';
 RP:        ')';
-ASSIGN:    '=';
-AADD:      '+=';
-ASUB:      '-=';
-AMUL:      '*=';
-ADIV:      '/=';
-AREM:      '%=';
-AAND:      '&=';
-AXOR:      '^=';
-AOR:       '|=';
-ALSH:      '<<=';
-ARSH:      '>>=';
-AUSH:      '>>>=';
 DOT:       '.';
 COMMA:     ',';
 SEMICOLON: ';';
@@ -151,6 +141,7 @@ SUB:     '-';
 LSH:     '<<';
 RSH:     '>>';
 USH:     '>>>';
+CAT:     '#';
 LT:      '<';
 LTE:     '<=';
 GT:      '>';
@@ -166,6 +157,20 @@ COND:    '?';
 COLON:   ':';
 INCR:    '++';
 DECR:    '--';
+
+ASSIGN:    '=';
+AADD:      '+=';
+ASUB:      '-=';
+AMUL:      '*=';
+ADIV:      '/=';
+AREM:      '%=';
+AAND:      '&=';
+AXOR:      '^=';
+AOR:       '|=';
+ALSH:      '<<=';
+ARSH:      '>>=';
+AUSH:      '>>>=';
+ACAT:      '#=';
 
 OCTAL: '0' [0-7]+ [lL]?;
 HEX: '0' [xX] [0-9a-fA-F]+ [lL]?;

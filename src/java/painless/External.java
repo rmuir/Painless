@@ -484,7 +484,7 @@ class External {
     }
 
     public void brace(final ExtbraceContext ctx) {
-        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionContext exprctx0 = ctx.expression(0);
 
         final ExtdotContext dotctx = ctx.extdot();
         final ExtbraceContext bracectx = ctx.extbrace();
@@ -492,9 +492,9 @@ class External {
         final boolean last = prec == 0 && dotctx == null && bracectx == null;
 
         if (current.dimensions > 0) {
-            array(exprctx, last);
+            array(exprctx0, last);
         } else {
-            shortcut(exprctx, last);
+            shortcut(exprctx0, last);
         }
 
         if (dotctx != null) {

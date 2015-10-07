@@ -220,6 +220,13 @@ public interface PainlessVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitNull(PainlessParser.NullContext ctx);
 	/**
+	 * Visit a parse tree produced by the {@code cat}
+	 * labeled alternative in {@link PainlessParser#expression}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitCat(PainlessParser.CatContext ctx);
+	/**
 	 * Visit a parse tree produced by the {@code binary}
 	 * labeled alternative in {@link PainlessParser#expression}.
 	 * @param ctx the parse tree

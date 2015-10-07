@@ -615,6 +615,34 @@ class Analyzer extends PainlessBaseVisitor<Void> {
     }
 
     @Override
+    public Void visitCat(CatContext ctx) {
+        ExpressionMetadata catemd = adapter.getExpressionMetadata(ctx);
+
+        final ExpressionContext exprctx0 = ctx.expression(0);
+        final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
+        expremd0.promotion = caster.equality;
+        visit(exprctx0);
+        expremd0.to = expremd0.from;
+        caster.markCast(expremd0);
+
+        final ExpressionContext exprctx1 = ctx.expression(1);
+        final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
+        expremd1.promotion = caster.equality;
+        visit(exprctx1);
+        expremd1.to = expremd1.from;
+        caster.markCast(expremd1);
+
+        if (expremd0.postConst != null && expremd1.postConst != null) {
+            catemd.postConst = expremd0.postConst.toString() + expremd1.postConst.toString();
+        }
+
+        catemd.from = standard.stringType;
+        caster.markCast(catemd);
+
+        return null;
+    }
+
+    @Override
     public Void visitExt(final ExtContext ctx) {
         External external = new External(adapter, this);
         external.ext(ctx);
