@@ -288,19 +288,6 @@ class External {
         }
     }
 
-    private class ConstantSegment extends Segment {
-        private final Object constant;
-
-        ConstantSegment(final Object constant) {
-            this.constant = constant;
-        }
-
-        @Override
-        void write() {
-            writer.writeConstant(constant);
-        }
-    }
-
     private final Adapter adapter;
     private final Definition definition;
     private final Standard standard;
@@ -364,7 +351,7 @@ class External {
     void ext(ExtContext ctx) {
         final ExpressionMetadata extemd = adapter.getExpressionMetadata(ctx);
 
-        read = extemd.promotions != null || extemd.to.metadata != TypeMetadata.VOID;
+        read = extemd.promotion != null || extemd.to.metadata != TypeMetadata.VOID;
         start(ctx.extstart());
 
         extemd.statement = statement;
@@ -400,7 +387,7 @@ class External {
     void postinc(PostincContext ctx) {
         final ExpressionMetadata postincemd = adapter.getExpressionMetadata(ctx);
 
-        read = postincemd.promotions != null || postincemd.to.metadata != TypeMetadata.VOID;
+        read = postincemd.promotion != null || postincemd.to.metadata != TypeMetadata.VOID;
         write = ctx.increment();
         token = ADD;
         post = true;
@@ -415,7 +402,7 @@ class External {
     void preinc(PreincContext ctx) {
         final ExpressionMetadata preincemd = adapter.getExpressionMetadata(ctx);
 
-        read = preincemd.promotions != null || preincemd.to.metadata != TypeMetadata.VOID;
+        read = preincemd.promotion != null || preincemd.to.metadata != TypeMetadata.VOID;
         write = ctx.increment();
         token = ADD;
         pre = true;
@@ -608,7 +595,7 @@ class External {
             if (token > 0) {
                 final boolean increment = type.metadata == TypeMetadata.INT && (token == ADD || token == SUB);
                 current = type;
-                final Object[] casts = getTokenCasts();
+                final Object[] casts = getPromotionCasts();
                 writeemd.to = current;
                 analyzer.visit(write);
 
@@ -710,7 +697,7 @@ class External {
 
                 if (token > 0) {
                     current = type;
-                    final Object[] casts = getTokenCasts();
+                    final Object[] casts = getPromotionCasts();
                     writeemd.to = current;
                     analyzer.visit(write);
 
@@ -867,7 +854,7 @@ class External {
 
             if (token > 0) {
                 current = type;
-                final Object[] casts = getTokenCasts();
+                final Object[] casts = getPromotionCasts();
                 writeemd.to = current;
                 analyzer.visit(write);
 
@@ -928,9 +915,13 @@ class External {
     }
 
     private void shortcut(final ExpressionContext exprctx, final boolean last) {
+        if (token > 0) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
 
-        expremd.promotions = caster.brace;
+        expremd.promotion = caster.shortcut;
         analyzer.visit(exprctx);
 
         final boolean list = expremd.from.metadata.numeric;
@@ -1042,24 +1033,15 @@ class External {
         }
     }
 
-    private Object[] getTokenCasts() {
+    private Object[] getPromotionCasts() {
         final boolean decimal = token == MUL || token == DIV || token == REM || token == ADD || token == SUB;
-        final boolean string = token == PainlessLexer.ADD && !post && !pre;
-        final Promotions promotions = decimal ? caster.decimal : caster.numeric;
-        final Type promote = caster.getTypePromotion(current, null, promotions);
+        final Promotion promotion = decimal ? caster.decimal : caster.numeric;
+        final Type promote = caster.getTypePromotion(current, null, promotion);
         final Object[] casts = new Object[2];
 
-        if (promote == null && string) {
-            casts[0] = caster.getLegalCast(current, standard.stringType, false, false);
-            casts[1] = caster.getLegalCast(standard.stringType, current, true, false);
-            current = standard.stringType;
-        } else if (promote != null) {
-            casts[0] = caster.getLegalCast(current, promote, false, false);
-            casts[1] = caster.getLegalCast(promote, current, true, false);
-            current = promote;
-        } else {
-            throw new ClassCastException(); // TODO: message
-        }
+        casts[0] = caster.getLegalCast(current, promote, false, false);
+        casts[1] = caster.getLegalCast(promote, current, true, false);
+        current = promote;
 
         return casts;
     }

@@ -61,9 +61,9 @@ class Adapter {
         Object postConst;
         boolean isNull;
 
-        Promotions promotions;
         Type to;
         Type from;
+        Promotion promotion;
         boolean explicit;
 
         Cast cast;
@@ -78,9 +78,9 @@ class Adapter {
             postConst = null;
             isNull = false;
 
-            promotions = null;
             to = null;
             from = null;
+            promotion = null;
             explicit = false;
 
             cast = null;

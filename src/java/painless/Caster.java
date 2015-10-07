@@ -14,75 +14,271 @@ import static painless.Default.*;
 import static painless.Definition.*;
 
 class Caster {
-    private enum PromotionType {
-        SAME_TYPE,
-        ANY_TYPE,
-        TO_TYPE,
-        ANY_NUMERIC,
-        ANY_DECIMAL,
-        TO_NUMERIC,
-        TO_DECIMAL,
-        TO_SUPERCLASS,
-        TO_SUBCLASS
+    private abstract static class Segment {
+        abstract Type promote(final Type from0, final Type from1);
     }
 
-    private static class Promotion {
-        private final PromotionType promotion;
-        private final Type type;
+    private static class SameTypeSegment extends Segment {
+        Type promote(final Type from0, final Type from1) {
+            if (from1 != null && from0.equals(from1)) {
+                return from0;
+            }
 
-        Promotion(final PromotionType promotion, final Type type) {
-            this.promotion = promotion;
-            this.type = type;
+            return null;
         }
     }
 
-    static class Promotions {
-        private final List<Promotion> promotions;
+    private static class AnyTypeSegment extends Segment {
+        private final Caster caster;
+        private final Type to;
 
-        Promotions(final List<Promotion> promotions) {
-            this.promotions = Collections.unmodifiableList(promotions);
+        AnyTypeSegment(final Caster caster, final Type to) {
+            this.caster = caster;
+            this.to = to;
+        }
+
+        Type promote(final Type from0, final Type from1) {
+            final boolean eq0 = from0.equals(to);
+
+            if (from1 == null && eq0) {
+                return to;
+            }
+
+            final boolean eq1 = from1.equals(to);
+
+            if (eq0 && eq1) {
+                return to;
+            }
+
+            if (eq0 || eq1) {
+                try {
+                    caster.getLegalCast(eq0 ? from1 : from0, to, false, false);
+
+                    return to;
+                } catch (ClassCastException exception) {
+                    // Do nothing.
+                }
+            }
+
+            return null;
+        }
+    }
+
+    private static class ToTypeSegment extends Segment {
+        private final Caster caster;
+        private final Type to;
+
+        ToTypeSegment(final Caster caster, final Type to) {
+            this.caster = caster;
+            this.to = to;
+        }
+
+        Type promote(final Type from0, final Type from1) {
+            final boolean eq0 = from0.equals(to);
+            final boolean eq1 = from1 == null || from1.equals(to);
+
+            if (eq0 && eq1) {
+                return to;
+            }
+
+            boolean castable = true;
+
+            if (!eq0) {
+                try {
+                    caster.getLegalCast(from0, to, false, false);
+                } catch (ClassCastException exception) {
+                    castable = false;
+                }
+            }
+
+            if (!eq1) {
+                try {
+                    caster.getLegalCast(from1, to, false, false);
+                } catch (ClassCastException exception) {
+                    castable = false;
+                }
+            }
+
+            if (castable) {
+                return to;
+            }
+
+            return null;
+        }
+    }
+
+    private static class AnyNumericSegment extends Segment {
+        private final Caster caster;
+        private final boolean decimal;
+
+        AnyNumericSegment(final Caster caster, final boolean decimal) {
+            this.caster = caster;
+            this.decimal = decimal;
+        }
+
+        Type promote(final Type from0, final Type from1) {
+            if (from0.metadata.numeric || from1 != null && from1.metadata.numeric) {
+                final Type type = caster.getNumericPromotion(from0, from1, decimal);
+
+                if (type != null) {
+                    return type;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    private static class ToNumericSegment extends Segment {
+        private final Caster caster;
+        private final boolean decimal;
+
+        ToNumericSegment(final Caster caster, final boolean decimal) {
+            this.caster = caster;
+            this.decimal = decimal;
+        }
+
+        Type promote(final Type from0, final Type from1) {
+            return caster.getNumericPromotion(from0, from1, decimal);
+        }
+    }
+
+    private static class ToSuperClassSegment extends Segment {
+        final Definition definition;
+
+        ToSuperClassSegment(final Definition definition) {
+            this.definition = definition;
+        }
+
+        Type promote(final Type from0, final Type from1) {
+            if (from0.equals(from1)) {
+                return from0;
+            }
+
+            final Cast cast0 = new Cast(from0, from1);
+            final Cast cast1 = new Cast(from1, from0);
+
+            if (definition.upcasts.contains(cast0)) {
+                return from1;
+            }
+
+            if (definition.upcasts.contains(cast1)) {
+                return from0;
+            }
+
+            return null;
+        }
+    }
+
+    private static class ToSubClassSegment extends Segment {
+        final Definition definition;
+        final Standard standard;
+
+        ToSubClassSegment(final Definition definition, final Standard standard) {
+            this.definition = definition;
+            this.standard = standard;
+        }
+
+        Type promote(final Type from0, final Type from1) {
+            if (from0.equals(from1)) {
+                return from0;
+            }
+
+            if (from0.clazz.equals(from1.clazz)) {
+                Cast cast0 = null;
+                Cast cast1 = null;
+
+                if (from0.struct.generic && !from1.struct.generic) {
+                    cast0 = new Cast(from0, from1);
+                    cast1 = new Cast(from1, from0);
+                } else if (!from0.struct.generic && from1.struct.generic) {
+                    cast0 = new Cast(from1, from0);
+                    cast1 = new Cast(from0, from1);
+                }
+
+                if (cast0 != null && cast1 != null) {
+                    if (!definition.disallowed.contains(cast0) && definition.implicits.containsKey(cast0)) {
+                        return cast0.to;
+                    }
+
+                    if (!definition.disallowed.contains(cast1) && definition.implicits.containsKey(cast1)) {
+                        return cast1.to;
+                    }
+                }
+
+                return standard.objectType;
+            }
+
+            try {
+                from0.clazz.asSubclass(from1.clazz);
+                final Cast cast = new Cast(from0, from1);
+
+                if (!definition.disallowed.contains(cast)) {
+                    return from1;
+                }
+            } catch (ClassCastException cce0) {
+                // Do nothing.
+            }
+
+            try {
+                from1.clazz.asSubclass(from1.clazz);
+                final Cast cast = new Cast(from1, from0);
+
+                if (!definition.disallowed.contains(cast)) {
+                    return from0;
+                }
+            } catch (ClassCastException cce0) {
+                // Do nothing.
+            }
+
+            if (from0.metadata.object && from1.metadata.object) {
+                return standard.objectType;
+            }
+
+            return null;
+        }
+    }
+
+    static class Promotion {
+        private final List<Segment> segments;
+
+        Promotion(final List<Segment> segments) {
+            this.segments = Collections.unmodifiableList(segments);
         }
     }
 
     private final Definition definition;
     private final Standard standard;
 
-    final Promotions equality;
-    final Promotions add;
-    final Promotions decimal;
-    final Promotions numeric;
-    final Promotions brace;
+    final Promotion equality;
+    final Promotion decimal;
+    final Promotion numeric;
+    final Promotion shortcut;
 
     Caster(final Definition definition, final Standard standard) {
         this.definition = definition;
         this.standard = standard;
 
-        List<Promotion> promotions = new ArrayList<>();
-        promotions.add(new Promotion(PromotionType.SAME_TYPE, null));
-        promotions.add(new Promotion(PromotionType.ANY_TYPE, standard.boolType));
-        promotions.add(new Promotion(PromotionType.ANY_DECIMAL, null));
-        promotions.add(new Promotion(PromotionType.TO_SUPERCLASS, null));
-        promotions.add(new Promotion(PromotionType.TO_SUBCLASS, null));
-        equality = new Promotions(promotions);
+        List<Segment> segments = new ArrayList<>();
+        segments.add(new SameTypeSegment());
+        segments.add(new AnyTypeSegment(this, standard.boolType));
+        segments.add(new AnyNumericSegment(this, true));
+        segments.add(new ToSuperClassSegment(definition));
+        segments.add(new ToSubClassSegment(definition, standard));
+        equality = new Promotion(segments);
 
-        promotions = new ArrayList<>();
-        promotions.add(new Promotion(PromotionType.ANY_TYPE, standard.stringType));
-        promotions.add(new Promotion(PromotionType.TO_DECIMAL, null));
-        promotions.add(new Promotion(PromotionType.TO_TYPE, standard.stringType));
-        add = new Promotions(promotions);
+        segments = new ArrayList<>();
+        segments.add(new ToNumericSegment(this, true));
+        decimal = new Promotion(segments);
 
-        promotions = new ArrayList<>();
-        promotions.add(new Promotion(PromotionType.TO_DECIMAL, null));
-        decimal = new Promotions(promotions);
+        segments = new ArrayList<>();
+        segments.add(new ToNumericSegment(this, false));
+        numeric = new Promotion(segments);
 
-        promotions = new ArrayList<>();
-        promotions.add(new Promotion(PromotionType.TO_NUMERIC, null));
-        numeric = new Promotions(promotions);
-
-        promotions = new ArrayList<>();
-        promotions.add(new Promotion(PromotionType.ANY_NUMERIC, null));
-        promotions.add(new Promotion(PromotionType.TO_TYPE, standard.objectType));
-        brace = new Promotions(promotions);
+        segments = new ArrayList<>();
+        segments.add(new ToTypeSegment(this, standard.intType));
+        segments.add(new ToTypeSegment(this, standard.objectType));
+        shortcut = new Promotion(segments);
     }
 
     void markCast(final ExpressionMetadata emd) {
@@ -102,13 +298,13 @@ class Caster {
             if (emd.preConst != null && emd.to.metadata.constant) {
                 emd.postConst = constCast(emd.preConst, object);
             }
-        } else if (emd.promotions == null) {
+        } else if (emd.promotion == null) {
             throw new IllegalStateException(); // TODO: message
         }
     }
 
     Object getLegalCast(final Type from, final Type to,
-                               final boolean force, final boolean ignore) {
+                        final boolean force, final boolean ignore) {
         final Cast cast = new Cast(from, to);
 
         if (from.equals(to)) {
@@ -215,184 +411,16 @@ class Caster {
         }
     }
 
-    Type getTypePromotion(final Type from0, final Type from1, final Promotions promotions) {
-        for (final Promotion promotion : promotions.promotions) {
-            switch (promotion.promotion) {
-                case SAME_TYPE: {
-                    if (from0.equals(from1)) {
-                        return from0;
-                    }
+    Type getTypePromotion(final Type from0, final Type from1, final Promotion promotion) {
+        for (final Segment segment : promotion.segments) {
+            final Type type = segment.promote(from0, from1);
 
-                    break;
-                } case ANY_TYPE: {
-                    final Type to = promotion.type;
-                    boolean eq0 = from0.equals(to);
-                    boolean eq1 = from1.equals(to);
-
-                    if (eq0 && eq1) {
-                        return to;
-                    }
-
-                    if (eq0 || eq1) {
-                        try {
-                            getLegalCast(eq0 ? from1 : from0, to, false, false);
-
-                            return to;
-                        } catch (ClassCastException exception) {
-                            // Do nothing.
-                        }
-                    }
-
-                    break;
-                } case TO_TYPE: {
-                    final Type to = promotion.type;
-                    boolean eq0 = from0.equals(to);
-                    boolean eq1 = from1.equals(to);
-
-                    if (eq0 && eq1) {
-                        return to;
-                    }
-
-                    boolean castable = true;
-
-                    if (!eq0) {
-                        try {
-                            getLegalCast(from0, to, false, false);
-                        } catch (ClassCastException exception) {
-                            castable = false;
-                        }
-                    }
-
-                    if (!eq1) {
-                        try {
-                            getLegalCast(from1, to, false, false);
-                        } catch (ClassCastException exception) {
-                            castable = false;
-                        }
-                    }
-
-                    if (castable) {
-                        return to;
-                    }
-
-                    break;
-                } case ANY_NUMERIC: {
-                    if (from0.metadata.numeric || from1.metadata.numeric) {
-                        final Type type = getNumericPromotion(from0, from1, false);
-
-                        if (type != null) {
-                            return type;
-                        }
-                    }
-
-                    break;
-                } case ANY_DECIMAL: {
-                    if (from0.metadata.numeric || from1.metadata.numeric) {
-                        final Type type = getNumericPromotion(from0, from1, true);
-
-                        if (type != null) {
-                            return type;
-                        }
-                    }
-
-                    break;
-                } case TO_NUMERIC: {
-                    final Type type = getNumericPromotion(from0, from1, false);
-
-                    if (type != null) {
-                        return type;
-                    }
-
-                    break;
-                } case TO_DECIMAL: {
-                    final Type type = getNumericPromotion(from0, from1, true);
-
-                    if (type != null) {
-                        return type;
-                    }
-
-                    break;
-                } case TO_SUPERCLASS: {
-                    if (from0.equals(from1)) {
-                        return from0;
-                    }
-
-                    final Cast cast0 = new Cast(from0, from1);
-                    final Cast cast1 = new Cast(from1, from0);
-
-                    if (definition.upcasts.contains(cast0)) {
-                        return from1;
-                    }
-
-                    if (definition.upcasts.contains(cast1)) {
-                        return from0;
-                    }
-
-                    break;
-                } case TO_SUBCLASS: {
-                    if (from0.equals(from1)) {
-                        return from0;
-                    }
-
-                    if (from0.clazz.equals(from1.clazz)) {
-                        Cast cast0 = null;
-                        Cast cast1 = null;
-
-                        if (from0.struct.generic && !from1.struct.generic) {
-                            cast0 = new Cast(from0, from1);
-                            cast1 = new Cast(from1, from0);
-                        } else if (!from0.struct.generic && from1.struct.generic) {
-                            cast0 = new Cast(from1, from0);
-                            cast1 = new Cast(from0, from1);
-                        }
-
-                        if (cast0 != null && cast1 != null) {
-                            if (!definition.disallowed.contains(cast0) && definition.implicits.containsKey(cast0)) {
-                                return cast0.to;
-                            }
-
-                            if (!definition.disallowed.contains(cast1) && definition.implicits.containsKey(cast1)) {
-                                return cast1.to;
-                            }
-                        }
-
-                        return standard.objectType;
-                    }
-
-                    try {
-                        from0.clazz.asSubclass(from1.clazz);
-                        final Cast cast = new Cast(from0, from1);
-
-                        if (!definition.disallowed.contains(cast)) {
-                            return from1;
-                        }
-                    } catch (ClassCastException cce0) {
-                        // Do nothing.
-                    }
-
-                    try {
-                        from1.clazz.asSubclass(from1.clazz);
-                        final Cast cast = new Cast(from1, from0);
-
-                        if (!definition.disallowed.contains(cast)) {
-                            return from0;
-                        }
-                    } catch (ClassCastException cce0) {
-                        // Do nothing.
-                    }
-
-                    if (from0.metadata.object && from1.metadata.object) {
-                        return standard.objectType;
-                    }
-
-                    break;
-                } default: {
-                    throw new IllegalStateException(); // TODO: message
-                }
+            if (type != null) {
+                return type;
             }
         }
 
-        return null;
+        throw new ClassCastException(); // TODO: message
     }
 
     private Type getNumericPromotion(final Type from0, final Type from1, boolean decimal) {
@@ -545,11 +573,11 @@ class Caster {
         final String internal = transform.method.owner.internal;
         final String descriptor = transform.method.descriptor;
 
-        final Type from = transform.upcast;
-        final Type to = transform.downcast;
+        final Type upcast = transform.upcast;
+        final Type downcast = transform.downcast;
 
-        if (from != null) {
-            visitor.visitTypeInsn(Opcodes.CHECKCAST, from.internal);
+        if (upcast != null) {
+            visitor.visitTypeInsn(Opcodes.CHECKCAST, upcast.internal);
         }
 
         if (java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
@@ -560,8 +588,8 @@ class Caster {
             visitor.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, name, descriptor, false);
         }
 
-        if (to != null) {
-            visitor.visitTypeInsn(Opcodes.CHECKCAST, to.internal);
+        if (downcast != null) {
+            visitor.visitTypeInsn(Opcodes.CHECKCAST, downcast.internal);
         }
     }
 }

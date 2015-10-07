@@ -32,10 +32,10 @@ public final class Painless {
             Executable executable = compile("test",
                     "\nlist nums = input[\"inner\"][\"list\"];\n" +
                             "int size = nums.size();\n" +
-                            "byte total;\n" +
+                            "char total;\n" +
                             "\n" +
                             "for (int count = 0; count < size; ++count) {\n" +
-                            "    total = (byte)(total + (int)nums[count]);\n" +
+                            "    total = (char)(total + (int)nums[count]);\n" +
                             "}\n" +
                             "\n" +
                             "return total;"

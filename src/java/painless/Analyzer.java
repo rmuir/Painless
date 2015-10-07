@@ -658,11 +658,11 @@ class Analyzer extends PainlessBaseVisitor<Void> {
 
             unaryemd.from = standard.boolType;
         } else if (ctx.BWNOT() != null || ctx.ADD() != null || ctx.SUB() != null) {
-            final Promotions promotions = ctx.BWNOT() != null ? caster.numeric : caster.decimal;
-            expremd.promotions = promotions;
+            final Promotion promotion = ctx.BWNOT() != null ? caster.numeric : caster.decimal;
+            expremd.promotion = promotion;
             visit(exprctx);
 
-            final Type promote = caster.getTypePromotion(expremd.from, null, promotions);
+            final Type promote = caster.getTypePromotion(expremd.from, null, promotion);
 
             expremd.to = promote;
             caster.markCast(expremd);
@@ -747,27 +747,25 @@ class Analyzer extends PainlessBaseVisitor<Void> {
     public Void visitBinary(final BinaryContext ctx) {
         final ExpressionMetadata binaryemd = adapter.getExpressionMetadata(ctx);
 
-        Promotions promotions;
+        Promotion promotion;
 
-        if (ctx.ADD() != null) {
-            promotions = caster.add;
-        } else if (ctx.SUB() != null || ctx.DIV() != null || ctx.MUL() != null || ctx.REM() != null) {
-            promotions = caster.decimal;
+        if (ctx.ADD() != null || ctx.SUB() != null || ctx.DIV() != null || ctx.MUL() != null || ctx.REM() != null) {
+            promotion = caster.decimal;
         } else {
-            promotions = caster.numeric;
+            promotion = caster.numeric;
         }
 
         final ExpressionContext exprctx0 = ctx.expression(0);
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
-        expremd0.promotions = promotions;
+        expremd0.promotion = promotion;
         visit(exprctx0);
 
         final ExpressionContext exprctx1 = ctx.expression(1);
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
-        expremd1.promotions = promotions;
+        expremd1.promotion = promotion;
         visit(exprctx1);
 
-        final Type promote = caster.getTypePromotion(expremd0.from, expremd1.from, promotions);
+        final Type promote = caster.getTypePromotion(expremd0.from, expremd1.from, promotion);
 
         expremd0.to = promote;
         caster.markCast(expremd0);
@@ -822,9 +820,7 @@ class Analyzer extends PainlessBaseVisitor<Void> {
                     binaryemd.preConst = (float)expremd0.postConst + (float)expremd1.postConst;
                 } else if (tmd == TypeMetadata.DOUBLE) {
                     binaryemd.preConst = (double)expremd0.postConst + (double)expremd1.postConst;
-                } else if (tmd == TypeMetadata.STRING) {
-                    binaryemd.preConst = (String)expremd0.postConst + expremd1.postConst;
-                }else {
+                } else {
                     throw new IllegalStateException(); // TODO: message
                 }
             } else if (ctx.SUB() != null) {
@@ -901,19 +897,19 @@ class Analyzer extends PainlessBaseVisitor<Void> {
     @Override
     public Void visitComp(final CompContext ctx) {
         final ExpressionMetadata compemd = adapter.getExpressionMetadata(ctx);
-        final Promotions promotions = ctx.EQ() != null || ctx.NE() != null ? caster.equality : caster.decimal;
+        final Promotion promotion = ctx.EQ() != null || ctx.NE() != null ? caster.equality : caster.decimal;
 
         final ExpressionContext exprctx0 = ctx.expression(0);
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
-        expremd0.promotions = promotions;
+        expremd0.promotion = promotion;
         visit(exprctx0);
 
         final ExpressionContext exprctx1 = ctx.expression(1);
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
-        expremd1.promotions = promotions;
+        expremd1.promotion = promotion;
         visit(exprctx1);
 
-        final Type promote = caster.getTypePromotion(expremd0.from, expremd1.from, promotions);
+        final Type promote = caster.getTypePromotion(expremd0.from, expremd1.from, promotion);
 
         if (expremd0.isNull && expremd1.isNull) {
             throw new IllegalArgumentException(); // TODO: message
@@ -1056,19 +1052,19 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         final ExpressionContext exprctx1 = ctx.expression(1);
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
         expremd1.to = condemd.to;
-        expremd1.promotions = condemd.promotions;
+        expremd1.promotion = condemd.promotion;
         visit(exprctx1);
 
         final ExpressionContext exprctx2 = ctx.expression(2);
         final ExpressionMetadata expremd2 = adapter.createExpressionMetadata(exprctx2);
         expremd2.to = condemd.to;
-        expremd2.promotions = condemd.promotions;
+        expremd2.promotion = condemd.promotion;
         visit(exprctx2);
 
         if (condemd.to != null) {
             condemd.from = condemd.to;
-        } else if (condemd.promotions != null) {
-            Type promote = caster.getTypePromotion(expremd1.from, expremd2.from, condemd.promotions);
+        } else if (condemd.promotion != null) {
+            final Type promote = caster.getTypePromotion(expremd1.from, expremd2.from, condemd.promotion);
 
             expremd0.to = promote;
             caster.markCast(expremd1);

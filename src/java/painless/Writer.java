@@ -579,7 +579,6 @@ class Writer extends PainlessBaseVisitor<Void>{
             if      (ctx.MUL()   != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.MUL));
             else if (ctx.DIV()   != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.DIV));
             else if (ctx.REM()   != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.REM));
-            else if (ctx.ADD()   != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.ADD));
             else if (ctx.SUB()   != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.SUB));
             else if (ctx.LSH()   != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.LSH));
             else if (ctx.USH()   != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.USH));
@@ -587,6 +586,7 @@ class Writer extends PainlessBaseVisitor<Void>{
             else if (ctx.BWAND() != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.BWAND));
             else if (ctx.BWXOR() != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.BWXOR));
             else if (ctx.BWOR()  != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.BWOR));
+            else if (ctx.ADD()   != null) execute.visitInsn(getBinaryInstruction(metadata, PainlessLexer.ADD));
             else {
                 throw new IllegalStateException(); // TODO: message
             }
