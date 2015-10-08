@@ -188,7 +188,7 @@ public class Utility {
         int localEnd = end == null ? string.length() : end;
 
         if (localEnd < 0) {
-            localEnd = length - localBegin;
+            localEnd = length + end;
         }
 
         if (localEnd < 0 || localEnd > length) {
