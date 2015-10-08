@@ -534,9 +534,7 @@ class External {
         final ExpressionContext exprctx1 = ctx.expression(1);
         final boolean colon = ctx.COLON() != null;
 
-        if (!colon && exprctx0 == null) {
-            throw new IllegalArgumentException(); // TODO: message
-        } else if (!colon && exprctx1 != null) {
+        if (!colon && exprctx1 != null) {
             throw new IllegalArgumentException(); // TODO: message
         } else if (colon && exprctx0 == null && exprctx1 == null) {
             throw new IllegalArgumentException(); // TODO: message
@@ -548,7 +546,11 @@ class External {
         final boolean last = prec == 0 && dotctx == null && bracectx == null;
 
         if (colon) {
-            substring(exprctx0, exprctx1, last);
+            if (ctx.getChild(1) instanceof ExpressionContext) {
+                substring(exprctx0, exprctx1, last);
+            } else {
+                substring(null, exprctx0, last);
+            }
         } else if (current.dimensions > 0) {
             array(exprctx0, last);
         } else {
