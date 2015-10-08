@@ -177,7 +177,7 @@ public class Utility {
         return (char)value.doubleValue();
     }
 
-    public static String substring(final String string, final int begin, final int end) {
+    public static String substring(final String string, final Integer begin, final Integer end) {
         final int length = string.length();
         final int localBegin = begin == null ? 0 : begin;
 

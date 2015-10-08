@@ -1,14 +1,13 @@
 package painless;
 
-
-import org.antlr.v4.runtime.tree.ParseTree;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
+
+import org.antlr.v4.runtime.tree.ParseTree;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 import static painless.Adapter.*;
 import static painless.Caster.*;
@@ -533,13 +532,22 @@ class External {
     public void brace(final ExtbraceContext ctx) {
         final ExpressionContext exprctx0 = ctx.expression(0);
         final ExpressionContext exprctx1 = ctx.expression(1);
+        final boolean colon = ctx.COLON() != null;
+
+        if (!colon && exprctx0 == null) {
+            throw new IllegalArgumentException(); // TODO: message
+        } else if (!colon && exprctx1 != null) {
+            throw new IllegalArgumentException(); // TODO: message
+        } else if (colon && exprctx0 == null && exprctx1 == null) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
 
         final ExtdotContext dotctx = ctx.extdot();
         final ExtbraceContext bracectx = ctx.extbrace();
 
         final boolean last = prec == 0 && dotctx == null && bracectx == null;
 
-        if (exprctx1 != null) {
+        if (colon) {
             substring(exprctx0, exprctx1, last);
         } else if (current.dimensions > 0) {
             array(exprctx0, last);
@@ -936,21 +944,38 @@ class External {
         }
 
         final Cast cast0 = caster.getLegalCast(current, standard.stringType, false, false);
-        final Cast cast1 = caster.getLegalCast(standard.intType, standard.stringType, false, false);
 
         segments.add(new CastSegment(cast0));
 
-        final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
-        expremd0.to = standard.intType;
-        analyzer.visit(exprctx0);
-        segments.add(new NodeSegment(exprctx0));
-
-        final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
-        expremd1.to = standard.intType;
-        analyzer.visit(exprctx1);
-        segments.add(new NodeSegment(exprctx1));
-
         java.lang.reflect.Method method;
+
+        try {
+            method = Integer.class.getMethod("valueOf", int.class);
+        } catch (NoSuchMethodException exception) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        Segment box = new MethodSegment("java/lang/Integer", Integer.class, method);
+
+        if (exprctx0 != null) {
+            final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
+            expremd0.to = standard.intType;
+            analyzer.visit(exprctx0);
+            segments.add(new NodeSegment(exprctx0));
+            segments.add(box);
+        } else {
+            segments.add(new InstructionSegment(Opcodes.ACONST_NULL));
+        }
+
+        if (exprctx1 != null) {
+            final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
+            expremd1.to = standard.intType;
+            analyzer.visit(exprctx1);
+            segments.add(new NodeSegment(exprctx1));
+            segments.add(box);
+        } else {
+            segments.add(new InstructionSegment(Opcodes.ACONST_NULL));
+        }
 
         try {
             method = Utility.class.getMethod("substring", String.class, Integer.class, Integer.class);
