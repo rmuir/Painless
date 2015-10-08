@@ -96,7 +96,7 @@ extstart
 
 extprec:   LP ( extprec | extcast | exttype | extmember) RP ( extdot | extbrace )?;
 extcast:   LP decltype RP ( extprec | extcast | exttype | extmember );
-extbrace:  LBRACE expression (COLON expression)? RBRACE ( extdot | extbrace )?;
+extbrace:  LBRACE expression? COLON? expression? RBRACE ( extdot | extbrace )?;
 extdot:    DOT ( extcall | extmember );
 exttype:   {isType()}? ID extdot;
 extcall:   ID arguments ( extdot | extbrace )?;
@@ -141,7 +141,7 @@ SUB:     '-';
 LSH:     '<<';
 RSH:     '>>';
 USH:     '>>>';
-CAT:     '#';
+CAT:     '..';
 LT:      '<';
 LTE:     '<=';
 GT:      '>';
@@ -170,7 +170,7 @@ AOR:       '|=';
 ALSH:      '<<=';
 ARSH:      '>>=';
 AUSH:      '>>>=';
-ACAT:      '#=';
+ACAT:      '..=';
 
 OCTAL: '0' [0-7]+ [lL]?;
 HEX: '0' [xX] [0-9a-fA-F]+ [lL]?;

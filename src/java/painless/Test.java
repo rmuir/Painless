@@ -1,13 +1,9 @@
 package painless;
 
 public class Test {
-    String s = "s";
-    String t = "t";
-
     void stest() {
-        String x = "X";
-        String y = "y";
-
-        s += t;
+        String[] x = new String[1];
+        x[0] = "x";
+        x[0] += "y";
     }
 }

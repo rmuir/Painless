@@ -157,7 +157,7 @@ class Adapter {
     }
 
     Variable getVariable(final String name) {
-        final Iterator<Variable> itr = variables.descendingIterator();
+        final Iterator<Variable> itr = variables.iterator();
 
         while (itr.hasNext()) {
             final Variable variable = itr.next();
@@ -175,15 +175,15 @@ class Adapter {
              throw new IllegalArgumentException(); // TODO: message
          }
 
-         final Variable previous = variables.peekLast();
-         int aslot = 0;
+         final Variable previous = variables.peekFirst();
+         int slot = 0;
 
          if (previous != null) {
-             aslot += previous.slot + previous.type.metadata.size;
+             slot += previous.slot + previous.type.metadata.size;
          }
 
-         final Variable variable = new Variable(name, ptype, aslot);
-         variables.add(variable);
+         final Variable variable = new Variable(name, ptype, slot);
+         variables.push(variable);
 
          final int update = scopes.pop() + 1;
          scopes.push(update);

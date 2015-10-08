@@ -8,8 +8,10 @@ import java.util.Properties;
 
 public final class Painless {
     public static void main(String args[]) throws Exception {
+        Executable executable = compile("test", "string x = \"teststring\"; return x[4:-2];");
         //Executable executable = compile("test", "int x = 4, y = 1; x += y += 2; return x;");
-        //Executable executable = compile("test", "string x = \"\"; for (int y = 0; y < 10; ++y) x = x#y; return x;");
+        //Executable executable = compile("test", "string[][] x = string.makearray(1, 1); x[0][0] = \"\";" +
+        //        " for (int y = 0; y < 10; ++y) x[0][0]..=x[0][0]..y; return x[0][0];");
         //Executable executable = compile("test", "int y = this.x += 5; return y += --this.x;");
         //Executable executable = compile("test", "byte y = 1, x, z; x = ++y; z = y++; return x + z + y;");
         //Executable executable = compile("test", "int x = 0; while (true) {x = x + 1; if (x >= 5) continue; if (x <= 6) {break;}}");
@@ -31,7 +33,7 @@ public final class Painless {
         input.put("inner", inner);
 
         //for (int count = 0; count < 10; ++count) {
-            Executable executable = compile("test",
+            /*Executable executable = compile("test",
                     "\nbyte b = 0; list nums = input[\"inner\"][3L];\n" +
                             "int size = nums.size();\n" +
                             "char total;\n" +
@@ -41,7 +43,7 @@ public final class Painless {
                             "}\n" +
                             "\n" +
                             "return total;"
-            );
+            );*/
 
         //Executable executable = compile("test",
         //            "list nums = input[\"inner\"][\"list\"]; int size = nums.size(); nums[size] = \"idiot\"; return nums[size];"

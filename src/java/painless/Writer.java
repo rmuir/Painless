@@ -450,13 +450,8 @@ class Writer extends PainlessBaseVisitor<Void>{
         if (catemd.postConst != null) {
             writeConstant(catemd.postConst);
         } else {
-            final String internal = "java/lang/StringBuilder";
-            final String builder = "Ljava/lang/StringBuilder;";
-
             if (!strings) {
-                execute.visitTypeInsn(Opcodes.NEW, internal);
-                execute.visitInsn(Opcodes.DUP);
-                execute.visitMethodInsn(Opcodes.INVOKESPECIAL, internal, "<init>", "()V", false);
+                writeNewStrings();
             }
 
             final ExpressionContext exprctx0 = ctx.expression(0);
@@ -465,39 +460,8 @@ class Writer extends PainlessBaseVisitor<Void>{
             visit(exprctx0);
 
             if (adapter.getStrings(exprctx0)) {
-                switch (expremd0.to.metadata) {
-                    case VOID:
-                        throw new IllegalStateException(); // TODO: message
-                    case BOOL:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(Z)" + builder, false);
-                        break;
-                    case BYTE:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(B)" + builder, false);
-                        break;
-                    case SHORT:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(S)" + builder, false);
-                        break;
-                    case CHAR:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(C)" + builder, false);
-                        break;
-                    case INT:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(I)" + builder, false);
-                        break;
-                    case LONG:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(J)" + builder, false);
-                        break;
-                    case FLOAT:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(F)" + builder, false);
-                        break;
-                    case DOUBLE:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(D)" + builder, false);
-                        break;
-                    case STRING:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(Ljava/lang/String;)" + builder, false);
-                        break;
-                    default:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(Ljava/lang/Object;)" + builder, false);
-                }
+                writeAppendStrings(expremd0.to.metadata);
+                adapter.unmarkStrings(exprctx0);
             }
 
             final ExpressionContext exprctx1 = ctx.expression(1);
@@ -506,45 +470,14 @@ class Writer extends PainlessBaseVisitor<Void>{
             visit(exprctx1);
 
             if (adapter.getStrings(exprctx1)) {
-                switch (expremd1.to.metadata) {
-                    case VOID:
-                        throw new IllegalStateException(); // TODO: message
-                    case BOOL:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(Z)" + builder, false);
-                        break;
-                    case BYTE:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(B)" + builder, false);
-                        break;
-                    case SHORT:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(S)" + builder, false);
-                        break;
-                    case CHAR:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(C)" + builder, false);
-                        break;
-                    case INT:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(I)" + builder, false);
-                        break;
-                    case LONG:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(J)" + builder, false);
-                        break;
-                    case FLOAT:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(F)" + builder, false);
-                        break;
-                    case DOUBLE:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(D)" + builder, false);
-                        break;
-                    case STRING:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(Ljava/lang/String;)" + builder, false);
-                        break;
-                    default:
-                        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(Ljava/lang/Object;)" + builder, false);
-                }
+                writeAppendStrings(expremd1.to.metadata);
+                adapter.unmarkStrings(exprctx1);
             }
 
             if (strings) {
                 adapter.unmarkStrings(ctx);
             } else {
-                execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "toString", "()Ljava/lang/String;", false);
+                writeToStrings();
             }
 
             caster.checkWriteCast(execute, catemd);
@@ -1137,6 +1070,38 @@ class Writer extends PainlessBaseVisitor<Void>{
         } else {
             throw new IllegalStateException(); // TODO: message
         }
+    }
+
+    void writeNewStrings() {
+        execute.visitTypeInsn(Opcodes.NEW, "java/lang/StringBuilder");
+        execute.visitInsn(Opcodes.DUP);
+        execute.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/StringBuilder", "<init>", "()V", false);
+    }
+
+    void writeAppendStrings(final TypeMetadata metadata) {
+        final String internal = "java/lang/StringBuilder";
+        final String builder = "Ljava/lang/StringBuilder;";
+        final String string = "(Ljava/lang/String;)" + builder;
+        final String object = "Ljava/lang/Object;)" + builder;
+
+        switch (metadata) {
+            case BOOL:   execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(Z)" + builder, false); break;
+            case BYTE:   execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(B)" + builder, false); break;
+            case SHORT:  execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(S)" + builder, false); break;
+            case CHAR:   execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(C)" + builder, false); break;
+            case INT:    execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(I)" + builder, false); break;
+            case LONG:   execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(J)" + builder, false); break;
+            case FLOAT:  execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(F)" + builder, false); break;
+            case DOUBLE: execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(D)" + builder, false); break;
+            case STRING: execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", string, false);          break;
+            case OBJECT: execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", object, false);          break;
+            default:
+                throw new IllegalStateException(); // TODO: message
+        }
+    }
+
+    void writeToStrings() {
+        execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
     }
 
     void writeBinaryInstruction(final TypeMetadata metadata, final int token) {

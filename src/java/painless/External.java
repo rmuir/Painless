@@ -15,7 +15,6 @@ import static painless.Caster.*;
 import static painless.Default.*;
 import static painless.Definition.*;
 import static painless.PainlessParser.*;
-import static painless.Writer.*;
 
 class External {
     private abstract class Segment {
@@ -108,48 +107,33 @@ class External {
     }
 
     private class MethodSegment extends Segment {
-        private final Method method;
+        private final String internal;
+        private final String name;
+        private final String descriptor;
+        private final boolean statik;
+        private final boolean iface;
 
         MethodSegment(final Method method) {
-            this.method = method;
+            this.internal = method.owner.internal;
+            this.name = method.method.getName();
+            this.descriptor = method.descriptor;
+            statik = java.lang.reflect.Modifier.isStatic(method.method.getModifiers());
+            iface = java.lang.reflect.Modifier.isInterface(method.owner.clazz.getModifiers());
+        }
+
+        MethodSegment(final String internal, final Class clazz, final java.lang.reflect.Method method) {
+            this.internal = internal;
+            this.name = method.getName();
+            this.descriptor = org.objectweb.asm.commons.Method.getMethod(method).getDescriptor();
+            statik = java.lang.reflect.Modifier.isStatic(method.getModifiers());
+            iface = java.lang.reflect.Modifier.isInterface(clazz.getModifiers());
         }
 
         @Override
         void write() {
-            final String internal = method.owner.internal;
-            final String name = method.method.getName();
-            final String descriptor = method.descriptor;
-
-            if (java.lang.reflect.Modifier.isStatic(method.method.getModifiers())) {
-                visitor.visitMethodInsn(Opcodes.INVOKESTATIC, internal, name, descriptor, false);
-            } else if (java.lang.reflect.Modifier.isInterface(method.owner.clazz.getModifiers())) {
-                visitor.visitMethodInsn(Opcodes.INVOKEINTERFACE, internal, name, descriptor, true);
-            } else {
-                visitor.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, name, descriptor, false);
-            }
-        }
-    }
-
-    private class ShortcutSegment extends Segment {
-        private final Struct struct;
-        private final org.objectweb.asm.commons.Method method;
-        private final boolean statik;
-
-        ShortcutSegment(final Struct struct, final java.lang.reflect.Method method) {
-            this.struct = struct;
-            this.method = org.objectweb.asm.commons.Method.getMethod(method);
-            this.statik = java.lang.reflect.Modifier.isStatic(method.getModifiers());
-        }
-
-        @Override
-        void write() {
-            final String internal = struct.internal;
-            final String name = method.getName();
-            final String descriptor = method.getDescriptor();
-
             if (statik) {
                 visitor.visitMethodInsn(Opcodes.INVOKESTATIC, internal, name, descriptor, false);
-            } else if (java.lang.reflect.Modifier.isInterface(struct.clazz.getModifiers())) {
+            } else if (iface) {
                 visitor.visitMethodInsn(Opcodes.INVOKEINTERFACE, internal, name, descriptor, true);
             } else {
                 visitor.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, name, descriptor, false);
@@ -263,6 +247,49 @@ class External {
         }
     }
 
+    private class NewStringsSegment extends Segment {
+        private final ParseTree mark;
+
+        NewStringsSegment(final ParseTree mark) {
+            this.mark = mark;
+        }
+
+        @Override
+        void write() {
+            writer.writeNewStrings();
+            adapter.markStrings(mark);
+        }
+    }
+
+    private class AppendStringsSegment extends Segment {
+        private final ParseTree mark;
+        private final Type type;
+
+        AppendStringsSegment(final Type type) {
+            mark = null;
+            this.type = type;
+        }
+
+        AppendStringsSegment(final ParseTree mark, final Type type) {
+            this.mark = mark;
+            this.type = type;
+        }
+
+        @Override
+        void write() {
+            if (mark == null || adapter.getStrings(mark)) {
+                writer.writeAppendStrings(type.metadata);
+            }
+        }
+    }
+
+    private class ToStringsSegment extends Segment {
+        @Override
+        void write() {
+            writer.writeToStrings();
+        }
+    }
+
     private class InstructionSegment extends Segment {
         private final int instruction;
 
@@ -365,7 +392,7 @@ class External {
     void assignment(AssignmentContext ctx) {
         final ExpressionMetadata assignemd = adapter.getExpressionMetadata(ctx);
 
-        read = assignemd.to.metadata != TypeMetadata.VOID;
+        read = assignemd.promotion != null || assignemd.to.metadata != TypeMetadata.VOID;
         write = ctx.expression();
         
         if      (ctx.AMUL() != null) token = MUL;
@@ -380,9 +407,8 @@ class External {
         else if (ctx.AXOR() != null) token = BWXOR;
         else if (ctx.AOR()  != null) token = BWOR;
         else if (ctx.ACAT() != null) {
-            token = ACAT;
-
-
+            token = CAT;
+            segments.add(new NewStringsSegment(write));
         }
 
         start(ctx.extstart());
@@ -506,13 +532,16 @@ class External {
 
     public void brace(final ExtbraceContext ctx) {
         final ExpressionContext exprctx0 = ctx.expression(0);
+        final ExpressionContext exprctx1 = ctx.expression(1);
 
         final ExtdotContext dotctx = ctx.extdot();
         final ExtbraceContext bracectx = ctx.extbrace();
 
         final boolean last = prec == 0 && dotctx == null && bracectx == null;
 
-        if (current.dimensions > 0) {
+        if (exprctx1 != null) {
+            substring(exprctx0, exprctx1, last);
+        } else if (current.dimensions > 0) {
             array(exprctx0, last);
         } else {
             shortcut(exprctx0, last);
@@ -599,7 +628,33 @@ class External {
         if (last && write != null) {
             final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
 
-            if (token > 0) {
+            if (token == CAT) {
+                writeemd.promotion = caster.equality;
+                analyzer.visit(write);
+                writeemd.to = writeemd.from;
+                caster.markCast(writeemd);
+
+                final Cast cast = caster.getLegalCast(standard.stringType, type, false, false);
+
+                segments.add(new VariableSegment(variable, false));
+                segments.add(new AppendStringsSegment(type));
+                segments.add(new NodeSegment(write));
+                segments.add(new AppendStringsSegment(write, writeemd.to));
+                segments.add(new ToStringsSegment());
+                segments.add(new CastSegment(cast));
+
+                if (read) {
+                    if (type.metadata.size == 1) {
+                        segments.add(new InstructionSegment(Opcodes.DUP));
+                    } else if (type.metadata.size == 2) {
+                        segments.add(new InstructionSegment(Opcodes.DUP2));
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+                }
+
+                segments.add(new VariableSegment(variable, true));
+            } else if (token > 0) {
                 final boolean increment = type.metadata == TypeMetadata.INT && (token == ADD || token == SUB);
                 current = type;
                 final Cast[] casts = toNumericCasts();
@@ -701,7 +756,34 @@ class External {
                 final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
                 final Type type = field.type;
 
-                if (token > 0) {
+                if (token == CAT) {
+                    writeemd.promotion = caster.equality;
+                    analyzer.visit(write);
+                    writeemd.to = writeemd.from;
+                    caster.markCast(writeemd);
+
+                    final Cast cast = caster.getLegalCast(standard.stringType, type, false, false);
+
+                    segments.add(new InstructionSegment(Opcodes.DUP_X1));
+                    segments.add(new FieldSegment(field, false));
+                    segments.add(new AppendStringsSegment(type));
+                    segments.add(new NodeSegment(write));
+                    segments.add(new AppendStringsSegment(write, writeemd.to));
+                    segments.add(new ToStringsSegment());
+                    segments.add(new CastSegment(cast));
+
+                    if (read) {
+                        if (type.metadata.size == 1) {
+                            segments.add(new InstructionSegment(Opcodes.DUP_X1));
+                        } else if (type.metadata.size == 2) {
+                            segments.add(new InstructionSegment(Opcodes.DUP2_X1));
+                        } else {
+                            throw new IllegalStateException(); // TODO: message
+                        }
+                    }
+
+                    segments.add(new FieldSegment(field, true));
+                } else if (token > 0) {
                     current = type;
                     final Cast[] casts = toNumericCasts();
                     writeemd.to = current;
@@ -846,6 +928,40 @@ class External {
         segments.add(segment1);
     }
 
+    private void substring(final ExpressionContext exprctx0, final ExpressionContext exprctx1, final boolean last) {
+        if (last && write != null) {
+            throw new IllegalArgumentException(); // TODO: message
+        } else if (!read) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final Cast cast0 = caster.getLegalCast(current, standard.stringType, false, false);
+        final Cast cast1 = caster.getLegalCast(standard.intType, standard.stringType, false, false);
+
+        segments.add(new CastSegment(cast0));
+
+        final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
+        expremd0.to = standard.intType;
+        analyzer.visit(exprctx0);
+        segments.add(new NodeSegment(exprctx0));
+
+        final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
+        expremd1.to = standard.intType;
+        analyzer.visit(exprctx1);
+        segments.add(new NodeSegment(exprctx1));
+
+        java.lang.reflect.Method method;
+
+        try {
+            method = Utility.class.getMethod("substring", String.class, Integer.class, Integer.class);
+        } catch (NoSuchMethodException exception) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        segments.add(new MethodSegment("painless/Utility", Utility.class, method));
+        current = standard.stringType;
+    }
+
     private void array(final ExpressionContext exprctx, final boolean last) {
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = standard.intType;
@@ -857,7 +973,34 @@ class External {
         if (last && write != null) {
             final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
 
-            if (token > 0) {
+            if (token == CAT) {
+                writeemd.promotion = caster.equality;
+                analyzer.visit(write);
+                writeemd.to = writeemd.from;
+                caster.markCast(writeemd);
+
+                final Cast cast = caster.getLegalCast(standard.stringType, type, false, false);
+
+                segments.add(new InstructionSegment(Opcodes.DUP2_X1));
+                segments.add(new ArraySegment(type, false));
+                segments.add(new AppendStringsSegment(type));
+                segments.add(new NodeSegment(write));
+                segments.add(new AppendStringsSegment(write, writeemd.to));
+                segments.add(new ToStringsSegment());
+                segments.add(new CastSegment(cast));
+
+                if (read) {
+                    if (type.metadata.size == 1) {
+                        segments.add(new InstructionSegment(Opcodes.DUP_X2));
+                    } else if (type.metadata.size == 2) {
+                        segments.add(new InstructionSegment(Opcodes.DUP2_X2));
+                    } else {
+                        throw new IllegalStateException(); // TODO: message
+                    }
+                }
+
+                segments.add(new ArraySegment(type, true));
+            } else if (token > 0) {
                 current = type;
                 final Cast[] casts = toNumericCasts();
                 writeemd.to = current;
@@ -932,7 +1075,7 @@ class External {
         final Cast cast = caster.getLegalCast(current, list ? standard.listType : standard.mapType, true, true);
         segments.add(new CastSegment(cast));
         current = cast.to;
-
+        final Struct struct = current.struct;
         segments.add(new NodeSegment(exprctx));
 
         if (list) {
@@ -941,7 +1084,6 @@ class External {
                     throw new IllegalArgumentException(); // TODO: message
                 }
 
-                final Struct struct = current.struct;
                 java.lang.reflect.Method method;
 
                 try {
@@ -962,7 +1104,7 @@ class External {
                     current = standard.voidType;
                 }
 
-                segments.add(new ShortcutSegment(struct, method));
+                segments.add(new MethodSegment(struct.internal, struct.clazz, method));
             } else {
                 java.lang.reflect.Method method;
 
@@ -972,7 +1114,7 @@ class External {
                     throw new IllegalStateException(); // TODO: message
                 }
 
-                segments.add(new ShortcutSegment(current.struct, method));
+                segments.add(new MethodSegment(struct.internal, struct.clazz, method));
 
                 if (!read) {
                     segments.add(new InstructionSegment(Opcodes.POP));
@@ -1000,7 +1142,7 @@ class External {
                 analyzer.visit(write);
                 segments.add(new NodeSegment(write));
 
-                segments.add(new ShortcutSegment(current.struct, method));
+                segments.add(new MethodSegment(struct.internal, struct.clazz, method));
 
                 if (!read) {
                     segments.add(new InstructionSegment(Opcodes.POP));
@@ -1017,7 +1159,7 @@ class External {
                     throw new IllegalStateException(); // TODO: message
                 }
 
-                segments.add(new ShortcutSegment(current.struct, method));
+                segments.add(new MethodSegment(struct.internal, struct.clazz, method));
                 current = standard.objectType;
             }
         }

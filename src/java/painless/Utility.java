@@ -1,179 +1,200 @@
 package painless;
 
 public class Utility {
-    public static boolean numberToBoolean(Number value) {
+    public static boolean numberToBoolean(final Number value) {
         return value.longValue() != 0;
     }
 
-    public static char numberToChar(Number value) {
+    public static char numberToChar(final Number value) {
         return (char)value.longValue();
     }
 
-    public static byte booleanToByte(boolean value) {
+    public static byte booleanToByte(final boolean value) {
         return (byte)(value ? 1 : 0);
     }
 
-    public static short booleanToShort(boolean value) {
+    public static short booleanToShort(final boolean value) {
         return (short)(value ? 1 : 0);
     }
 
-    public static char booleanToChar(boolean value) {
+    public static char booleanToChar(final boolean value) {
         return (char)(value ? 1 : 0);
     }
 
-    public static int booleanToInt(boolean value) {
+    public static int booleanToInt(final boolean value) {
         return value ? 1 : 0;
     }
 
-    public static long booleanToLong(boolean value) {
+    public static long booleanToLong(final boolean value) {
         return value ? 1 : 0;
     }
 
-    public static float booleanToFloat(boolean value) {
+    public static float booleanToFloat(final boolean value) {
         return value ? 1 : 0;
     }
 
-    public static double booleanToDouble(boolean value) {
+    public static double booleanToDouble(final boolean value) {
         return value ? 1 : 0;
     }
 
-    public static Integer booleanToInteger(boolean value) {
+    public static Integer booleanToInteger(final boolean value) {
         return value ? 1 : 0;
     }
 
-    public static byte booleanToByte(Boolean value) {
+    public static byte booleanToByte(final Boolean value) {
         return (byte)(value ? 1 : 0);
     }
 
-    public static short booleanToShort(Boolean value) {
+    public static short booleanToShort(final Boolean value) {
         return (short)(value ? 1 : 0);
     }
 
-    public static char booleanToCharacter(Boolean value) {
+    public static char booleanToCharacter(final Boolean value) {
         return (char)(value ? 1 : 0);
     }
 
-    public static int booleanToInteger(Boolean value) {
+    public static int booleanToInteger(final Boolean value) {
         return value ? 1 : 0;
     }
 
-    public static long booleanToLong(Boolean value) {
+    public static long booleanToLong(final Boolean value) {
         return value ? 1 : 0;
     }
 
-    public static float booleanToFloat(Boolean value) {
+    public static float booleanToFloat(final Boolean value) {
         return value ? 1 : 0;
     }
 
-    public static double booleanToDouble(Boolean value) {
+    public static double booleanToDouble(final Boolean value) {
         return value ? 1 : 0;
     }
 
-    public static boolean byteToBoolean(byte value) {
+    public static boolean byteToBoolean(final byte value) {
         return value != 0;
     }
 
-    public static boolean byteToBoolean(Byte value) {
+    public static boolean byteToBoolean(final Byte value) {
         return value != 0;
     }
 
-    public static char byteToChar(Byte value) {
+    public static char byteToChar(final Byte value) {
         return (char)value.byteValue();
     }
 
-    public static boolean shortToBoolean(short value) {
+    public static boolean shortToBoolean(final short value) {
         return value != 0;
     }
 
-    public static boolean shortToBoolean(Short value) {
+    public static boolean shortToBoolean(final Short value) {
         return value != 0;
     }
 
-    public static char shortToChar(Short value) {
+    public static char shortToChar(final Short value) {
         return (char)value.shortValue();
     }
 
-    public static boolean charToBoolean(char value) {
+    public static boolean charToBoolean(final char value) {
         return value != 0;
     }
 
-    public static Integer charToInteger(char value) {
+    public static Integer charToInteger(final char value) {
         return (int)value;
     }
 
-    public static boolean characterToBoolean(Character value) {
+    public static boolean characterToBoolean(final Character value) {
         return value != 0;
     }
 
-    public static byte characterToByte(Character value) {
+    public static byte characterToByte(final Character value) {
         return (byte)value.charValue();
     }
 
-    public static short characterToShort(Character value) {
+    public static short characterToShort(final Character value) {
         return (short)value.charValue();
     }
 
-    public static int characterToInt(Character value) {
+    public static int characterToInt(final Character value) {
         return (int)value;
     }
 
-    public static long characterToLong(Character value) {
+    public static long characterToLong(final Character value) {
         return (long)value;
     }
 
-    public static float characterToFloat(Character value) {
+    public static float characterToFloat(final Character value) {
         return (float)value;
     }
 
-    public static double characterToDouble(Character value) {
+    public static double characterToDouble(final Character value) {
         return (double)value;
     }
 
-    public static boolean intToBoolean(int value) {
+    public static boolean intToBoolean(final int value) {
         return value != 0;
     }
 
-    public static boolean integerToBoolean(Integer value) {
+    public static boolean integerToBoolean(final Integer value) {
         return value != 0;
     }
 
-    public static char integerToChar(Integer value) {
+    public static char integerToChar(final Integer value) {
         return (char)value.intValue();
     }
 
-    public static boolean longToBoolean(long value) {
+    public static boolean longToBoolean(final long value) {
         return value != 0;
     }
 
-    public static boolean longToBoolean(Long value) {
+    public static boolean longToBoolean(final Long value) {
         return value != 0;
     }
 
-    public static char longToChar(Long value) {
+    public static char longToChar(final Long value) {
         return (char)value.longValue();
     }
 
-    public static boolean floatToBoolean(float value) {
+    public static boolean floatToBoolean(final float value) {
         return value != 0;
     }
 
-    public static boolean floatToBoolean(Float value) {
+    public static boolean floatToBoolean(final Float value) {
         return value != 0;
     }
 
-    public static char floatToChar(Float value) {
+    public static char floatToChar(final Float value) {
         return (char)value.floatValue();
     }
 
-    public static boolean doubleToBoolean(double value) {
+    public static boolean doubleToBoolean(final double value) {
         return value != 0;
     }
 
-    public static boolean doubleToBoolean(Double value) {
+    public static boolean doubleToBoolean(final Double value) {
         return value != 0;
     }
 
-    public static char doubleToChar(Double value) {
+    public static char doubleToChar(final Double value) {
         return (char)value.doubleValue();
+    }
+
+    public static String substring(final String string, final int begin, final int end) {
+        final int length = string.length();
+        final int localBegin = begin == null ? 0 : begin;
+
+        if (localBegin < 0 || localBegin > length) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        int localEnd = end == null ? string.length() : end;
+
+        if (localEnd < 0) {
+            localEnd = length - localBegin;
+        }
+
+        if (localEnd < 0 || localEnd > length) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        return string.substring(localBegin, localEnd);
     }
 }

@@ -674,7 +674,7 @@ class Analyzer extends PainlessBaseVisitor<Void> {
         final ExpressionMetadata unaryemd = adapter.getExpressionMetadata(ctx);
 
         final ExpressionContext exprctx = ctx.expression();
-        final ExpressionMetadata expremd = adapter.getExpressionMetadata(exprctx);
+        final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
 
         if (ctx.BOOLNOT() != null) {
             expremd.to = standard.boolType;
