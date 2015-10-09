@@ -204,6 +204,16 @@ class Definition {
         }
     }
 
+    static class Runtime {
+        final Struct struct;
+        final int order;
+
+        private Runtime(final Struct struct, final int order) {
+            this.struct = struct;
+            this.order = order;
+        }
+    }
+
     static class Cast {
         final Type from;
         final Type to;
@@ -286,7 +296,7 @@ class Definition {
                                 key.startsWith("function")    || key.startsWith("method")  ||
                                 key.startsWith("static")      || key.startsWith("member")  ||
                                 key.startsWith("transform")   || key.startsWith("numeric") ||
-                                key.startsWith("upcast")     || key.startsWith("disallow");
+                                key.startsWith("upcast")      || key.startsWith("runtime");
 
                 if (!valid) {
                     throw new IllegalArgumentException(); // TODO: message
@@ -307,6 +317,8 @@ class Definition {
                 loadFieldFromProperty(definition, property, true);
             } else if (key.startsWith("member")) {
                 loadFieldFromProperty(definition, property, false);
+            } else if (key.startsWith("runtime")) {
+                loadRuntimeFromProperty(definition, property);
             }
         }
 
@@ -319,8 +331,6 @@ class Definition {
                 loadNumericFromProperty(definition, property);
             } else if (key.startsWith("upcast")) {
                 loadUpcastFromProperty(definition, property);
-            } else if (key.startsWith("disallow")) {
-                loadDisallowFromProperty(definition, property);
             }
         }
 
@@ -464,17 +474,24 @@ class Definition {
         loadUpcast(definition, fromstr, tostr);
     }
 
-    private static void loadDisallowFromProperty(final Definition definition, final String property) {
+    private static void loadRuntimeFromProperty(final Definition definition, final String property) {
         final String[] split = property.split("\\s+");
 
         if (split.length != 2) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        final String fromstr = split[0];
-        final String tostr = split[1];
+        final String structstr = split[0];
+        final String orderstr = split[1];
+        int order;
 
-        loadDisallow(definition, fromstr, tostr);
+        try {
+            order = Integer.parseInt(split[1]);
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        loadRuntime(definition, structstr, order);
     }
 
     private static void loadStruct(final Definition definition, final String namestr,
@@ -707,10 +724,6 @@ class Definition {
 
         final Cast cast = new Cast(from, to);
 
-        if (definition.disallowed.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
         if (definition.numerics.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
@@ -826,10 +839,6 @@ class Definition {
 
         final Cast cast = new Cast(from, to);
 
-        if (definition.disallowed.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
         if (definition.numerics.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
@@ -867,10 +876,6 @@ class Definition {
 
         final Cast cast = new Cast(from, to);
 
-        if (definition.disallowed.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
         if (definition.numerics.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
@@ -896,33 +901,28 @@ class Definition {
         definition.upcasts.add(cast);
     }
 
-    private static void loadDisallow(final Definition definition, final String fromstr, final String tostr) {
-        final Type from = getTypeFromCanonicalName(definition, fromstr);
-        final Type to = getTypeFromCanonicalName(definition, tostr);
+    private static void loadRuntime(final Definition definition, final String structstr, final int order) {
+        final Struct struct = definition.structs.get(structstr);
 
-        if (from.equals(to)) {
+        if (struct == null) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        final Cast cast = new Cast(from, to);
-
-        if (definition.disallowed.contains(cast)) {
+        if (order < 0) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        if (definition.upcasts.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
+        for (Runtime runtime : definition.runtimes) {
+            if (runtime.struct.clazz.equals(struct.clazz)) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            if (runtime.order == order) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
         }
 
-        if (definition.explicits.containsKey(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        if (definition.implicits.containsKey(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        definition.disallowed.add(cast);
+        definition.runtimes.add(new Runtime(struct, order));
     }
 
     private static String[][] parseArgumentsStr(final String argumentstr) {
@@ -1199,10 +1199,6 @@ class Definition {
     private static void validateArgument(final Definition definition, final Type argument, final Type original) {
         final Cast pcast = new Cast(argument, original);
 
-        if (definition.disallowed.contains(pcast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
         if (!definition.implicits.containsKey(pcast)) {
             try {
                 argument.clazz.asSubclass(original.clazz);
@@ -1213,21 +1209,21 @@ class Definition {
     }
 
     final Map<String, Struct> structs;
+    final Set<Runtime> runtimes;
 
     final Map<Cast, Transform> explicits;
     final Map<Cast, Transform> implicits;
     final Set<Cast> numerics;
     final Set<Cast> upcasts;
-    final Set<Cast> disallowed;
 
     private Definition() {
         structs = new HashMap<>();
+        runtimes = new HashSet<>();
 
         explicits = new HashMap<>();
         implicits = new HashMap<>();
         numerics = new HashSet<>();
         upcasts = new HashSet<>();
-        disallowed = new HashSet<>();
     }
 
     private Definition(Definition definition) {
@@ -1238,11 +1234,11 @@ class Definition {
         }
 
         structs = Collections.unmodifiableMap(ummodifiable);
+        runtimes = Collections.unmodifiableSet(definition.runtimes);
 
         explicits = Collections.unmodifiableMap(definition.explicits);
         implicits = Collections.unmodifiableMap(definition.implicits);
         numerics = Collections.unmodifiableSet(definition.numerics);
         upcasts = Collections.unmodifiableSet(definition.upcasts);
-        disallowed = Collections.unmodifiableSet(definition.disallowed);
     }
 }

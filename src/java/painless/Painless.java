@@ -8,7 +8,7 @@ import java.util.Properties;
 
 public final class Painless {
     public static void main(String args[]) throws Exception {
-        Executable executable = compile("test", "string x = \"teststring\"; return x[2:];");
+        //Executable executable = compile("test", "string x = \"teststring\"; return x[2:];");
         //Executable executable = compile("test", "int x = 4, y = 1; x += y += 2; return x;");
         //Executable executable = compile("test", "string[][] x = string.makearray(1, 1); x[0][0] = \"\";" +
         //        " for (int y = 0; y < 10; ++y) x[0][0]..=x[0][0]..y; return x[0][0];");
@@ -23,7 +23,7 @@ public final class Painless {
         Map<String, Object> input = new HashMap<>();
         Map<Object, Object> inner = new HashMap<>();
         List<Object> list = new ArrayList<>();
-        inner.put(3L, list);
+        inner.put("list", list);
         list.add(1);
         list.add(2);
         list.add(-3L);
@@ -33,17 +33,17 @@ public final class Painless {
         input.put("inner", inner);
 
         //for (int count = 0; count < 10; ++count) {
-            /*Executable executable = compile("test",
-                    "\nbyte b = 0; list nums = input[\"inner\"][3L];\n" +
+            Executable executable = compile("test",
+                    "\nbyte b = 0; list nums = input[\"inner\"][\"list\"];\n" +
                             "int size = nums.size();\n" +
-                            "char total;\n" +
+                            "byte total;\n" +
                             "\n" +
                             "for (int count = 0; count < size; ++count) {\n" +
-                            "    total += (char)(int)nums[count];\n" +
+                            "    total += nums[count].longValue();\n" +
                             "}\n" +
                             "\n" +
                             "return total;"
-            );*/
+            );
 
         //Executable executable = compile("test",
         //            "list nums = input[\"inner\"][\"list\"]; int size = nums.size(); nums[size] = \"idiot\"; return nums[size];"
