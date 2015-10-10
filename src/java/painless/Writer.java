@@ -70,13 +70,23 @@ class Writer extends PainlessBaseVisitor<Void>{
 
     private void writeExecute() {
         final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
-        final String aname = "execute";
-        final String adescriptor = "(Ljava/util/Map;)Ljava/lang/Object;";
+        final String name = "execute";
+        final String descriptor = "(Ljava/util/Map;)Ljava/lang/Object;";
         final String signature = "(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)Ljava/lang/Object;";
 
-        execute = writer.visitMethod(access, aname, adescriptor, signature, null);
+        execute = writer.visitMethod(access, name, descriptor, signature, null);
         execute.visitCode();
-        visit(root);
+
+        execute.visitTypeInsn(Opcodes.NEW, "java/lang/Long");
+        execute.visitInsn(Opcodes.DUP);
+        execute.visitInsn(Opcodes.LCONST_1);
+        execute.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Long", "<init>", "(J)V", false);
+        Handle handle = new Handle(Opcodes.H_INVOKESTATIC, "painless/Runtime", "bootstrap",
+                "([Ljava/lang/Object;)Ljava/lang/invoke/CallSite;");
+        execute.visitInvokeDynamicInsn("test", "(Ljava/lang/Object;)Ljava/lang/Object;", handle);
+        execute.visitInsn(Opcodes.ARETURN);
+
+        //visit(root);
         execute.visitMaxs(0, 0);
         execute.visitEnd();
     }
