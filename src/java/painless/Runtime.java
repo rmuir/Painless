@@ -1,14 +1,14 @@
 package painless;
 
-import java.lang.invoke.MethodType;
+import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
 
 import static painless.Definition.*;
 
 public class Runtime {
-    private static Map<Class, Struct> classes;
-    private static Struct[] structs;
+    private final Map<Class, Struct> classes;
+    private final Struct[] structs;
 
     Runtime(final Definition definition) {
         final int length = definition.runtimes.size();
@@ -27,41 +27,49 @@ public class Runtime {
         }
     }
 
-    /*public Object invokeMethod(final Object object, final String name, final Object[] objects) {
-        final Struct struct = getStruct(object.getClass());
-        final Method method = struct.methods.get(name);
+    public Object invokeMethod(final Object object, final String name, final Object[] objects) {
+        final Method method = getMethod(object.getClass(), name);
 
         if (method == null) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        //cast objects to method parameters
-
-        return null;
+        try {
+            return method.method.invoke(object, objects);
+        } catch (InvocationTargetException | IllegalAccessException exception) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
     }
 
     public Object readField(final Object object, final String name) {
-        final Struct struct = getStruct(object.getClass());
-
         return null;
     }
 
-    private Struct getStruct(final Class clazz) {
-        final Struct struct = classes.get(clazz);
+    public Object readArray(final Object object, final int index) {
+        return null;
+    }
 
-        if (struct == null) {
+    private Method getMethod(final Class clazz, final String name) {
+        final Struct struct = classes.get(clazz);
+        Method method = struct == null ? null : struct.methods.get(name);
+
+        if (method == null) {
             for (final Struct local : structs) {
                 try {
                     clazz.asSubclass(local.clazz);
-                    return local;
+                    method = local.methods.get(name);
+
+                    if (method != null) {
+                        return method;
+                    }
                 } catch (ClassCastException exception) {
                     // Do nothing.
                 }
             }
         } else {
-            return struct;
+            return method;
         }
 
         throw new ClassCastException(); // TODO: message
-    }*/
+    }
 }

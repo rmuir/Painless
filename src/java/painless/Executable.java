@@ -6,9 +6,12 @@ public abstract class Executable {
     private final String name;
     private final String source;
 
-    public Executable(String name, String source) {
+    public final Runtime runtime;
+
+    public Executable(final String name, final String source, final Runtime runtime) {
         this.name = name;
         this.source = source;
+        this.runtime = runtime;
     }
 
     public String getName() {
@@ -18,8 +21,6 @@ public abstract class Executable {
     public String getSource() {
         return source;
     }
-
-    public String str;
 
     public abstract Object execute(Map<String, Object> input);
 }

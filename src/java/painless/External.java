@@ -317,6 +317,19 @@ class External {
         }
     }
 
+    private class ConstantSegment extends Segment {
+        private final Object constant;
+
+        ConstantSegment(final Object constant) {
+            this.constant = constant;
+        }
+
+        @Override
+        void write() {
+            writer.writeConstant(constant);
+        }
+    }
+
     private final Adapter adapter;
     private final Definition definition;
     private final Standard standard;
@@ -858,9 +871,10 @@ class External {
     private void method(final String name, final List<ExpressionContext> arguments, final boolean last) {
         final Struct struct = current.struct;
 
-        Type[] types;
+        Type[] types = null;
         Segment segment0 = null;
         Segment segment1;
+        boolean runtime = false;
 
         if (current.dimensions > 0) {
             throw new IllegalArgumentException(); // TODO: message
@@ -913,6 +927,35 @@ class External {
                 }
 
                 segment1 = new MethodSegment(method);
+            } else if (!statik) {
+                types = new Type[arguments.size()];
+                Arrays.fill(types, standard.objectType);
+
+                segments.addFirst(new FieldSegment(standard.execType.struct.members.get("runtime"), false));
+                segments.addFirst(new VariableSegment(adapter.getVariable("this"), false));
+                segments.add(new ConstantSegment(name));
+                segments.add(new ConstantSegment(0));//arguments.size()));
+                segments.add(new MakeSegment(standard.objectType, 1));
+
+                if (!read) {
+                    segment0 = new InstructionSegment(Opcodes.POP);
+                    current = standard.voidType;
+                } else {
+                    current = standard.objectType;
+                }
+
+                java.lang.reflect.Method invoke;
+
+                try {
+                    invoke = Runtime.class.getMethod("invokeMethod", Object.class, String.class, Object[].class);
+                } catch (NoSuchMethodException exception) {
+                    throw new IllegalStateException(); // TODO: message
+                }
+
+                segment1 = new MethodSegment("painless/Runtime", Runtime.class, invoke);
+
+                statement = true;
+                runtime = true;
             } else {
                 throw new IllegalArgumentException(); // TODO: message
             }
@@ -928,7 +971,14 @@ class External {
             expremd.to = types[argument];
             analyzer.visit(exprctx);
 
-            segments.add(new NodeSegment(exprctx));
+            if (runtime) {
+                //segments.add(new InstructionSegment(Opcodes.DUP));
+                //segments.add(new ConstantSegment(argument));
+                segments.add(new NodeSegment(exprctx));
+                //segments.add(new ArraySegment(standard.objectType, true));
+            } else {
+                segments.add(new NodeSegment(exprctx));
+            }
         }
 
         if (segment0 != null) {

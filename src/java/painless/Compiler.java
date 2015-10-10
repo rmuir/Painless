@@ -29,6 +29,7 @@ final class Compiler {
         final Definition definition = properties == null ? DEFAULT_DEFINITION : loadFromProperties(properties);
         final Standard standard = properties == null ? DEFAULT_STANDARD : new Standard(definition);
         final Caster caster = properties == null ? DEFAULT_CASTER : new Caster(definition, standard);
+        final Runtime runtime = DEFAULT_RUNTIME; // TEST
 
         long end = System.currentTimeMillis() - start;
         System.out.println("definition: " + end);
@@ -59,7 +60,7 @@ final class Compiler {
         System.out.println("write: " + end);
         start = System.currentTimeMillis();
 
-        final Executable executable = createExecutable(name, source, parent, bytes);
+        final Executable executable = createExecutable(name, source, runtime, parent, bytes);
 
         end = System.currentTimeMillis() - start;
         System.out.println("create: " + end);
@@ -79,7 +80,7 @@ final class Compiler {
         return root;
     }
 
-    private static Executable createExecutable(String name, String source, ClassLoader parent, byte[] bytes) {
+    private static Executable createExecutable(String name, String source, Runtime runtime, ClassLoader parent, byte[] bytes) {
         try {
             try {
                 FileOutputStream f = new FileOutputStream(new File("/Users/jdconrad/lang/generated/out.class"), false);
@@ -92,9 +93,9 @@ final class Compiler {
             final Loader loader = new Loader(parent);
             final Class<? extends Executable> clazz = loader.define(Writer.CLASS_NAME, bytes);
             final java.lang.reflect.Constructor<? extends Executable> constructor =
-                    clazz.getConstructor(String.class, String.class);
+                    clazz.getConstructor(String.class, String.class, Runtime.class);
 
-            return constructor.newInstance(name, source);
+            return constructor.newInstance(name, source, runtime);
         } catch (ReflectiveOperationException exception) {
             throw new IllegalStateException(exception);
         }

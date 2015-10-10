@@ -53,15 +53,16 @@ class Writer extends PainlessBaseVisitor<Void>{
 
     private void writeConstructor() {
         final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
-        final String aname = "<init>";
-        final String adescriptor = "(Ljava/lang/String;Ljava/lang/String;)V";
+        final String name = "<init>";
+        final String descriptor = "(Ljava/lang/String;Ljava/lang/String;Lpainless/Runtime;)V";
 
-        final MethodVisitor constructor = writer.visitMethod(access, aname, adescriptor, null, null);
+        final MethodVisitor constructor = writer.visitMethod(access, name, descriptor, null, null);
         constructor.visitCode();
         constructor.visitVarInsn(Opcodes.ALOAD, 0);
         constructor.visitVarInsn(Opcodes.ALOAD, 1);
         constructor.visitVarInsn(Opcodes.ALOAD, 2);
-        constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, BASE_CLASS_INTERNAL, aname, adescriptor, false);
+        constructor.visitVarInsn(Opcodes.ALOAD, 3);
+        constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, BASE_CLASS_INTERNAL, name, descriptor, false);
         constructor.visitInsn(Opcodes.RETURN);
         constructor.visitMaxs(0, 0);
         constructor.visitEnd();

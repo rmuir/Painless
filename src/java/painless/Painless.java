@@ -20,6 +20,7 @@ public final class Painless {
         //Executable executable = compile("test", "long[][] x = long.makearray(1, 1); long y; y = x[0][0] = 5; return y;");
         //Executable executable = compile("test", "bool b; b = false; if (b) return null; else return 5;");
         //Executable executable = new Painless().compile("test", "input.get(\"test\");");
+        //Executable executable = new Painless().compile("test", "long y = 5; object x = y; return x.unbox();");
         Map<String, Object> input = new HashMap<>();
         Map<Object, Object> inner = new HashMap<>();
         List<Object> list = new ArrayList<>();
@@ -28,18 +29,18 @@ public final class Painless {
         list.add(2);
         list.add(-3L);
         list.add(4);
-        list.add(-Short.MAX_VALUE);
+        list.add(2);
         list.add(6);
         input.put("inner", inner);
 
-        //for (int count = 0; count < 10; ++count) {
+        for (int count = 0; count < 10; ++count) {
             Executable executable = compile("test",
-                    "\nbyte b = 0; list nums = input[\"inner\"][\"list\"];\n" +
-                            "int size = nums.size();\n" +
-                            "byte total;\n" +
+                    "\nobject nums = input[\"inner\"][\"list\"];\n" +
+                            "object size = nums.size();\n" +
+                            "object total = 0;\n" +
                             "\n" +
-                            "for (int count = 0; count < size; ++count) {\n" +
-                            "    total += nums[count].longValue();\n" +
+                            "for (object count = 0; count < size; ++count) {\n" +
+                            "    total += nums[count].int();\n" +
                             "}\n" +
                             "\n" +
                             "return total;"
@@ -59,7 +60,7 @@ public final class Painless {
             } else {
                 System.out.println("NULL");
             }
-        //}
+        }
     }
 
     public static Executable compile(String name, String source) {

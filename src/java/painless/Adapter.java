@@ -109,6 +109,7 @@ class Adapter {
     final Definition definition;
     final Standard standard;
     final Caster caster;
+    final Runtime runtime;
     final String source;
     final ParseTree root;
 
@@ -128,6 +129,7 @@ class Adapter {
         this.definition = definition;
         this.standard = standard;
         this.caster = caster;
+        this.runtime = new Runtime(definition); // TEST
         this.source = source;
         this.root = root;
 

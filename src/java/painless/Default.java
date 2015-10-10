@@ -145,11 +145,13 @@ public class Default {
     final static Definition DEFAULT_DEFINITION;
     final static Standard DEFAULT_STANDARD;
     final static Caster DEFAULT_CASTER;
+    final static Runtime DEFAULT_RUNTIME;
 
     static {
         DEFAULT_DEFINITION = loadFromProperties();
         DEFAULT_STANDARD = new Standard(DEFAULT_DEFINITION);
         DEFAULT_CASTER = new Caster(DEFAULT_DEFINITION, DEFAULT_STANDARD);
+        DEFAULT_RUNTIME = new Runtime(DEFAULT_DEFINITION);
     }
 
     private Default() {}
