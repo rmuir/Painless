@@ -49,7 +49,7 @@ class Caster {
 
             if (eq0 || eq1) {
                 try {
-                    caster.getLegalCast(eq0 ? from1 : from0, to, false, false);
+                    caster.getLegalCast(eq0 ? from1 : from0, to, false);
 
                     return to;
                 } catch (ClassCastException exception) {
@@ -83,7 +83,7 @@ class Caster {
 
             if (!eq0) {
                 try {
-                    caster.getLegalCast(from0, to, false, false);
+                    caster.getLegalCast(from0, to, false);
                 } catch (ClassCastException exception) {
                     castable = false;
                 }
@@ -91,7 +91,7 @@ class Caster {
 
             if (!eq1) {
                 try {
-                    caster.getLegalCast(from1, to, false, false);
+                    caster.getLegalCast(from1, to, false);
                 } catch (ClassCastException exception) {
                     castable = false;
                 }
@@ -203,11 +203,11 @@ class Caster {
                 }
 
                 if (cast0 != null && cast1 != null) {
-                    if (!definition.disallowed.contains(cast0) && definition.implicits.containsKey(cast0)) {
+                    if (definition.implicits.containsKey(cast0)) {
                         return cast0.to;
                     }
 
-                    if (!definition.disallowed.contains(cast1) && definition.implicits.containsKey(cast1)) {
+                    if (definition.implicits.containsKey(cast1)) {
                         return cast1.to;
                     }
                 }
@@ -217,22 +217,16 @@ class Caster {
 
             try {
                 from0.clazz.asSubclass(from1.clazz);
-                final Cast cast = new Cast(from0, from1);
 
-                if (!definition.disallowed.contains(cast)) {
-                    return from1;
-                }
+                return from1;
             } catch (ClassCastException cce0) {
                 // Do nothing.
             }
 
             try {
                 from1.clazz.asSubclass(from1.clazz);
-                final Cast cast = new Cast(from1, from0);
 
-                if (!definition.disallowed.contains(cast)) {
-                    return from0;
-                }
+                return from0;
             } catch (ClassCastException cce0) {
                 // Do nothing.
             }
@@ -293,7 +287,7 @@ class Caster {
         }
 
         if (emd.to != null) {
-            emd.cast = getLegalCast(emd.from, emd.to, emd.explicit, false);
+            emd.cast = getLegalCast(emd.from, emd.to, emd.explicit);
 
             if (emd.preConst != null && emd.to.metadata.constant) {
                 emd.postConst = constCast(emd.preConst, emd.cast);
@@ -303,16 +297,11 @@ class Caster {
         }
     }
 
-    Cast getLegalCast(final Type from, final Type to,
-                        final boolean force, final boolean ignore) {
+    Cast getLegalCast(final Type from, final Type to, final boolean force) {
         final Cast cast = new Cast(from, to);
 
         if (from.equals(to)) {
             return cast;
-        }
-
-        if (!ignore && definition.disallowed.contains(cast)) {
-            throw new ClassCastException(); // TODO: message
         }
 
         final Transform explicit = definition.explicits.get(cast);
@@ -439,7 +428,6 @@ class Caster {
             final Type to = upcast.pop();
             final Cast cast0 = new Cast(from0, to);
 
-            if (definition.disallowed.contains(cast0))                               continue;
             if (from0.metadata.numeric && from0.metadata != to.metadata &&
                     !definition.numerics.contains(cast0))                            continue;
             if (upcast.contains(from0))                                              continue;
@@ -450,7 +438,6 @@ class Caster {
             if (from1 != null) {
                 final Cast cast1 = new Cast(from1, to);
 
-                if (definition.disallowed.contains(cast1))                               continue;
                 if (from1.metadata.numeric && from1.metadata != to.metadata &&
                         !definition.numerics.contains(cast1))                            continue;
                 if (upcast.contains(from1))                                              continue;

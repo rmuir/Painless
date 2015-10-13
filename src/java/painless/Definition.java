@@ -225,11 +225,7 @@ class Definition {
 
             final Cast cast = (Cast)object;
 
-            if (!from.equals(cast.from)) {
-                return false;
-            }
-
-            return to.equals(cast.to);
+            return from.equals(cast.from) && to.equals(cast.to);
         }
 
         @Override
@@ -286,7 +282,7 @@ class Definition {
                                 key.startsWith("function")    || key.startsWith("method")  ||
                                 key.startsWith("static")      || key.startsWith("member")  ||
                                 key.startsWith("transform")   || key.startsWith("numeric") ||
-                                key.startsWith("upcast")     || key.startsWith("disallow");
+                                key.startsWith("upcast");
 
                 if (!valid) {
                     throw new IllegalArgumentException(); // TODO: message
@@ -319,8 +315,6 @@ class Definition {
                 loadNumericFromProperty(definition, property);
             } else if (key.startsWith("upcast")) {
                 loadUpcastFromProperty(definition, property);
-            } else if (key.startsWith("disallow")) {
-                loadDisallowFromProperty(definition, property);
             }
         }
 
@@ -462,19 +456,6 @@ class Definition {
         final String tostr = split[1];
 
         loadUpcast(definition, fromstr, tostr);
-    }
-
-    private static void loadDisallowFromProperty(final Definition definition, final String property) {
-        final String[] split = property.split("\\s+");
-
-        if (split.length != 2) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        final String fromstr = split[0];
-        final String tostr = split[1];
-
-        loadDisallow(definition, fromstr, tostr);
     }
 
     private static void loadStruct(final Definition definition, final String namestr,
@@ -707,10 +688,6 @@ class Definition {
 
         final Cast cast = new Cast(from, to);
 
-        if (definition.disallowed.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
         if (definition.numerics.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
@@ -826,10 +803,6 @@ class Definition {
 
         final Cast cast = new Cast(from, to);
 
-        if (definition.disallowed.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
         if (definition.numerics.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
@@ -867,10 +840,6 @@ class Definition {
 
         final Cast cast = new Cast(from, to);
 
-        if (definition.disallowed.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
         if (definition.numerics.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
@@ -894,35 +863,6 @@ class Definition {
         }
 
         definition.upcasts.add(cast);
-    }
-
-    private static void loadDisallow(final Definition definition, final String fromstr, final String tostr) {
-        final Type from = getTypeFromCanonicalName(definition, fromstr);
-        final Type to = getTypeFromCanonicalName(definition, tostr);
-
-        if (from.equals(to)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        final Cast cast = new Cast(from, to);
-
-        if (definition.disallowed.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        if (definition.upcasts.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        if (definition.explicits.containsKey(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        if (definition.implicits.containsKey(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        definition.disallowed.add(cast);
     }
 
     private static String[][] parseArgumentsStr(final String argumentstr) {
@@ -1133,7 +1073,7 @@ class Definition {
         }
     }
 
-    private static java.lang.reflect.Constructor getJConstructorFromJClass(final Class clazz, final Class[] arguments) {
+    private static java.lang.reflect.Constructor getJConstructorFromJClass(final Class<?> clazz, final Class[] arguments) {
         try {
             return clazz.getConstructor(arguments);
         } catch (NoSuchMethodException exception) {
@@ -1141,7 +1081,7 @@ class Definition {
         }
     }
 
-    private static java.lang.reflect.Method getJMethodFromJClass(final Class clazz, final String namestr,
+    private static java.lang.reflect.Method getJMethodFromJClass(final Class<?> clazz, final String namestr,
                                                                  final Class[] arguments) {
         try {
             return clazz.getMethod(namestr, arguments);
@@ -1199,10 +1139,6 @@ class Definition {
     private static void validateArgument(final Definition definition, final Type argument, final Type original) {
         final Cast pcast = new Cast(argument, original);
 
-        if (definition.disallowed.contains(pcast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
         if (!definition.implicits.containsKey(pcast)) {
             try {
                 argument.clazz.asSubclass(original.clazz);
@@ -1218,7 +1154,6 @@ class Definition {
     final Map<Cast, Transform> implicits;
     final Set<Cast> numerics;
     final Set<Cast> upcasts;
-    final Set<Cast> disallowed;
 
     private Definition() {
         structs = new HashMap<>();
@@ -1227,7 +1162,6 @@ class Definition {
         implicits = new HashMap<>();
         numerics = new HashSet<>();
         upcasts = new HashSet<>();
-        disallowed = new HashSet<>();
     }
 
     private Definition(Definition definition) {
@@ -1243,6 +1177,5 @@ class Definition {
         implicits = Collections.unmodifiableMap(definition.implicits);
         numerics = Collections.unmodifiableSet(definition.numerics);
         upcasts = Collections.unmodifiableSet(definition.upcasts);
-        disallowed = Collections.unmodifiableSet(definition.disallowed);
     }
 }
