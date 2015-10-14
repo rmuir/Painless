@@ -273,15 +273,13 @@ class Definition {
         for (String key : properties.stringPropertyNames()) {
             final String property = properties.getProperty(key);
 
-            if (key.startsWith("class")) {
-                loadStructFromProperty(definition, property, false);
-            } else if (key.startsWith("generic")) {
-                loadStructFromProperty(definition, property, true);
-            } else {
-                boolean valid = key.startsWith("constructor") ||
-                                key.startsWith("function")    || key.startsWith("method")  ||
-                                key.startsWith("static")      || key.startsWith("member")  ||
-                                key.startsWith("transform")   || key.startsWith("numeric") ||
+            if      (key.startsWith("class"))   loadStructFromProperty(definition, property, false);
+            else if (key.startsWith("generic")) loadStructFromProperty(definition, property, true);
+            else {
+                boolean valid = key.startsWith("constructor") || key.startsWith("function") ||
+                                key.startsWith("method")      || key.startsWith("copy")     ||
+                                key.startsWith("static")      || key.startsWith("member")   ||
+                                key.startsWith("transform")   || key.startsWith("numeric")  ||
                                 key.startsWith("upcast");
 
                 if (!valid) {
@@ -293,29 +291,20 @@ class Definition {
         for (String key : properties.stringPropertyNames()) {
             final String property = properties.getProperty(key);
 
-            if (key.startsWith("constructor")) {
-                loadConstructorFromProperty(definition, property);
-            } else if (key.startsWith("function")) {
-                loadMethodFromProperty(definition, property, true);
-            } else if (key.startsWith("method")) {
-                loadMethodFromProperty(definition, property, false);
-            } else if (key.startsWith("static")) {
-                loadFieldFromProperty(definition, property, true);
-            } else if (key.startsWith("member")) {
-                loadFieldFromProperty(definition, property, false);
-            }
+            if      (key.startsWith("constructor")) loadConstructorFromProperty(definition, property);
+            else if (key.startsWith("function"))    loadMethodFromProperty(definition, property, true);
+            else if (key.startsWith("method"))      loadMethodFromProperty(definition, property, false);
+            else if (key.startsWith("static"))      loadFieldFromProperty(definition, property, true);
+            else if (key.startsWith("member"))      loadFieldFromProperty(definition, property, false);
         }
 
         for (String key : properties.stringPropertyNames()) {
             final String property = properties.getProperty(key);
 
-            if (key.startsWith("transform")) {
-                loadTransformFromProperty(definition, property);
-            } else if (key.startsWith("numeric")) {
-                loadNumericFromProperty(definition, property);
-            } else if (key.startsWith("upcast")) {
-                loadUpcastFromProperty(definition, property);
-            }
+            if      (key.startsWith("copy"))      loadCopyFromProperty(definition, property);
+            else if (key.startsWith("transform")) loadTransformFromProperty(definition, property);
+            else if (key.startsWith("numeric"))   loadNumericFromProperty(definition, property);
+            else if (key.startsWith("upcast"))    loadUpcastFromProperty(definition, property);
         }
 
         validateMethods(definition);
@@ -413,6 +402,18 @@ class Definition {
         final String clazzstr = split[3];
 
         loadField(definition, ownerstr, namestr, typestr, clazzstr, statik);
+    }
+
+    private static void loadCopyFromProperty(final Definition definition, final String property) {
+        final String[] split = property.split("\\s+");
+
+        if (split.length < 2) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String ownerstr = split[0];
+
+        loadCopy(definition, ownerstr, split);
     }
 
     private static void loadTransformFromProperty(final Definition definition, final String property) {
@@ -670,6 +671,43 @@ class Definition {
         }
     }
 
+    private static void loadCopy(final Definition definition, final String ownerstr, final String[] childstrs) {
+        final Struct owner = definition.structs.get(ownerstr);
+
+        if (owner == null) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        for (int child = 1; child < childstrs.length; ++child) {
+            final Struct struct = definition.structs.get(childstrs[child]);
+
+            if (struct == null) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            try {
+                owner.clazz.asSubclass(struct.clazz);
+            } catch (ClassCastException exception) {
+                throw new ClassCastException(); // TODO: message
+            }
+
+            final boolean object = struct.clazz.equals(Object.class) &&
+                    java.lang.reflect.Modifier.isInterface(owner.clazz.getModifiers());
+
+            for (final Method method : struct.methods.values()) {
+                if (owner.methods.get(method.name) == null) {
+
+                    java.lang.reflect.Method jmethod = getJMethodFromJClass(object ? Object.class : owner.clazz,
+                            method.method.getName(), method.method.getParameterTypes());
+
+                    owner.methods.put(method.name,
+                            new Method(method.name, owner, method.rtn, method.oreturn,
+                                    method.arguments, method.originals, jmethod, method.descriptor));
+                }
+            }
+        }
+    }
+
     private static void loadTransform(final Definition definition, final String typestr,
                                       final String fromstr, final String tostr, final String ownerstr,
                                       final String staticstr, final String methodstr) {
@@ -858,7 +896,7 @@ class Definition {
 
         try {
             to.clazz.asSubclass(from.clazz);
-        } catch (ClassCastException expcetion) {
+        } catch (ClassCastException exception) {
             throw new IllegalArgumentException();
         }
 
