@@ -696,13 +696,19 @@ class Definition {
 
             for (final Method method : struct.methods.values()) {
                 if (owner.methods.get(method.name) == null) {
-
                     java.lang.reflect.Method jmethod = getJMethodFromJClass(object ? Object.class : owner.clazz,
                             method.method.getName(), method.method.getParameterTypes());
 
                     owner.methods.put(method.name,
                             new Method(method.name, owner, method.rtn, method.oreturn,
                                     method.arguments, method.originals, jmethod, method.descriptor));
+                }
+            }
+
+            for (final Field field : struct.members.values()) {
+                if (owner.members.get(field.name) == null) {
+                    java.lang.reflect.Field jfield = getJFieldFromJClass(owner.clazz, field.field.getName());
+                    owner.members.put(field.name, new Field(field.name, owner, field.type, jfield));
                 }
             }
         }
