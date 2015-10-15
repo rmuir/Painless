@@ -5,6 +5,7 @@ import java.lang.invoke.ConstantCallSite;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.invoke.MutableCallSite;
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
@@ -12,7 +13,34 @@ import java.util.Map;
 import static painless.Definition.*;
 
 public class Runtime {
+    public static CallSite bootstrap(Object... objects)
+            throws IllegalAccessException, NoSuchMethodException
+    {
+        MethodHandles.Lookup lookup = MethodHandles.lookup();
+        Class thisClass = lookup.lookupClass();
+        MethodHandle handle;
 
+        if (thisClass.equals(Integer.class)) {
+            handle = lookup.findVirtual(Integer.class, "longValue", MethodType.methodType(long.class));
+        } else {
+            handle = lookup.findVirtual(Long.class, "longValue", MethodType.methodType(long.class));
+        }
+
+        if (!objects[2].equals(handle.type())) {
+            handle = handle.asType((MethodType)objects[2]);
+        }
+
+        try {
+            handle.invokeWithArguments(2);
+        } catch (Throwable throwable) {
+
+        }
+
+        MutableCallSite cs = new MutableCallSite((MethodType)objects[2]);
+        cs.setTarget(handle);
+
+        return cs;
+    }
 
     private final Map<Class, Struct> classes;
     private final Struct[] structs;

@@ -33,7 +33,7 @@ public final class Painless {
         list.add(6);
         input.put("inner", inner);
 
-        for (int count = 0; count < 10; ++count) {
+        //for (int count = 0; count < 10; ++count) {
             Executable executable = compile("test",
                     "\nobject nums = input[\"inner\"][\"list\"];\n" +
                             "object size = nums.size();\n" +
@@ -60,7 +60,7 @@ public final class Painless {
             } else {
                 System.out.println("NULL");
             }
-        }
+        //}
     }
 
     public static Executable compile(String name, String source) {

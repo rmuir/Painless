@@ -77,13 +77,37 @@ class Writer extends PainlessBaseVisitor<Void>{
         execute = writer.visitMethod(access, name, descriptor, signature, null);
         execute.visitCode();
 
+        //execute.visitVarInsn(Opcodes.ASTORE, 4);
+        execute.visitInsn(Opcodes.ICONST_0);
+        execute.visitVarInsn(Opcodes.ISTORE, 3);
+        Label begin = new Label();
+        execute.visitLabel(begin);
+        //execute.visitVarInsn(Opcodes.ALOAD, 4);
+        Label jump = new Label();
+        Label end = new Label();
+        execute.visitVarInsn(Opcodes.ILOAD, 3);
+        execute.visitInsn(Opcodes.ICONST_2);
+        execute.visitJumpInsn(Opcodes.IF_ICMPLT, jump);
         execute.visitTypeInsn(Opcodes.NEW, "java/lang/Long");
         execute.visitInsn(Opcodes.DUP);
         execute.visitInsn(Opcodes.LCONST_1);
         execute.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Long", "<init>", "(J)V", false);
+        execute.visitJumpInsn(Opcodes.GOTO, end);
+        execute.visitLabel(jump);
+        execute.visitTypeInsn(Opcodes.NEW, "java/lang/Integer");
+        execute.visitInsn(Opcodes.DUP);
+        execute.visitInsn(Opcodes.ICONST_3);
+        execute.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Integer", "<init>", "(I)V", false);
+        execute.visitLabel(end);
         Handle handle = new Handle(Opcodes.H_INVOKESTATIC, "painless/Runtime", "bootstrap",
                 "([Ljava/lang/Object;)Ljava/lang/invoke/CallSite;");
         execute.visitInvokeDynamicInsn("test", "(Ljava/lang/Object;)Ljava/lang/Object;", handle);
+        execute.visitInsn(Opcodes.POP);
+        execute.visitIincInsn(3, 1);
+        execute.visitVarInsn(Opcodes.ILOAD, 3);
+        execute.visitInsn(Opcodes.ICONST_5);
+        execute.visitJumpInsn(Opcodes.IF_ICMPLT, begin);
+        execute.visitInsn(Opcodes.ACONST_NULL);
         execute.visitInsn(Opcodes.ARETURN);
 
         //visit(root);
