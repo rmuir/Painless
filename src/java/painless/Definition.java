@@ -2,6 +2,9 @@ package painless;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -147,6 +150,7 @@ class Definition {
         final Class clazz;
         final String internal;
         final boolean generic;
+        final boolean runtime;
 
         final Map<String, Constructor> constructors;
         final Map<String, Method> functions;
@@ -155,11 +159,13 @@ class Definition {
         final Map<String, Field> statics;
         final Map<String, Field> members;
 
-        private Struct(final String name, final Class clazz, final String internal, final boolean generic) {
+        private Struct(final String name, final Class clazz, final String internal,
+                       final boolean generic, final boolean runtime) {
             this.name = name;
             this.clazz = clazz;
             this.internal = internal;
             this.generic = generic;
+            this.runtime = runtime;
 
             constructors = new HashMap<>();
             functions = new HashMap<>();
@@ -174,6 +180,7 @@ class Definition {
             clazz = struct.clazz;
             internal = struct.internal;
             generic = struct.generic;
+            runtime = struct.runtime;
 
             constructors = Collections.unmodifiableMap(struct.constructors);
             functions = Collections.unmodifiableMap(struct.functions);
@@ -273,8 +280,9 @@ class Definition {
         for (String key : properties.stringPropertyNames()) {
             final String property = properties.getProperty(key);
 
-            if      (key.startsWith("class"))   loadStructFromProperty(definition, property, false);
-            else if (key.startsWith("generic")) loadStructFromProperty(definition, property, true);
+            if      (key.startsWith("struct"))  loadStructFromProperty(definition, property, false, false);
+            else if (key.startsWith("runtime")) loadStructFromProperty(definition, property, false, true);
+            else if (key.startsWith("generic")) loadStructFromProperty(definition, property, true, false);
             else {
                 boolean valid = key.startsWith("constructor") || key.startsWith("function") ||
                                 key.startsWith("method")      || key.startsWith("copy")     ||
@@ -308,11 +316,13 @@ class Definition {
         }
 
         validateMethods(definition);
+        buildRuntimeMap(definition);
 
         return new Definition(definition);
     }
 
-    private static void loadStructFromProperty(final Definition definition, final String property, final boolean generic) {
+    private static void loadStructFromProperty(final Definition definition, final String property,
+                                               final boolean generic, final boolean runtime) {
         final String[] split = property.split("\\s+");
 
         if (split.length != 2) {
@@ -322,7 +332,7 @@ class Definition {
         final String namestr = split[0];
         final String clazzstr = split[1];
 
-        loadStruct(definition, namestr, clazzstr, generic);
+        loadStruct(definition, namestr, clazzstr, generic, runtime);
     }
 
     private static void loadConstructorFromProperty(final Definition definition, final String property) {
@@ -460,7 +470,7 @@ class Definition {
     }
 
     private static void loadStruct(final Definition definition, final String namestr,
-                                   final String clazzstr, final boolean generic) {
+                                   final String clazzstr, final boolean generic, final boolean runtime) {
         if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
             throw new IllegalArgumentException(); // TODO: message
         }
@@ -471,7 +481,7 @@ class Definition {
 
         final Class clazz = getClassFromCanonicalName(clazzstr);
         final String internal = clazz.getName().replace('.', '/');
-        final Struct struct = new Struct(namestr, clazz, internal, generic);
+        final Struct struct = new Struct(namestr, clazz, internal, generic, runtime);
 
         definition.structs.put(namestr, struct);
     }
@@ -1192,7 +1202,33 @@ class Definition {
         }
     }
 
+    private static void buildRuntimeMap(final Definition definition) {
+        for (final Struct struct : definition.structs.values()) {
+            if (struct.runtime) {
+                for (final Method method : struct.methods.values()) {
+                    final String name = struct.clazz.getName() + "_" + method.name;
+
+                    if (!definition.runtime.containsKey(name)) {
+                        final MethodType type = MethodType.methodType(
+                                method.method.getReturnType(), method.method.getParameterTypes());
+                        MethodHandle handle;
+
+                        try {
+                            handle = MethodHandles.publicLookup().in(struct.clazz).
+                                    findVirtual(struct.clazz, method.method.getName(), type);
+                        } catch (NoSuchMethodException | IllegalAccessException exception) {
+                            throw new IllegalArgumentException();
+                        }
+
+                        definition.runtime.put(name, handle);
+                    }
+                }
+            }
+        }
+    }
+
     final Map<String, Struct> structs;
+    final Map<String, MethodHandle> runtime;
 
     final Map<Cast, Transform> explicits;
     final Map<Cast, Transform> implicits;
@@ -1201,6 +1237,7 @@ class Definition {
 
     private Definition() {
         structs = new HashMap<>();
+        runtime = new HashMap<>();
 
         explicits = new HashMap<>();
         implicits = new HashMap<>();
@@ -1216,6 +1253,7 @@ class Definition {
         }
 
         structs = Collections.unmodifiableMap(ummodifiable);
+        runtime = Collections.unmodifiableMap(definition.runtime);
 
         explicits = Collections.unmodifiableMap(definition.explicits);
         implicits = Collections.unmodifiableMap(definition.implicits);

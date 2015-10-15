@@ -19,7 +19,7 @@ public final class Painless {
         //Executable executable = compile("test", "bool x = true; x = false; if (x) return !x;");
         //Executable executable = compile("test", "long[][] x = long.makearray(1, 1); long y; y = x[0][0] = 5; return y;");
         //Executable executable = compile("test", "bool b; b = false; if (b) return null; else return 5;");
-        Executable executable = new Painless().compile("test", "longobj x; x = 5L; return x.byte();");
+        //Executable executable = new Painless().compile("test", "longobj x; x = 5L; return x.byte();");
         Map<String, Object> input = new HashMap<>();
         Map<Object, Object> inner = new HashMap<>();
         List<Object> list = new ArrayList<>();
@@ -32,8 +32,8 @@ public final class Painless {
         list.add(6);
         input.put("inner", inner);
 
-        //for (int count = 0; count < 10; ++count) {
-            /*Executable executable = compile("test",
+        for (int count = 0; count < 10; ++count) {
+            Executable executable = compile("test",
                     "\nbyte b = 0; list nums = input[\"inner\"][3L];\n" +
                             "int size = nums.size();\n" +
                             "char total;\n" +
@@ -43,7 +43,7 @@ public final class Painless {
                             "}\n" +
                             "\n" +
                             "return total;"
-            );*/
+            );
 
         //Executable executable = compile("test",
         //            "list nums = input[\"inner\"][\"list\"]; int size = nums.size(); nums[size] = \"idiot\"; return nums[size];"
@@ -59,7 +59,7 @@ public final class Painless {
             } else {
                 System.out.println("NULL");
             }
-        //}
+        }
     }
 
     public static Executable compile(String name, String source) {

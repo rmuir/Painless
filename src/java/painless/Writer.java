@@ -1,7 +1,11 @@
 package painless;
 
+import com.sun.org.apache.bcel.internal.generic.ACONST_NULL;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.*;
+
+import java.lang.invoke.MethodHandle;
+import java.util.HashMap;
 
 import static painless.Adapter.*;
 import static painless.Definition.*;
@@ -34,6 +38,7 @@ class Writer extends PainlessBaseVisitor<Void>{
         source = adapter.source;
 
         writeBegin();
+        writeRuntime();
         writeConstructor();
         writeExecute();
         writeEnd();
@@ -51,19 +56,51 @@ class Writer extends PainlessBaseVisitor<Void>{
         writer.visitSource(source, null);
     }
 
+    private void writeRuntime() {
+        int access = Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_SYNTHETIC;
+        String name = "runtime";
+        String descriptor = "Ljava/util/Map;";
+        String signature = "Ljava/util/Map<Ljava/lang/String;Ljava/lang/invoke/MethodHandle;>;";
+
+        writer.visitField(access, name, descriptor, signature, null);
+
+        access = Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_SYNTHETIC;
+        name = "lookup";
+        descriptor = "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;)" +
+                "Ljava/lang/invoke/CallSite;";
+
+        final MethodVisitor lookup = writer.visitMethod(access, name, descriptor, null, null);
+        lookup.visitCode();
+        lookup.visitFieldInsn(Opcodes.GETSTATIC, CLASS_INTERNAL, "runtime", "Ljava/util/Map;");
+        lookup.visitVarInsn(Opcodes.ALOAD, 0);
+        lookup.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/invoke/MethodHandles$Lookup",
+                "lookupClass", "()Ljava/lang/Class;", false);
+        lookup.visitVarInsn(Opcodes.ALOAD, 1);
+        lookup.visitVarInsn(Opcodes.ALOAD, 2);
+        lookup.visitMethodInsn(Opcodes.INVOKESTATIC, "painless/Runtime", "lookup",
+                "(Ljava/util/Map;Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)" +
+                "Ljava/lang/invoke/CallSite;", false);
+        lookup.visitInsn(Opcodes.ARETURN);
+        lookup.visitMaxs(0, 0);
+        lookup.visitEnd();
+    }
+
     private void writeConstructor() {
         final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
         final String name = "<init>";
-        final String descriptor = "(Ljava/lang/String;Ljava/lang/String;)V";
+        final String descriptor = "(Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;)V";
+        final String signature = "(Ljava/lang/String;Ljava/lang/String;" +
+                "Ljava/util/Map<Ljava/lang/String;Ljava/lang/invoke/MethodHandle;>;)V";
+        final String basedesc = "(Ljava/lang/String;Ljava/lang/String;)V";
 
-
-
-        final MethodVisitor constructor = writer.visitMethod(access, name, descriptor, null, null);
+        final MethodVisitor constructor = writer.visitMethod(access, name, descriptor, signature, null);
         constructor.visitCode();
         constructor.visitVarInsn(Opcodes.ALOAD, 0);
         constructor.visitVarInsn(Opcodes.ALOAD, 1);
         constructor.visitVarInsn(Opcodes.ALOAD, 2);
-        constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, BASE_CLASS_INTERNAL, name, descriptor, false);
+        constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, BASE_CLASS_INTERNAL, name, basedesc, false);
+        constructor.visitVarInsn(Opcodes.ALOAD, 3);
+        constructor.visitFieldInsn(Opcodes.PUTSTATIC, CLASS_INTERNAL, "runtime", "Ljava/util/Map;");
         constructor.visitInsn(Opcodes.RETURN);
         constructor.visitMaxs(0, 0);
         constructor.visitEnd();
@@ -71,11 +108,11 @@ class Writer extends PainlessBaseVisitor<Void>{
 
     private void writeExecute() {
         final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
-        final String aname = "execute";
-        final String adescriptor = "(Ljava/util/Map;)Ljava/lang/Object;";
+        final String name = "execute";
+        final String descriptor = "(Ljava/util/Map;)Ljava/lang/Object;";
         final String signature = "(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)Ljava/lang/Object;";
 
-        execute = writer.visitMethod(access, aname, adescriptor, signature, null);
+        execute = writer.visitMethod(access, name, descriptor, signature, null);
         execute.visitCode();
         visit(root);
         execute.visitMaxs(0, 0);

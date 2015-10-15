@@ -19,7 +19,5 @@ public abstract class Executable {
         return source;
     }
 
-    public String str;
-
     public abstract Object execute(Map<String, Object> input);
 }

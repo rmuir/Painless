@@ -2,6 +2,8 @@ package painless;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.lang.invoke.MethodHandle;
+import java.util.Map;
 import java.util.Properties;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
@@ -43,6 +45,7 @@ final class Compiler {
         adapter.incrementScope();
         adapter.addVariable("this", adapter.standard.execType);
         adapter.addVariable("input", adapter.standard.smapType);
+        adapter.addVariable("*runtime", adapter.standard.mapType);
 
         start = System.currentTimeMillis();
 
@@ -59,7 +62,7 @@ final class Compiler {
         System.out.println("write: " + end);
         start = System.currentTimeMillis();
 
-        final Executable executable = createExecutable(name, source, parent, bytes);
+        final Executable executable = createExecutable(name, source, definition.runtime, parent, bytes);
 
         end = System.currentTimeMillis() - start;
         System.out.println("create: " + end);
@@ -79,7 +82,8 @@ final class Compiler {
         return root;
     }
 
-    private static Executable createExecutable(String name, String source, ClassLoader parent, byte[] bytes) {
+    private static Executable createExecutable(String name, String source, Map<String, MethodHandle> runtime,
+                                               ClassLoader parent, byte[] bytes) {
         try {
             try {
                 FileOutputStream f = new FileOutputStream(new File("/Users/jdconrad/lang/generated/out.class"), false);
@@ -92,9 +96,9 @@ final class Compiler {
             final Loader loader = new Loader(parent);
             final Class<? extends Executable> clazz = loader.define(Writer.CLASS_NAME, bytes);
             final java.lang.reflect.Constructor<? extends Executable> constructor =
-                    clazz.getConstructor(String.class, String.class);
+                    clazz.getConstructor(String.class, String.class, Map.class);
 
-            return constructor.newInstance(name, source);
+            return constructor.newInstance(name, source, runtime);
         } catch (ReflectiveOperationException exception) {
             throw new IllegalStateException(exception);
         }
