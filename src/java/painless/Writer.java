@@ -1,11 +1,7 @@
 package painless;
 
-import com.sun.org.apache.bcel.internal.generic.ACONST_NULL;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.*;
-
-import java.lang.invoke.MethodHandle;
-import java.util.HashMap;
 
 import static painless.Adapter.*;
 import static painless.Definition.*;
