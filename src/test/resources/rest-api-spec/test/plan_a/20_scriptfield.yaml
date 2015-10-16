@@ -19,7 +19,7 @@ setup:
                 script_fields:
                     bar:
                         script: 
-                            inline: "return input[\"doc\"][\"foo\"] .. input[\"x\"];"
+                            inline: "return input[\"doc\"][\"foo\"][0] .. input[\"x\"];"
                             lang: plan-a
                             params:
                                 x: "bbb"
