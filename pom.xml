@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.elasticsearch.plugin</groupId>
+        <artifactId>plugins</artifactId>
+        <version>3.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>lang-painless</artifactId>
+    <name>Plugin: Language: Painless</name>
+    <description>An easy, safe and fast scripting language for Elasticsearch</description>
+
+    <properties>
+        <elasticsearch.plugin.classname>org.elasticsearch.painless.PainlessPlugin</elasticsearch.plugin.classname>
+        <xlint.options>-Xlint:-deprecation,-fallthrough,-rawtypes,-unchecked</xlint.options>
+    </properties>
+
+    <dependencies>
+        <dependency>
+           <groupId>org.antlr</groupId>
+           <artifactId>antlr4-runtime</artifactId>
+           <version>4.5.1</version>
+        </dependency>
+        <dependency>
+           <groupId>org.ow2.asm</groupId>
+           <artifactId>asm</artifactId>
+           <version>5.0.4</version>
+        </dependency>
+        <dependency>
+           <groupId>org.ow2.asm</groupId>
+           <artifactId>asm-commons</artifactId>
+           <version>5.0.4</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <!-- TODO: move this to src/main/java -->
+        <sourceDirectory>${project.basedir}/src/java</sourceDirectory>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+            </plugin>
+        </plugins>
+        <!-- TODO: add regeneration task. make sure to fixup tabs too -->
+        <!-- for now do this:
+             sed -i.bak 's/\t/\ \ \ \ /g' PainlessBaseVisitor.java PainlessLexer.java PainlessParser.java PainlessVisitor.java
+             rm *.bak
+        -->
+    </build>
+
+</project>
