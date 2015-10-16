@@ -6,3 +6,6 @@ If people don't like it, Jack will just make Plan B
 
 # Regenerate the grammar
 'mvn validate -Dregenerate'
+
+# Run tests and create plugin zip
+'mvn verify'
