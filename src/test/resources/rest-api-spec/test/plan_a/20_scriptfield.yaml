@@ -1,0 +1,30 @@
+# Integration tests for using a scripted field
+#
+setup:
+    - do:
+        index:
+            index: test
+            type: test
+            id: 1
+            body: { "foo": "aaa" }
+    - do:
+        indices.refresh: {}
+
+---
+
+"Scripted Field":
+    - skip:
+        features: jack take a look at this
+
+    - do:
+        search:
+            body:
+                script_fields:
+                    bar:
+                        script: 
+                            inline: "return input[\"foo\"] .. input[\"x\"];"
+                            lang: plan-a
+                            params:
+                                x: "bbb"
+
+    - match: { hits.hits.0.fields.bar.0: "aaabbb"}
