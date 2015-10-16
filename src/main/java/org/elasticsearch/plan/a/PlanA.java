@@ -1,11 +1,14 @@
 package org.elasticsearch.plan.a;
 
+import org.elasticsearch.common.SuppressForbidden;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+@SuppressForbidden(reason = "some of this is for debugging")
 public final class PlanA {
     public static void main(String args[]) throws Exception {
         Executable executable = compile("test", "string x = \"teststring\"; return x[2:];");

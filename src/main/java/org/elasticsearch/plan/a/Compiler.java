@@ -7,10 +7,12 @@ import java.util.Properties;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
+import org.elasticsearch.common.SuppressForbidden;
 
 import static org.elasticsearch.plan.a.Default.*;
 import static org.elasticsearch.plan.a.Definition.*;
 
+@SuppressForbidden(reason = "some of this is for debugging")
 final class Compiler {
     private static class Loader extends ClassLoader {
         Loader(ClassLoader parent) {
