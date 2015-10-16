@@ -525,13 +525,6 @@ class External {
         final ExttypeContext typectx = ctx.exttype();
         final ExtmemberContext memberctx = ctx.extmember();
 
-        final DecltypeContext declctx = ctx.decltype();
-        final ExpressionMetadata declemd = adapter.createExpressionMetadata(declctx);
-        analyzer.visit(declctx);
-
-        final Cast cast = caster.getLegalCast(current, declemd.from, true, false);
-        current = declemd.from;
-
         if (precctx != null) {
             prec(precctx);
         } else if (castctx != null) {
@@ -544,7 +537,14 @@ class External {
             throw new IllegalStateException(); // TODO: message
         }
 
+        final DecltypeContext declctx = ctx.decltype();
+        final ExpressionMetadata declemd = adapter.createExpressionMetadata(declctx);
+        analyzer.visit(declctx);
+
+        final Cast cast = caster.getLegalCast(current, declemd.from, true, false);
         segments.add(new CastSegment(cast));
+
+        current = declemd.from;
         statement = false;
     }
 
@@ -879,7 +879,7 @@ class External {
 
         Type[] types;
         Segment segment0 = null;
-        Segment segment1;
+        Segment segment1 = null;
 
         if (current.dimensions > 0) {
             throw new IllegalArgumentException(); // TODO: message
@@ -892,7 +892,7 @@ class External {
 
             types = new Type[arguments.size()];
             Arrays.fill(types, standard.intType);
-            segment1 = new MakeSegment(current, arguments.size());
+            segment0 = new MakeSegment(current, arguments.size());
             current = getTypeWithArrayDimensions(struct, arguments.size());
         } else {
             final Constructor constructor = statik ? struct.constructors.get(name) : null;
@@ -911,7 +911,7 @@ class External {
                     statement = true;
                 }
 
-                segment1 = new ConstructorSegment(constructor);
+                segment0 = new ConstructorSegment(constructor);
             } else if (method != null) {
                 types = new Type[method.arguments.size()];
                 method.arguments.toArray(types);
@@ -920,9 +920,9 @@ class External {
                     final int size = method.rtn.metadata.size;
 
                     if (size == 1) {
-                        segment0 = new InstructionSegment(Opcodes.POP);
+                        segment1 = new InstructionSegment(Opcodes.POP);
                     } else if (size == 2) {
-                        segment0 = new InstructionSegment(Opcodes.POP2);
+                        segment1 = new InstructionSegment(Opcodes.POP2);
                     }
 
                     current = standard.voidType;
@@ -931,7 +931,7 @@ class External {
                     current = method.rtn;
                 }
 
-                segment1 = new MethodSegment(method);
+                segment0 = new MethodSegment(method);
             } else {
                 throw new IllegalArgumentException(); // TODO: message
             }
@@ -954,7 +954,9 @@ class External {
             segments.add(segment0);
         }
 
-        segments.add(segment1);
+        if (segment1 != null) {
+            segments.add(segment1);
+        }
     }
 
     private void substring(final ExpressionContext exprctx0, final ExpressionContext exprctx1, final boolean last) {

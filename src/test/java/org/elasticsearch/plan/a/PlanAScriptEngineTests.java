@@ -69,7 +69,6 @@ public class PlanAScriptEngineTests extends ESTestCase {
         assertEquals("2", o);
     }
 
-    @AwaitsFix(bugUrl = "jack look at these")
     public void testAccessListInScript() {
         Map<String, Object> vars = new HashMap<String, Object>();
         Map<String, Object> obj2 = MapBuilder.<String, Object>newMapBuilder().put("prop2", "value2").map();
