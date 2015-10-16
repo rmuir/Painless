@@ -38,8 +38,6 @@
     </dependencies>
 
     <build>
-        <!-- TODO: move this to src/main/java -->
-        <sourceDirectory>${project.basedir}/src/java</sourceDirectory>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
