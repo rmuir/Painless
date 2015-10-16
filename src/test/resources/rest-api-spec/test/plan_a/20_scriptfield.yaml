@@ -13,16 +13,13 @@ setup:
 ---
 
 "Scripted Field":
-    - skip:
-        features: jack take a look at this
-
     - do:
         search:
             body:
                 script_fields:
                     bar:
                         script: 
-                            inline: "return input[\"foo\"] .. input[\"x\"];"
+                            inline: "return input[\"doc\"][\"foo\"] .. input[\"x\"];"
                             lang: plan-a
                             params:
                                 x: "bbb"
