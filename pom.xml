@@ -26,6 +26,8 @@
     <properties>
         <elasticsearch.plugin.classname>org.elasticsearch.plan.a.PlanAPlugin</elasticsearch.plugin.classname>
         <xlint.options>-Xlint:-deprecation,-fallthrough,-rawtypes,-unchecked</xlint.options>
+        <tests.rest.suite>plan_a</tests.rest.suite>
+        <tests.rest.load_packaged>false</tests.rest.load_packaged>
         <antlr.version>4.5.1</antlr.version>
         <asm.version>5.0.4</asm.version>
     </properties>
