@@ -10,6 +10,15 @@
         <version>3.0.0-SNAPSHOT</version>
     </parent>
 
+    <!-- elasticsearch snapshot repository -->
+    <repositories>
+        <repository>
+            <id>oss-snapshots</id>
+            <name>Sonatype OSS Snapshots</name>
+            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+        </repository>
+    </repositories>
+
     <artifactId>lang-plan-a</artifactId>
     <name>Plugin: Language: Plan A</name>
     <description>An easy, safe and fast scripting language for Elasticsearch</description>
