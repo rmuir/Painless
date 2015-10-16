@@ -25,27 +25,34 @@ import org.elasticsearch.script.LeafSearchScript;
 import org.elasticsearch.script.ScoreAccessor;
 import org.elasticsearch.search.lookup.LeafSearchLookup;
 
+import java.util.HashMap;
 import java.util.Map;
 
 final class ScriptImpl implements ExecutableScript, LeafSearchScript {
     final Executable executable;
-    final Map<String,Object> vars;
+    final Map<String,Object> variables;
     final LeafSearchLookup lookup;
     
     ScriptImpl(Executable executable, Map<String,Object> vars, LeafSearchLookup lookup) {
         this.executable = executable;
-        this.vars = vars;
         this.lookup = lookup;
+        this.variables = new HashMap<>();
+        if (vars != null) {
+            variables.putAll(vars);
+        }
+        if (lookup != null) {
+            variables.putAll(lookup.asMap());
+        }
     }
     
     @Override
     public void setNextVar(String name, Object value) {
-        vars.put(name, value);
+        variables.put(name, value);
     }
     
     @Override
     public Object run() {
-        return executable.execute(vars);
+        return executable.execute(variables);
     }
     
     @Override
@@ -70,7 +77,7 @@ final class ScriptImpl implements ExecutableScript, LeafSearchScript {
 
     @Override
     public void setScorer(Scorer scorer) {
-        vars.put("_score", new ScoreAccessor(scorer));
+        variables.put("_score", new ScoreAccessor(scorer));
     }
 
     @Override
