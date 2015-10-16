@@ -1,4 +1,4 @@
-package painless;
+package org.elasticsearch.plan.a;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -13,9 +13,9 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-import static painless.Caster.*;
-import static painless.Default.*;
-import static painless.Definition.*;
+import static org.elasticsearch.plan.a.Caster.*;
+import static org.elasticsearch.plan.a.Default.*;
+import static org.elasticsearch.plan.a.Definition.*;
 
 class Adapter {
     static class Variable {

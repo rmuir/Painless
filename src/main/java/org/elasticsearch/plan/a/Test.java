@@ -1,4 +1,4 @@
-package painless;
+package org.elasticsearch.plan.a;
 
 public class Test {
     void stest() {

@@ -1,4 +1,4 @@
-grammar Painless;
+grammar PlanA;
 
 @parser::header {
     import java.util.Set;

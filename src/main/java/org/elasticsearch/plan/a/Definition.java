@@ -1,4 +1,4 @@
-package painless;
+package org.elasticsearch.plan.a;
 
 import java.io.IOException;
 import java.io.InputStream;

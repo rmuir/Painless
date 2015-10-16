@@ -10,30 +10,32 @@
         <version>3.0.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>lang-painless</artifactId>
-    <name>Plugin: Language: Painless</name>
+    <artifactId>lang-plan-a</artifactId>
+    <name>Plugin: Language: Plan A</name>
     <description>An easy, safe and fast scripting language for Elasticsearch</description>
 
     <properties>
-        <elasticsearch.plugin.classname>org.elasticsearch.painless.PainlessPlugin</elasticsearch.plugin.classname>
+        <elasticsearch.plugin.classname>org.elasticsearch.plan.a.PlanAPlugin</elasticsearch.plugin.classname>
         <xlint.options>-Xlint:-deprecation,-fallthrough,-rawtypes,-unchecked</xlint.options>
+        <antlr.version>4.5.1</antlr.version>
+        <asm.version>5.0.4</asm.version>
     </properties>
 
     <dependencies>
         <dependency>
            <groupId>org.antlr</groupId>
            <artifactId>antlr4-runtime</artifactId>
-           <version>4.5.1</version>
+           <version>${antlr.version}</version>
         </dependency>
         <dependency>
            <groupId>org.ow2.asm</groupId>
            <artifactId>asm</artifactId>
-           <version>5.0.4</version>
+           <version>${asm.version}</version>
         </dependency>
         <dependency>
            <groupId>org.ow2.asm</groupId>
            <artifactId>asm-commons</artifactId>
-           <version>5.0.4</version>
+           <version>${asm.version}</version>
         </dependency>
     </dependencies>
 
@@ -43,12 +45,34 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>regenerate</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target if="${regenerate}">
+                                <ant antfile="dev-tools/regenerate.xml" target="regenerate">
+                                    <reference refid="maven.plugin.classpath"/>
+                                </ant>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.antlr</groupId>
+                        <artifactId>antlr4</artifactId>
+                        <version>${antlr.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
         </plugins>
-        <!-- TODO: add regeneration task. make sure to fixup tabs too -->
-        <!-- for now do this:
-             sed -i.bak 's/\t/\ \ \ \ /g' PainlessBaseVisitor.java PainlessLexer.java PainlessParser.java PainlessVisitor.java
-             rm *.bak
-        -->
     </build>
 
 </project>

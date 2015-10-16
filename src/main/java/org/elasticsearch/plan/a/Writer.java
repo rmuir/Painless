@@ -1,17 +1,17 @@
-package painless;
+package org.elasticsearch.plan.a;
 
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.*;
 
-import static painless.Adapter.*;
-import static painless.Definition.*;
-import static painless.PainlessParser.*;
+import static org.elasticsearch.plan.a.Adapter.*;
+import static org.elasticsearch.plan.a.Definition.*;
+import static org.elasticsearch.plan.a.PlanAParser.*;
 
-class Writer extends PainlessBaseVisitor<Void>{
+class Writer extends PlanABaseVisitor<Void>{
     final static String BASE_CLASS_NAME = Executable.class.getName();
-    final static String CLASS_NAME = BASE_CLASS_NAME + "$CompiledPainlessExecutable";
+    final static String CLASS_NAME = BASE_CLASS_NAME + "$CompiledPlanAExecutable";
     final static String BASE_CLASS_INTERNAL = Executable.class.getName().replace('.', '/');
-    final static String CLASS_INTERNAL = BASE_CLASS_INTERNAL + "$CompiledPainlessExecutable";
+    final static String CLASS_INTERNAL = BASE_CLASS_INTERNAL + "$CompiledPlanAExecutable";
 
     static byte[] write(Adapter adapter) {
         Writer writer = new Writer(adapter);

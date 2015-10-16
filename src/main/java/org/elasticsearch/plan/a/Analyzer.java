@@ -1,15 +1,15 @@
-package painless;
+package org.elasticsearch.plan.a;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 
-import static painless.Adapter.*;
-import static painless.Caster.*;
-import static painless.Default.*;
-import static painless.PainlessParser.*;
-import static painless.Definition.*;
+import static org.elasticsearch.plan.a.Adapter.*;
+import static org.elasticsearch.plan.a.Caster.*;
+import static org.elasticsearch.plan.a.Default.*;
+import static org.elasticsearch.plan.a.PlanAParser.*;
+import static org.elasticsearch.plan.a.Definition.*;
 
-class Analyzer extends PainlessBaseVisitor<Void> {
+class Analyzer extends PlanABaseVisitor<Void> {
     static void analyze(final Adapter adapter) {
         new Analyzer(adapter);
     }

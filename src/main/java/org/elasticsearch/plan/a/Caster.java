@@ -1,4 +1,4 @@
-package painless;
+package org.elasticsearch.plan.a;
 
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -9,9 +9,9 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 
-import static painless.Adapter.*;
-import static painless.Default.*;
-import static painless.Definition.*;
+import static org.elasticsearch.plan.a.Adapter.*;
+import static org.elasticsearch.plan.a.Default.*;
+import static org.elasticsearch.plan.a.Definition.*;
 
 class Caster {
     private abstract static class Segment {

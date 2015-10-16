@@ -1,4 +1,4 @@
-package painless;
+package org.elasticsearch.plan.a;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -8,8 +8,8 @@ import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
 
-import static painless.Default.*;
-import static painless.Definition.*;
+import static org.elasticsearch.plan.a.Default.*;
+import static org.elasticsearch.plan.a.Definition.*;
 
 final class Compiler {
     private static class Loader extends ClassLoader {
@@ -69,8 +69,8 @@ final class Compiler {
 
     private static ParseTree createParseTree(String source, Definition definition) {
         final ANTLRInputStream stream = new ANTLRInputStream(source);
-        final PainlessLexer lexer = new PainlessLexer(stream);
-        final PainlessParser parser = new PainlessParser(new CommonTokenStream(lexer));
+        final PlanALexer lexer = new PlanALexer(stream);
+        final PlanAParser parser = new PlanAParser(new CommonTokenStream(lexer));
 
         parser.setTypes(definition.structs.keySet());
 
