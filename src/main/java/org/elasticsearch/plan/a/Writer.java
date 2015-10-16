@@ -1101,7 +1101,7 @@ class Writer extends PlanABaseVisitor<Void>{
         final String internal = "java/lang/StringBuilder";
         final String builder = "Ljava/lang/StringBuilder;";
         final String string = "(Ljava/lang/String;)" + builder;
-        final String object = "Ljava/lang/Object;)" + builder;
+        final String object = "(Ljava/lang/Object;)" + builder;
 
         switch (metadata) {
             case BOOL:   execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(Z)" + builder, false); break;
