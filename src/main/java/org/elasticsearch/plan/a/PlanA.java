@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-public final class Painless {
+public final class PlanA {
     public static void main(String args[]) throws Exception {
         Executable executable = compile("test", "string x = \"teststring\"; return x[2:];");
         //Executable executable = compile("test", "int x = 4, y = 1; x += y += 2; return x;");
@@ -19,7 +19,7 @@ public final class Painless {
         //Executable executable = compile("test", "bool x = true; x = false; if (x) return !x;");
         //Executable executable = compile("test", "long[][] x = long.makearray(1, 1); long y; y = x[0][0] = 5; return y;");
         //Executable executable = compile("test", "bool b; b = false; if (b) return null; else return 5;");
-        //Executable executable = new Painless().compile("test", "input.get(\"test\");");
+        //Executable executable = new PlanA().compile("test", "input.get(\"test\");");
         Map<String, Object> input = new HashMap<>();
         Map<Object, Object> inner = new HashMap<>();
         List<Object> list = new ArrayList<>();
@@ -63,12 +63,12 @@ public final class Painless {
     }
 
     public static Executable compile(String name, String source) {
-        return compile(name, source, Painless.class.getClassLoader(), null);
+        return compile(name, source, PlanA.class.getClassLoader(), null);
     }
 
     public static Executable compile(String name, String source, ClassLoader parent, Properties properties) {
         return Compiler.compile(name, source, parent, properties);
     }
 
-    private Painless() {}
+    private PlanA() {}
 }
