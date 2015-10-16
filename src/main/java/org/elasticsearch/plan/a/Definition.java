@@ -1,26 +1,9 @@
 package org.elasticsearch.plan.a;
 
-/*
- * Licensed to Elasticsearch under one or more contributor
- * license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright
- * ownership. Elasticsearch licenses this file to you under
- * the Apache License, Version 2.0 (the "License"); you may
- * not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
-
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -166,6 +149,7 @@ class Definition {
         final Class clazz;
         final String internal;
         final boolean generic;
+        final boolean runtime;
 
         final Map<String, Constructor> constructors;
         final Map<String, Method> functions;
@@ -174,11 +158,13 @@ class Definition {
         final Map<String, Field> statics;
         final Map<String, Field> members;
 
-        private Struct(final String name, final Class clazz, final String internal, final boolean generic) {
+        private Struct(final String name, final Class clazz, final String internal,
+                       final boolean generic, final boolean runtime) {
             this.name = name;
             this.clazz = clazz;
             this.internal = internal;
             this.generic = generic;
+            this.runtime = runtime;
 
             constructors = new HashMap<>();
             functions = new HashMap<>();
@@ -193,6 +179,7 @@ class Definition {
             clazz = struct.clazz;
             internal = struct.internal;
             generic = struct.generic;
+            runtime = struct.runtime;
 
             constructors = Collections.unmodifiableMap(struct.constructors);
             functions = Collections.unmodifiableMap(struct.functions);
@@ -244,11 +231,7 @@ class Definition {
 
             final Cast cast = (Cast)object;
 
-            if (!from.equals(cast.from)) {
-                return false;
-            }
-
-            return to.equals(cast.to);
+            return from.equals(cast.from) && to.equals(cast.to);
         }
 
         @Override
@@ -296,16 +279,15 @@ class Definition {
         for (String key : properties.stringPropertyNames()) {
             final String property = properties.getProperty(key);
 
-            if (key.startsWith("class")) {
-                loadStructFromProperty(definition, property, false);
-            } else if (key.startsWith("generic")) {
-                loadStructFromProperty(definition, property, true);
-            } else {
-                boolean valid = key.startsWith("constructor") ||
-                                key.startsWith("function")    || key.startsWith("method")  ||
-                                key.startsWith("static")      || key.startsWith("member")  ||
-                                key.startsWith("transform")   || key.startsWith("numeric") ||
-                                key.startsWith("upcast")     || key.startsWith("disallow");
+            if      (key.startsWith("struct"))  loadStructFromProperty(definition, property, false, false);
+            else if (key.startsWith("runtime")) loadStructFromProperty(definition, property, false, true);
+            else if (key.startsWith("generic")) loadStructFromProperty(definition, property, true, false);
+            else {
+                boolean valid = key.startsWith("constructor") || key.startsWith("function") ||
+                                key.startsWith("method")      || key.startsWith("copy")     ||
+                                key.startsWith("static")      || key.startsWith("member")   ||
+                                key.startsWith("transform")   || key.startsWith("numeric")  ||
+                                key.startsWith("upcast");
 
                 if (!valid) {
                     throw new IllegalArgumentException(); // TODO: message
@@ -316,39 +298,30 @@ class Definition {
         for (String key : properties.stringPropertyNames()) {
             final String property = properties.getProperty(key);
 
-            if (key.startsWith("constructor")) {
-                loadConstructorFromProperty(definition, property);
-            } else if (key.startsWith("function")) {
-                loadMethodFromProperty(definition, property, true);
-            } else if (key.startsWith("method")) {
-                loadMethodFromProperty(definition, property, false);
-            } else if (key.startsWith("static")) {
-                loadFieldFromProperty(definition, property, true);
-            } else if (key.startsWith("member")) {
-                loadFieldFromProperty(definition, property, false);
-            }
+            if      (key.startsWith("constructor")) loadConstructorFromProperty(definition, property);
+            else if (key.startsWith("function"))    loadMethodFromProperty(definition, property, true);
+            else if (key.startsWith("method"))      loadMethodFromProperty(definition, property, false);
+            else if (key.startsWith("static"))      loadFieldFromProperty(definition, property, true);
+            else if (key.startsWith("member"))      loadFieldFromProperty(definition, property, false);
         }
 
         for (String key : properties.stringPropertyNames()) {
             final String property = properties.getProperty(key);
 
-            if (key.startsWith("transform")) {
-                loadTransformFromProperty(definition, property);
-            } else if (key.startsWith("numeric")) {
-                loadNumericFromProperty(definition, property);
-            } else if (key.startsWith("upcast")) {
-                loadUpcastFromProperty(definition, property);
-            } else if (key.startsWith("disallow")) {
-                loadDisallowFromProperty(definition, property);
-            }
+            if      (key.startsWith("copy"))      loadCopyFromProperty(definition, property);
+            else if (key.startsWith("transform")) loadTransformFromProperty(definition, property);
+            else if (key.startsWith("numeric"))   loadNumericFromProperty(definition, property);
+            else if (key.startsWith("upcast"))    loadUpcastFromProperty(definition, property);
         }
 
         validateMethods(definition);
+        buildRuntimeMap(definition);
 
         return new Definition(definition);
     }
 
-    private static void loadStructFromProperty(final Definition definition, final String property, final boolean generic) {
+    private static void loadStructFromProperty(final Definition definition, final String property,
+                                               final boolean generic, final boolean runtime) {
         final String[] split = property.split("\\s+");
 
         if (split.length != 2) {
@@ -358,7 +331,7 @@ class Definition {
         final String namestr = split[0];
         final String clazzstr = split[1];
 
-        loadStruct(definition, namestr, clazzstr, generic);
+        loadStruct(definition, namestr, clazzstr, generic, runtime);
     }
 
     private static void loadConstructorFromProperty(final Definition definition, final String property) {
@@ -440,6 +413,18 @@ class Definition {
         loadField(definition, ownerstr, namestr, typestr, clazzstr, statik);
     }
 
+    private static void loadCopyFromProperty(final Definition definition, final String property) {
+        final String[] split = property.split("\\s+");
+
+        if (split.length < 2) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        final String ownerstr = split[0];
+
+        loadCopy(definition, ownerstr, split);
+    }
+
     private static void loadTransformFromProperty(final Definition definition, final String property) {
         final String[] split = property.split("\\s+");
 
@@ -483,21 +468,8 @@ class Definition {
         loadUpcast(definition, fromstr, tostr);
     }
 
-    private static void loadDisallowFromProperty(final Definition definition, final String property) {
-        final String[] split = property.split("\\s+");
-
-        if (split.length != 2) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        final String fromstr = split[0];
-        final String tostr = split[1];
-
-        loadDisallow(definition, fromstr, tostr);
-    }
-
     private static void loadStruct(final Definition definition, final String namestr,
-                                   final String clazzstr, final boolean generic) {
+                                   final String clazzstr, final boolean generic, final boolean runtime) {
         if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
             throw new IllegalArgumentException(); // TODO: message
         }
@@ -508,7 +480,7 @@ class Definition {
 
         final Class clazz = getClassFromCanonicalName(clazzstr);
         final String internal = clazz.getName().replace('.', '/');
-        final Struct struct = new Struct(namestr, clazz, internal, generic);
+        final Struct struct = new Struct(namestr, clazz, internal, generic, runtime);
 
         definition.structs.put(namestr, struct);
     }
@@ -708,6 +680,49 @@ class Definition {
         }
     }
 
+    private static void loadCopy(final Definition definition, final String ownerstr, final String[] childstrs) {
+        final Struct owner = definition.structs.get(ownerstr);
+
+        if (owner == null) {
+            throw new IllegalArgumentException(); // TODO: message
+        }
+
+        for (int child = 1; child < childstrs.length; ++child) {
+            final Struct struct = definition.structs.get(childstrs[child]);
+
+            if (struct == null) {
+                throw new IllegalArgumentException(); // TODO: message
+            }
+
+            try {
+                owner.clazz.asSubclass(struct.clazz);
+            } catch (ClassCastException exception) {
+                throw new ClassCastException(); // TODO: message
+            }
+
+            final boolean object = struct.clazz.equals(Object.class) &&
+                    java.lang.reflect.Modifier.isInterface(owner.clazz.getModifiers());
+
+            for (final Method method : struct.methods.values()) {
+                if (owner.methods.get(method.name) == null) {
+                    java.lang.reflect.Method jmethod = getJMethodFromJClass(object ? Object.class : owner.clazz,
+                            method.method.getName(), method.method.getParameterTypes());
+
+                    owner.methods.put(method.name,
+                            new Method(method.name, owner, method.rtn, method.oreturn,
+                                    method.arguments, method.originals, jmethod, method.descriptor));
+                }
+            }
+
+            for (final Field field : struct.members.values()) {
+                if (owner.members.get(field.name) == null) {
+                    java.lang.reflect.Field jfield = getJFieldFromJClass(owner.clazz, field.field.getName());
+                    owner.members.put(field.name, new Field(field.name, owner, field.type, jfield));
+                }
+            }
+        }
+    }
+
     private static void loadTransform(final Definition definition, final String typestr,
                                       final String fromstr, final String tostr, final String ownerstr,
                                       final String staticstr, final String methodstr) {
@@ -725,10 +740,6 @@ class Definition {
         }
 
         final Cast cast = new Cast(from, to);
-
-        if (definition.disallowed.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
 
         if (definition.numerics.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
@@ -845,10 +856,6 @@ class Definition {
 
         final Cast cast = new Cast(from, to);
 
-        if (definition.disallowed.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
         if (definition.numerics.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
@@ -886,10 +893,6 @@ class Definition {
 
         final Cast cast = new Cast(from, to);
 
-        if (definition.disallowed.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
         if (definition.numerics.contains(cast)) {
             throw new IllegalArgumentException(); // TODO: message
         }
@@ -908,40 +911,11 @@ class Definition {
 
         try {
             to.clazz.asSubclass(from.clazz);
-        } catch (ClassCastException expcetion) {
+        } catch (ClassCastException exception) {
             throw new IllegalArgumentException();
         }
 
         definition.upcasts.add(cast);
-    }
-
-    private static void loadDisallow(final Definition definition, final String fromstr, final String tostr) {
-        final Type from = getTypeFromCanonicalName(definition, fromstr);
-        final Type to = getTypeFromCanonicalName(definition, tostr);
-
-        if (from.equals(to)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        final Cast cast = new Cast(from, to);
-
-        if (definition.disallowed.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        if (definition.upcasts.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        if (definition.explicits.containsKey(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        if (definition.implicits.containsKey(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
-        definition.disallowed.add(cast);
     }
 
     private static String[][] parseArgumentsStr(final String argumentstr) {
@@ -1152,7 +1126,7 @@ class Definition {
         }
     }
 
-    private static java.lang.reflect.Constructor getJConstructorFromJClass(final Class clazz, final Class[] arguments) {
+    private static java.lang.reflect.Constructor getJConstructorFromJClass(final Class<?> clazz, final Class[] arguments) {
         try {
             return clazz.getConstructor(arguments);
         } catch (NoSuchMethodException exception) {
@@ -1160,7 +1134,7 @@ class Definition {
         }
     }
 
-    private static java.lang.reflect.Method getJMethodFromJClass(final Class clazz, final String namestr,
+    private static java.lang.reflect.Method getJMethodFromJClass(final Class<?> clazz, final String namestr,
                                                                  final Class[] arguments) {
         try {
             return clazz.getMethod(namestr, arguments);
@@ -1218,10 +1192,6 @@ class Definition {
     private static void validateArgument(final Definition definition, final Type argument, final Type original) {
         final Cast pcast = new Cast(argument, original);
 
-        if (definition.disallowed.contains(pcast)) {
-            throw new IllegalArgumentException(); // TODO: message
-        }
-
         if (!definition.implicits.containsKey(pcast)) {
             try {
                 argument.clazz.asSubclass(original.clazz);
@@ -1231,22 +1201,41 @@ class Definition {
         }
     }
 
+    private static void buildRuntimeMap(final Definition definition) {
+        for (final Struct struct : definition.structs.values()) {
+            if (struct.runtime) {
+                for (final Method method : struct.methods.values()) {
+                    final String name = struct.clazz.getName() + "_" + method.name;
+
+                    if (!definition.runtime.containsKey(name)) {
+                        try {
+                            definition.runtime.put(name,
+                                    MethodHandles.publicLookup().in(struct.clazz).unreflect(method.method));
+                        } catch (IllegalAccessException exception) {
+                            throw new IllegalArgumentException(); // TODO: message
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     final Map<String, Struct> structs;
+    final Map<String, MethodHandle> runtime;
 
     final Map<Cast, Transform> explicits;
     final Map<Cast, Transform> implicits;
     final Set<Cast> numerics;
     final Set<Cast> upcasts;
-    final Set<Cast> disallowed;
 
     private Definition() {
         structs = new HashMap<>();
+        runtime = new HashMap<>();
 
         explicits = new HashMap<>();
         implicits = new HashMap<>();
         numerics = new HashSet<>();
         upcasts = new HashSet<>();
-        disallowed = new HashSet<>();
     }
 
     private Definition(Definition definition) {
@@ -1257,11 +1246,11 @@ class Definition {
         }
 
         structs = Collections.unmodifiableMap(ummodifiable);
+        runtime = Collections.unmodifiableMap(definition.runtime);
 
         explicits = Collections.unmodifiableMap(definition.explicits);
         implicits = Collections.unmodifiableMap(definition.implicits);
         numerics = Collections.unmodifiableSet(definition.numerics);
         upcasts = Collections.unmodifiableSet(definition.upcasts);
-        disallowed = Collections.unmodifiableSet(definition.disallowed);
     }
 }

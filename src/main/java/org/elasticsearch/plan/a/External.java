@@ -541,7 +541,7 @@ class External {
         final ExpressionMetadata declemd = adapter.createExpressionMetadata(declctx);
         analyzer.visit(declctx);
 
-        final Cast cast = caster.getLegalCast(current, declemd.from, true, false);
+        final Cast cast = caster.getLegalCast(current, declemd.from, true);
         segments.add(new CastSegment(cast));
 
         current = declemd.from;
@@ -663,7 +663,7 @@ class External {
                 writeemd.to = writeemd.from;
                 caster.markCast(writeemd);
 
-                final Cast cast = caster.getLegalCast(standard.stringType, type, false, false);
+                final Cast cast = caster.getLegalCast(standard.stringType, type, false);
 
                 segments.add(new VariableSegment(variable, false));
                 segments.add(new AppendStringsSegment(type));
@@ -791,7 +791,7 @@ class External {
                     writeemd.to = writeemd.from;
                     caster.markCast(writeemd);
 
-                    final Cast cast = caster.getLegalCast(standard.stringType, type, false, false);
+                    final Cast cast = caster.getLegalCast(standard.stringType, type, false);
 
                     segments.add(new InstructionSegment(Opcodes.DUP_X1));
                     segments.add(new FieldSegment(field, false));
@@ -966,7 +966,7 @@ class External {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        final Cast cast0 = caster.getLegalCast(current, standard.stringType, false, false);
+        final Cast cast0 = caster.getLegalCast(current, standard.stringType, false);
 
         segments.add(new CastSegment(cast0));
 
@@ -1027,7 +1027,7 @@ class External {
                 writeemd.to = writeemd.from;
                 caster.markCast(writeemd);
 
-                final Cast cast = caster.getLegalCast(standard.stringType, type, false, false);
+                final Cast cast = caster.getLegalCast(standard.stringType, type, false);
 
                 segments.add(new InstructionSegment(Opcodes.DUP2_X1));
                 segments.add(new ArraySegment(type, false));
@@ -1120,7 +1120,7 @@ class External {
         expremd.to = promote;
         caster.markCast(expremd);
 
-        final Cast cast = caster.getLegalCast(current, list ? standard.listType : standard.mapType, true, true);
+        final Cast cast = caster.getLegalCast(current, list ? standard.listType : standard.mapType, true);
         segments.add(new CastSegment(cast));
         current = cast.to;
         final Struct struct = current.struct;
@@ -1219,8 +1219,8 @@ class External {
         final Type promote = caster.getTypePromotion(current, null, promotion);
         final Cast[] casts = new Cast[2];
 
-        casts[0] = caster.getLegalCast(current, promote, false, false);
-        casts[1] = caster.getLegalCast(promote, current, true, false);
+        casts[0] = caster.getLegalCast(current, promote, false);
+        casts[1] = caster.getLegalCast(promote, current, true);
         current = promote;
 
         return casts;
