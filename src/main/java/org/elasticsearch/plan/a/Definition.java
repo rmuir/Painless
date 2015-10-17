@@ -278,41 +278,53 @@ class Definition {
         final Definition definition = new Definition();
 
         for (String key : properties.stringPropertyNames()) {
-            final String property = properties.getProperty(key);
+            try {
+                final String property = properties.getProperty(key);
 
-            if      (key.startsWith("struct"))  loadStructFromProperty(definition, property, false, false);
-            else if (key.startsWith("runtime")) loadStructFromProperty(definition, property, false, true);
-            else if (key.startsWith("generic")) loadStructFromProperty(definition, property, true, false);
-            else {
-                boolean valid = key.startsWith("constructor") || key.startsWith("function") ||
-                                key.startsWith("method")      || key.startsWith("copy")     ||
-                                key.startsWith("static")      || key.startsWith("member")   ||
-                                key.startsWith("transform")   || key.startsWith("numeric")  ||
-                                key.startsWith("upcast");
+                if (key.startsWith("struct")) loadStructFromProperty(definition, property, false, false);
+                else if (key.startsWith("runtime")) loadStructFromProperty(definition, property, false, true);
+                else if (key.startsWith("generic")) loadStructFromProperty(definition, property, true, false);
+                else {
+                    boolean valid = key.startsWith("constructor") || key.startsWith("function") ||
+                            key.startsWith("method") || key.startsWith("copy") ||
+                            key.startsWith("static") || key.startsWith("member") ||
+                            key.startsWith("transform") || key.startsWith("numeric") ||
+                            key.startsWith("upcast");
 
-                if (!valid) {
-                    throw new IllegalArgumentException("Invalid property key [" + key + "] used in definition.");
+                    if (!valid) {
+                        throw new IllegalArgumentException("Invalid property key.");
+                    }
                 }
+            } catch (final RuntimeException exception) {
+                throw new RuntimeException("Error loading [" + key + "].", exception);
             }
         }
 
         for (String key : properties.stringPropertyNames()) {
-            final String property = properties.getProperty(key);
+            try {
+                final String property = properties.getProperty(key);
 
-            if      (key.startsWith("constructor")) loadConstructorFromProperty(definition, property);
-            else if (key.startsWith("function"))    loadMethodFromProperty(definition, property, true);
-            else if (key.startsWith("method"))      loadMethodFromProperty(definition, property, false);
-            else if (key.startsWith("static"))      loadFieldFromProperty(definition, property, true);
-            else if (key.startsWith("member"))      loadFieldFromProperty(definition, property, false);
+                if      (key.startsWith("constructor")) loadConstructorFromProperty(definition, property);
+                else if (key.startsWith("function"))    loadMethodFromProperty(definition, property, true);
+                else if (key.startsWith("method"))      loadMethodFromProperty(definition, property, false);
+                else if (key.startsWith("static"))      loadFieldFromProperty(definition, property, true);
+                else if (key.startsWith("member"))      loadFieldFromProperty(definition, property, false);
+            } catch (final RuntimeException exception) {
+                throw new RuntimeException("Error loading [" + key + "].", exception);
+            }
         }
 
         for (String key : properties.stringPropertyNames()) {
-            final String property = properties.getProperty(key);
+            try {
+                final String property = properties.getProperty(key);
 
-            if      (key.startsWith("copy"))      loadCopyFromProperty(definition, property);
-            else if (key.startsWith("transform")) loadTransformFromProperty(definition, property);
-            else if (key.startsWith("numeric"))   loadNumericFromProperty(definition, property);
-            else if (key.startsWith("upcast"))    loadUpcastFromProperty(definition, property);
+                if (key.startsWith("copy")) loadCopyFromProperty(definition, property);
+                else if (key.startsWith("transform")) loadTransformFromProperty(definition, property);
+                else if (key.startsWith("numeric")) loadNumericFromProperty(definition, property);
+                else if (key.startsWith("upcast")) loadUpcastFromProperty(definition, property);
+            }  catch (final Exception exception) {
+                throw new RuntimeException("Error loading [" + key + "].", exception);
+            }
         }
 
         validateMethods(definition);
@@ -326,8 +338,7 @@ class Definition {
         final String[] split = property.split("\\s+");
 
         if (split.length != 2) {
-            throw new IllegalArgumentException("Struct must be defined with exactly two arguments " +
-                    "(name, Java class). Found: [" + property + "].");
+            throw new IllegalArgumentException("Struct must be defined with exactly two arguments (name, Java class).");
         }
 
         final String namestr = split[0];
@@ -342,7 +353,7 @@ class Definition {
 
         if (index == -1) {
             throw new IllegalArgumentException("Constructor must be defined as (struct, name, " +
-                    "Java constructor name with argument types). Found: [" + property + "].");
+                    "Java constructor name with argument types).");
         }
 
         final String ownerstr = parsed.substring(0, index);
@@ -351,7 +362,7 @@ class Definition {
 
         if (index == -1) {
             throw new IllegalArgumentException("Constructor must be defined as (struct, name, " +
-                    "Java constructor name with argument types). Found: [" + property + "].");
+                    "Java constructor name with argument types).");
         }
 
         final String namestr = parsed.substring(0, index);
@@ -368,8 +379,7 @@ class Definition {
 
         if (index == -1) {
             throw new IllegalArgumentException((statik ? "Function" : "Method") +
-                    " must be defined as (struct, name, Java method name with argument types)." +
-                    " Found: [" + property + "].");
+                    " must be defined as (struct, name, Java method name with argument types).");
         }
 
         final String ownerstr = parsed.substring(0, index);
@@ -378,8 +388,7 @@ class Definition {
 
         if (index == -1) {
             throw new IllegalArgumentException((statik ? "Function" : "Method") +
-                    " must be defined as (struct, name, Java method name with argument types)." +
-                    " Found: [" + property + "].");
+                    " must be defined as (struct, name, Java method name with argument types).");
         }
 
         final String namestr = parsed.substring(0, index);
@@ -388,8 +397,7 @@ class Definition {
 
         if (index == -1) {
             throw new IllegalArgumentException((statik ? "Function" : "Method") +
-                    " must be defined as (struct, name, Java method name with argument types)." +
-                    " Found: [" + property + "].");
+                    " must be defined as (struct, name, Java method name with argument types).");
         }
 
         final String returnstr = parsed.substring(0, index);
@@ -398,8 +406,7 @@ class Definition {
 
         if (index == -1) {
             throw new IllegalArgumentException((statik ? "Function" : "Method") +
-                    " must be defined as (struct, name, Java method name with argument types)." +
-                    " Found: [" + property + "].");
+                    " must be defined as (struct, name, Java method name with argument types).");
         }
 
         final String clazzstr = parsed.substring(0, index);
@@ -415,8 +422,7 @@ class Definition {
 
         if (split.length != 4) {
             throw new IllegalArgumentException((statik ? "Static" : "Member") +
-                    " must be defined with exactly four arguments (type, name, Java type, Java name)." +
-                    " Found: [" + property + "].");
+                    " must be defined with exactly four arguments (type, name, Java type, Java name).");
         }
 
         final String ownerstr = split[0];
@@ -431,8 +437,8 @@ class Definition {
         final String[] split = property.split("\\s+");
 
         if (split.length < 2) {
-            throw new IllegalArgumentException("Copy must be defined with at least two arguments " +
-                    "(sub type, super type(s)). Found: [" + property + "].");
+            throw new IllegalArgumentException(
+                    "Copy must be defined with at least two arguments (sub type, super type(s)).");
         }
 
         final String ownerstr = split[0];
@@ -446,7 +452,7 @@ class Definition {
         if (split.length != 6) {
             throw new IllegalArgumentException("Transform must be defined with exactly six arguments " +
                     "([explicit/implicit], cast from type, cast to type, owner struct, " +
-                    "[function/method], call name). Found: [" + property + "].");
+                    "[function/method], call name).");
         }
 
         final String typestr = split[0];
@@ -463,8 +469,8 @@ class Definition {
         final String[] split = property.split("\\s+");
 
         if (split.length != 2) {
-            throw new IllegalArgumentException("Numeric cast must be defined with exactly two arguments " +
-                    "(cast from type, cast to type). Found: [" + property + "].");
+            throw new IllegalArgumentException(
+                    "Numeric cast must be defined with exactly two arguments (cast from type, cast to type).");
         }
 
         final String fromstr = split[0];
@@ -477,8 +483,8 @@ class Definition {
         final String[] split = property.split("\\s+");
 
         if (split.length != 2) {
-            throw new IllegalArgumentException("Upcast must be defined with exactly two arguments " +
-                    "(cast from type, cast to type). Found: [" + property + "].");
+            throw new IllegalArgumentException(
+                    "Upcast must be defined with exactly two arguments (cast from type, cast to type).");
         }
 
         final String fromstr = split[0];
@@ -1268,15 +1274,20 @@ class Definition {
         }
     }
 
-    private static void validateMethods(final Definition tyes) {
-        for (final Struct struct : tyes.structs.values()) {
+    private static void validateMethods(final Definition types) {
+        for (final Struct struct : types.structs.values()) {
             for (final Constructor constructor : struct.constructors.values()) {
                 final int length = constructor.arguments.size();
                 final List<Type> arguments = constructor.arguments;
                 final List<Type> originals = constructor.originals;
 
                 for (int argument = 0; argument < length; ++argument) {
-                    validateArgument(tyes, arguments.get(argument), originals.get(argument));
+                    if (!validateArgument(types, arguments.get(argument), originals.get(argument))) {
+                        throw new ClassCastException("Generic argument Java type [" +
+                                arguments.get(argument).clazz.getCanonicalName() + "] is not a Java sub type of [" +
+                                originals.get(argument).clazz.getCanonicalName() + "] in the constructor [" +
+                                constructor.name + " from the struct [" + struct.name + "].");
+                    }
                 }
             }
 
@@ -1286,10 +1297,20 @@ class Definition {
                 final List<Type> originals = function.originals;
 
                 for (int argument = 0; argument < length; ++argument) {
-                    validateArgument(tyes, arguments.get(argument), originals.get(argument));
+                    if (!validateArgument(types, arguments.get(argument), originals.get(argument))) {
+                        throw new ClassCastException("Generic argument Java type [" +
+                                arguments.get(argument).clazz.getCanonicalName() + "] is not a Java sub type of [" +
+                                originals.get(argument).clazz.getCanonicalName() + "] in the function [" +
+                                function.name + " from the struct [" + struct.name + "].");
+                    }
                 }
 
-                validateArgument(tyes, function.rtn, function.oreturn);
+                if (!validateArgument(types, function.rtn, function.oreturn)) {
+                    throw new ClassCastException("Generic return Java type [" +
+                            function.rtn.clazz.getCanonicalName() + "] is not a Java sub type of [" +
+                            function.oreturn.clazz.getCanonicalName() + "] in the function [" +
+                            function.name + " from the struct [" + struct.name + "].");
+                }
             }
 
             for (final Method method : struct.methods.values()) {
@@ -1298,24 +1319,36 @@ class Definition {
                 final List<Type> originals = method.originals;
 
                 for (int argument = 0; argument < length; ++argument) {
-                    validateArgument(tyes, arguments.get(argument), originals.get(argument));
+                    if (!validateArgument(types, arguments.get(argument), originals.get(argument))) {
+                        throw new ClassCastException("Generic argument Java type [" +
+                                arguments.get(argument).clazz.getCanonicalName() + "] is not a Java sub type of [" +
+                                originals.get(argument).clazz.getCanonicalName() + "] in the method [" +
+                                method.name + " from the struct [" + struct.name + "].");
+                    }
                 }
 
-                validateArgument(tyes, method.rtn, method.oreturn);
+                if (!validateArgument(types, method.rtn, method.oreturn)) {
+                    throw new ClassCastException("Generic return Java type [" +
+                            method.rtn.clazz.getCanonicalName() + "] is not a Java sub type of [" +
+                            method.oreturn.clazz.getCanonicalName() + "] in the method [" +
+                            method.name + " from the struct [" + struct.name + "].");
+                }
             }
         }
     }
 
-    private static void validateArgument(final Definition definition, final Type argument, final Type original) {
-        final Cast pcast = new Cast(argument, original);
+    private static boolean validateArgument(final Definition definition, final Type argument, final Type original) {
+        final Cast cast = new Cast(argument, original);
 
-        if (!definition.implicits.containsKey(pcast)) {
+        if (!definition.implicits.containsKey(cast)) {
             try {
                 argument.clazz.asSubclass(original.clazz);
             } catch (ClassCastException exception) {
-                throw new IllegalArgumentException(); // TODO: message
+                return false;
             }
         }
+
+        return true;
     }
 
     private static void buildRuntimeMap(final Definition definition) {
@@ -1329,7 +1362,8 @@ class Definition {
                             definition.runtime.put(name,
                                     MethodHandles.publicLookup().in(struct.clazz).unreflect(method.method));
                         } catch (IllegalAccessException exception) {
-                            throw new IllegalArgumentException(); // TODO: message
+                            throw new IllegalStateException("Unable to find method [" + method.name + "] from the" +
+                                    "struct [" + struct.name + "] to define as a runtime method.");
                         }
                     }
                 }
