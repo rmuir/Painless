@@ -25,6 +25,7 @@ import java.util.Properties;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.elasticsearch.common.SuppressForbidden;
 
@@ -55,7 +56,7 @@ final class Compiler {
         System.out.println("definition: " + end);
         start = System.currentTimeMillis();
 
-        final ParseTree root = createParseTree(source, definition);
+        final ParserRuleContext root = createParseTree(source, definition);
 
         end = System.currentTimeMillis() - start;
         System.out.println("tree: " + end);
@@ -88,14 +89,14 @@ final class Compiler {
         return executable;
     }
 
-    private static ParseTree createParseTree(String source, Definition definition) {
+    private static ParserRuleContext createParseTree(String source, Definition definition) {
         final ANTLRInputStream stream = new ANTLRInputStream(source);
         final PlanALexer lexer = new PlanALexer(stream);
         final PlanAParser parser = new PlanAParser(new CommonTokenStream(lexer));
 
         parser.setTypes(definition.structs.keySet());
 
-        ParseTree root = parser.source();
+        ParserRuleContext root = parser.source();
         System.out.println(root.toStringTree(parser));
         return root;
     }

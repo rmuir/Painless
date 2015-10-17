@@ -1,5 +1,24 @@
 package org.elasticsearch.plan.a;
 
+/*
+ * Licensed to Elasticsearch under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.invoke.MethodHandle;
@@ -45,6 +64,7 @@ class Definition {
     }
 
     static class Type {
+        final String name;
         final Struct struct;
         final Class clazz;
         final String internal;
@@ -52,8 +72,9 @@ class Definition {
         final int dimensions;
         final TypeMetadata metadata;
 
-        Type(final Struct struct, final Class clazz, final String internal, final String descriptor,
-             final int dimensions, final TypeMetadata metadata) {
+        Type(final String name, final Struct struct, final Class clazz, final String internal,
+             final String descriptor, final int dimensions, final TypeMetadata metadata) {
+            this.name = name;
             this.struct = struct;
             this.clazz = clazz;
             this.internal = internal;
@@ -1102,7 +1123,7 @@ class Definition {
                 }
             }
 
-            return new Type(struct, clazz, internal, descriptor, 0, metadata);
+            return new Type(struct.name, struct, clazz, internal, descriptor, 0, metadata);
         } else {
             final char[] brackets = new char[dimensions*2];
 
@@ -1111,12 +1132,13 @@ class Definition {
                 brackets[++index] = ']';
             }
 
-            final String namestr = struct.clazz.getCanonicalName() + new String(brackets);
-            final Class clazz = getClassFromCanonicalName(namestr);
+            final String name = struct.name + new String(brackets);
+            final String clazzstr = struct.clazz.getCanonicalName() + new String(brackets);
+            final Class clazz = getClassFromCanonicalName(clazzstr);
             final String internal = clazz.getName().replace('.', '/');
             final String descriptor = getDescriptorFromClass(clazz);
 
-            return new Type(struct, clazz, internal, descriptor, dimensions, TypeMetadata.ARRAY);
+            return new Type(name, struct, clazz, internal, descriptor, dimensions, TypeMetadata.ARRAY);
         }
     }
 

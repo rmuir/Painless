@@ -25,6 +25,7 @@ import org.objectweb.asm.*;
 import static org.elasticsearch.plan.a.Adapter.*;
 import static org.elasticsearch.plan.a.Definition.*;
 import static org.elasticsearch.plan.a.PlanAParser.*;
+import static org.elasticsearch.plan.a.Utility.*;
 
 class Writer extends PlanABaseVisitor<Void>{
     final static String BASE_CLASS_NAME = Executable.class.getName();
@@ -130,7 +131,7 @@ class Writer extends PlanABaseVisitor<Void>{
         visit(blockctx0);
 
         if (els) {
-            if (!blockmd0.allExit) { // TODO: this needs downcast check fo all paths exit
+            if (!blockmd0.allExit) {
                 execute.visitJumpInsn(Opcodes.GOTO, branch.end);
             }
 
@@ -303,7 +304,7 @@ class Writer extends PlanABaseVisitor<Void>{
 
     @Override
     public Void visitEmpty(final EmptyContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("An internal error has occurred.");
     }
 
     @Override
@@ -317,7 +318,7 @@ class Writer extends PlanABaseVisitor<Void>{
 
     @Override
     public Void visitDecltype(final DecltypeContext ctx) {
-        throw new UnsupportedOperationException(); //TODO: message
+        throw new UnsupportedOperationException("An internal error has occurred.");
     }
 
     @Override
@@ -334,7 +335,7 @@ class Writer extends PlanABaseVisitor<Void>{
 
         switch (variable.type.metadata) {
             case VOID:
-                throw new IllegalStateException(); // TODO: message
+                throw new IllegalStateException(line(ctx) + "The void type cannot be used in a declaration.");
             case BOOL:
             case BYTE:
             case SHORT:
@@ -356,7 +357,7 @@ class Writer extends PlanABaseVisitor<Void>{
 
     @Override
     public Void visitPrecedence(final PrecedenceContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("Internal error has occurred.");
     }
 
     @Override
@@ -575,7 +576,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     if      (metadata == TypeMetadata.INT)  { writeConstant(-1);  execute.visitInsn(Opcodes.IXOR); }
                     else if (metadata == TypeMetadata.LONG) { writeConstant(-1L); execute.visitInsn(Opcodes.LXOR); }
                     else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException("An internal error has occurred.");
                     }
                 } else if (ctx.SUB() != null) {
                     if      (metadata == TypeMetadata.INT)    execute.visitInsn(Opcodes.INEG);
@@ -583,7 +584,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     else if (metadata == TypeMetadata.FLOAT)  execute.visitInsn(Opcodes.FNEG);
                     else if (metadata == TypeMetadata.DOUBLE) execute.visitInsn(Opcodes.DNEG);
                     else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException("An intenral error has occurred.");
                     }
                 }
 
@@ -653,7 +654,7 @@ class Writer extends PlanABaseVisitor<Void>{
             else if (ctx.BWOR()  != null) writeBinaryInstruction(metadata, BWOR);
             else if (ctx.ADD()   != null) writeBinaryInstruction(metadata, ADD);
             else {
-                throw new IllegalStateException(); // TODO: message
+                throw new IllegalStateException("An internal error has occurred.");
             }
 
             caster.checkWriteCast(execute, binaryemd);
@@ -698,19 +699,19 @@ class Writer extends PlanABaseVisitor<Void>{
 
             switch (metadata) {
                 case VOID:
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(line(ctx) + "Void type not allowed for use in comparisons.");
                 case BOOL:
                     if      (eq) execute.visitJumpInsn(Opcodes.IF_ICMPEQ, jump);
                     else if (ne) execute.visitJumpInsn(Opcodes.IF_ICMPNE, jump);
                     else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException(line(ctx) + "Illegal use of boolean in comparison.");
                     }
 
                     break;
                 case BYTE:
                 case SHORT:
                 case CHAR:
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(line(ctx) + "Illegal use of byte/short/char in comparison.");
                 case INT:
                     if      (eq)  execute.visitJumpInsn(Opcodes.IF_ICMPEQ, jump);
                     else if (ne)  execute.visitJumpInsn(Opcodes.IF_ICMPNE, jump);
@@ -719,7 +720,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     else if (gt)  execute.visitJumpInsn(Opcodes.IF_ICMPGT, jump);
                     else if (gte) execute.visitJumpInsn(Opcodes.IF_ICMPGE, jump);
                     else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException(line(ctx) + "Illegal use of int in comparison.");
                     }
 
                     break;
@@ -733,7 +734,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     else if (gt)  execute.visitJumpInsn(Opcodes.IFGT, jump);
                     else if (gte) execute.visitJumpInsn(Opcodes.IFGE, jump);
                     else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException(line(ctx) + "Illegal use of long in comparison.");
                     }
 
                     break;
@@ -745,7 +746,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     else if (gt)  { execute.visitInsn(Opcodes.FCMPL); execute.visitJumpInsn(Opcodes.IFGT, jump); }
                     else if (gte) { execute.visitInsn(Opcodes.FCMPL); execute.visitJumpInsn(Opcodes.IFGE, jump); }
                     else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException(line(ctx) + "Illegal use of float in comparison.");
                     }
 
                     break;
@@ -757,7 +758,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     else if (gt)  { execute.visitInsn(Opcodes.DCMPL); execute.visitJumpInsn(Opcodes.IFGT, jump); }
                     else if (gte) { execute.visitInsn(Opcodes.DCMPL); execute.visitJumpInsn(Opcodes.IFGE, jump); }
                     else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException(line(ctx) + "Illegal use of double in comparison.");
                     }
 
                     break;
@@ -775,7 +776,7 @@ class Writer extends PlanABaseVisitor<Void>{
                             execute.visitJumpInsn(Opcodes.IF_ACMPNE, jump);
                         }
                     } else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException(line(ctx) + "Illegal use of object in comparison.");
                     }
             }
 
@@ -845,7 +846,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     execute.visitInsn(Opcodes.ICONST_0);
                     execute.visitLabel(aend);
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException("An internal error has occurred.");
                 }
 
                 caster.checkWriteCast(execute, boolemd);
@@ -877,7 +878,7 @@ class Writer extends PlanABaseVisitor<Void>{
                         execute.visitLabel(branch0.tru);
                     }
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException("An internal error has occurred.");
                 }
             }
         } else {
@@ -933,47 +934,47 @@ class Writer extends PlanABaseVisitor<Void>{
 
     @Override
     public Void visitExtstart(ExtstartContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("Internal error has occurred.");
     }
 
     @Override
     public Void visitExtprec(final ExtprecContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("Internal error has occurred.");
     }
 
     @Override
     public Void visitExtcast(final ExtcastContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("Internal error has occurred.");
     }
 
     @Override
     public Void visitExtbrace(final ExtbraceContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("Internal error has occurred.");
     }
 
     @Override
     public Void visitExtdot(final ExtdotContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("Internal error has occurred.");
     }
 
     @Override
     public Void visitExttype(final ExttypeContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("Internal error has occurred.");
     }
 
     @Override
     public Void visitExtcall(final ExtcallContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("Internal error has occurred.");
     }
 
     @Override
     public Void visitExtmember(final ExtmemberContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("Internal error has occurred.");
     }
 
     @Override
     public Void visitArguments(final ArgumentsContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("Internal error has occurred.");
     }
 
     @Override
@@ -1003,7 +1004,7 @@ class Writer extends PlanABaseVisitor<Void>{
         } else if (constant instanceof Boolean) {
             writeBoolean(constant);
         } else if (constant != null) {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException("Cannot write null constant.");
         }
     }
 
@@ -1065,21 +1066,21 @@ class Writer extends PlanABaseVisitor<Void>{
                 execute.visitLdcInsn(value);
             }
         } else {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException("Cannot write invalid numeric [" + numeric + "].");
         }
     }
 
-    private void writeString(final Object constant) {
-        if (constant instanceof String) {
-            execute.visitLdcInsn(constant);
+    private void writeString(final Object string) {
+        if (string instanceof String) {
+            execute.visitLdcInsn(string);
         } else {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException("Cannot write invalid string [" + string + "].");
         }
     }
 
-    private void writeBoolean(final Object constant) {
-        if (constant instanceof Boolean) {
-            boolean value = (boolean)constant;
+    private void writeBoolean(final Object bool) {
+        if (bool instanceof Boolean) {
+            boolean value = (boolean)bool;
 
             if (value) {
                 execute.visitInsn(Opcodes.ICONST_1);
@@ -1087,7 +1088,7 @@ class Writer extends PlanABaseVisitor<Void>{
                 execute.visitInsn(Opcodes.ICONST_0);
             }
         } else {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException("Cannot write invalid boolean [" + bool + "].");
         }
     }
 
@@ -1113,9 +1114,10 @@ class Writer extends PlanABaseVisitor<Void>{
             case FLOAT:  execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(F)" + builder, false); break;
             case DOUBLE: execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(D)" + builder, false); break;
             case STRING: execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", string, false);          break;
+            case ARRAY:
             case OBJECT: execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", object, false);          break;
             default:
-                throw new IllegalStateException(); // TODO: message
+                throw new IllegalStateException("An internal error has occurred.");
         }
     }
 
@@ -1139,7 +1141,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     case BWXOR: execute.visitInsn(Opcodes.IXOR);  break;
                     case BWOR:  execute.visitInsn(Opcodes.IOR);   break;
                     default:
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException("Cannot use token [" + token + " with int.");
                 }
 
                 break;
@@ -1157,7 +1159,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     case BWXOR: execute.visitInsn(Opcodes.LXOR);  break;
                     case BWOR:  execute.visitInsn(Opcodes.LOR);   break;
                     default:
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException("Cannot use token [" + token + " with long.");
                 }
 
                 break;
@@ -1169,7 +1171,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     case ADD: execute.visitInsn(Opcodes.FADD); break;
                     case SUB: execute.visitInsn(Opcodes.FSUB); break;
                     default:
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException("Cannot use token [" + token + " with float.");
                 }
 
                 break;
@@ -1181,12 +1183,12 @@ class Writer extends PlanABaseVisitor<Void>{
                     case ADD: execute.visitInsn(Opcodes.DADD); break;
                     case SUB: execute.visitInsn(Opcodes.DSUB); break;
                     default:
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException("Cannot use token [" + token + " with double.");
                 }
 
                 break;
             default:
-                throw new IllegalStateException(); // TODO: message
+                throw new IllegalStateException("No binary instruction exists for [" + metadata.name() + "].");
         }
     }
 

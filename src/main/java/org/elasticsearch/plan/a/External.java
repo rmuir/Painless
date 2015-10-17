@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
 
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -238,15 +239,17 @@ class External {
     }
 
     private class CastSegment extends Segment {
+        private final ParserRuleContext source;
         private final Cast cast;
 
-        CastSegment(final Cast cast) {
+        CastSegment(final ParserRuleContext source, final Cast cast) {
+            this.source = source;
             this.cast = cast;
         }
 
         @Override
         void write() {
-            caster.checkWriteCast(visitor, cast);
+            caster.checkWriteCast(visitor, source, cast);
         }
     }
 
@@ -266,9 +269,9 @@ class External {
     }
 
     private class NewStringsSegment extends Segment {
-        private final ParseTree mark;
+        private final ParserRuleContext mark;
 
-        NewStringsSegment(final ParseTree mark) {
+        NewStringsSegment(final ParserRuleContext mark) {
             this.mark = mark;
         }
 
@@ -280,7 +283,7 @@ class External {
     }
 
     private class AppendStringsSegment extends Segment {
-        private final ParseTree mark;
+        private final ParserRuleContext mark;
         private final Type type;
 
         AppendStringsSegment(final Type type) {
@@ -288,7 +291,7 @@ class External {
             this.type = type;
         }
 
-        AppendStringsSegment(final ParseTree mark, final Type type) {
+        AppendStringsSegment(final ParserRuleContext mark, final Type type) {
             this.mark = mark;
             this.type = type;
         }
@@ -346,7 +349,7 @@ class External {
     private MethodVisitor visitor;
 
     private boolean read;
-    private ParseTree write;
+    private ParserRuleContext write;
     private int token;
     private boolean post;
 
@@ -385,7 +388,7 @@ class External {
         this.visitor = visitor;
     }
 
-    void write(final ParseTree ctx) {
+    void write(final ParserRuleContext ctx) {
         final ExpressionMetadata writeemd = adapter.getExpressionMetadata(ctx);
 
         for (Segment segment : segments) {
@@ -541,8 +544,8 @@ class External {
         final ExpressionMetadata declemd = adapter.createExpressionMetadata(declctx);
         analyzer.visit(declctx);
 
-        final Cast cast = caster.getLegalCast(current, declemd.from, true);
-        segments.add(new CastSegment(cast));
+        final Cast cast = caster.getLegalCast(ctx, current, declemd.from, true);
+        segments.add(new CastSegment(ctx, cast));
 
         current = declemd.from;
         statement = false;
@@ -566,14 +569,14 @@ class External {
 
         if (colon) {
             if (ctx.getChild(1) instanceof ExpressionContext) {
-                substring(exprctx0, exprctx1, last);
+                substring(ctx, exprctx0, exprctx1, last);
             } else {
-                substring(null, exprctx0, last);
+                substring(ctx, null, exprctx0, last);
             }
         } else if (current.dimensions > 0) {
-            array(exprctx0, last);
+            array(ctx, exprctx0, last);
         } else {
-            shortcut(exprctx0, last);
+            shortcut(ctx, exprctx0, last);
         }
 
         if (dotctx != null) {
@@ -633,9 +636,9 @@ class External {
         final boolean last = prec == 0 && dotctx == null && bracectx == null;
 
         if (current == null) {
-            variable(name, last);
+            variable(ctx, name, last);
         } else {
-            field(name, last);
+            field(ctx, name, last);
         }
 
         if (dotctx != null) {
@@ -645,7 +648,7 @@ class External {
         }
     }
 
-    private void variable(final String name, final boolean last) {
+    private void variable(final ParserRuleContext source, final String name, final boolean last) {
         final Variable variable = adapter.getVariable(name);
 
         if (variable == null) {
@@ -663,14 +666,14 @@ class External {
                 writeemd.to = writeemd.from;
                 caster.markCast(writeemd);
 
-                final Cast cast = caster.getLegalCast(standard.stringType, type, false);
+                final Cast cast = caster.getLegalCast(source, standard.stringType, type, false);
 
                 segments.add(new VariableSegment(variable, false));
                 segments.add(new AppendStringsSegment(type));
                 segments.add(new NodeSegment(write));
                 segments.add(new AppendStringsSegment(write, writeemd.to));
                 segments.add(new ToStringsSegment());
-                segments.add(new CastSegment(cast));
+                segments.add(new CastSegment(source, cast));
 
                 if (read) {
                     if (type.metadata.size == 1) {
@@ -686,7 +689,7 @@ class External {
             } else if (token > 0) {
                 final boolean increment = type.metadata == TypeMetadata.INT && (token == ADD || token == SUB);
                 current = type;
-                final Cast[] casts = toNumericCasts();
+                final Cast[] casts = toNumericCasts(source);
                 writeemd.to = current;
                 analyzer.visit(write);
 
@@ -714,10 +717,10 @@ class External {
                         }
                     }
 
-                    segments.add(new CastSegment(casts[0]));
+                    segments.add(new CastSegment(source, casts[0]));
                     segments.add(new NodeSegment(write));
                     segments.add(new TokenSegment(current, token));
-                    segments.add(new CastSegment(casts[1]));
+                    segments.add(new CastSegment(source, casts[1]));
 
                     if (read && !post) {
                         if (type.metadata.size == 1) {
@@ -757,7 +760,7 @@ class External {
         }
     }
 
-    private void field(final String name, final boolean last) {
+    private void field(final ParserRuleContext source, final String name, final boolean last) {
         if (current.metadata == TypeMetadata.ARRAY) {
             if ("length".equals(name)) {
                 if (!read || last && write != null) {
@@ -791,7 +794,7 @@ class External {
                     writeemd.to = writeemd.from;
                     caster.markCast(writeemd);
 
-                    final Cast cast = caster.getLegalCast(standard.stringType, type, false);
+                    final Cast cast = caster.getLegalCast(source, standard.stringType, type, false);
 
                     segments.add(new InstructionSegment(Opcodes.DUP_X1));
                     segments.add(new FieldSegment(field, false));
@@ -799,7 +802,7 @@ class External {
                     segments.add(new NodeSegment(write));
                     segments.add(new AppendStringsSegment(write, writeemd.to));
                     segments.add(new ToStringsSegment());
-                    segments.add(new CastSegment(cast));
+                    segments.add(new CastSegment(source, cast));
 
                     if (read) {
                         if (type.metadata.size == 1) {
@@ -814,7 +817,7 @@ class External {
                     segments.add(new FieldSegment(field, true));
                 } else if (token > 0) {
                     current = type;
-                    final Cast[] casts = toNumericCasts();
+                    final Cast[] casts = toNumericCasts(source);
                     writeemd.to = current;
                     analyzer.visit(write);
 
@@ -831,10 +834,10 @@ class External {
                         }
                     }
 
-                    segments.add(new CastSegment(casts[0]));
+                    segments.add(new CastSegment(source, casts[0]));
                     segments.add(new NodeSegment(write));
                     segments.add(new TokenSegment(current, token));
-                    segments.add(new CastSegment(casts[1]));
+                    segments.add(new CastSegment(source, casts[1]));
 
                     if (read && !post) {
                         if (type.metadata.size == 1) {
@@ -942,7 +945,7 @@ class External {
         }
 
         for (int argument = 0; argument < arguments.size(); ++argument) {
-            final ParseTree exprctx = arguments.get(argument);
+            final ExpressionContext exprctx = arguments.get(argument);
             final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
             expremd.to = types[argument];
             analyzer.visit(exprctx);
@@ -959,16 +962,17 @@ class External {
         }
     }
 
-    private void substring(final ExpressionContext exprctx0, final ExpressionContext exprctx1, final boolean last) {
+    private void substring(final ParserRuleContext source,
+                           final ExpressionContext exprctx0, final ExpressionContext exprctx1, final boolean last) {
         if (last && write != null) {
             throw new IllegalArgumentException(); // TODO: message
         } else if (!read) {
             throw new IllegalArgumentException(); // TODO: message
         }
 
-        final Cast cast0 = caster.getLegalCast(current, standard.stringType, false);
+        final Cast cast0 = caster.getLegalCast(source, current, standard.stringType, false);
 
-        segments.add(new CastSegment(cast0));
+        segments.add(new CastSegment(source, cast0));
 
         java.lang.reflect.Method method;
 
@@ -1010,7 +1014,7 @@ class External {
         current = standard.stringType;
     }
 
-    private void array(final ExpressionContext exprctx, final boolean last) {
+    private void array(final ParserRuleContext source, final ExpressionContext exprctx, final boolean last) {
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = standard.intType;
         analyzer.visit(exprctx);
@@ -1027,7 +1031,7 @@ class External {
                 writeemd.to = writeemd.from;
                 caster.markCast(writeemd);
 
-                final Cast cast = caster.getLegalCast(standard.stringType, type, false);
+                final Cast cast = caster.getLegalCast(source, standard.stringType, type, false);
 
                 segments.add(new InstructionSegment(Opcodes.DUP2_X1));
                 segments.add(new ArraySegment(type, false));
@@ -1035,7 +1039,7 @@ class External {
                 segments.add(new NodeSegment(write));
                 segments.add(new AppendStringsSegment(write, writeemd.to));
                 segments.add(new ToStringsSegment());
-                segments.add(new CastSegment(cast));
+                segments.add(new CastSegment(source, cast));
 
                 if (read) {
                     if (type.metadata.size == 1) {
@@ -1050,7 +1054,7 @@ class External {
                 segments.add(new ArraySegment(type, true));
             } else if (token > 0) {
                 current = type;
-                final Cast[] casts = toNumericCasts();
+                final Cast[] casts = toNumericCasts(source);
                 writeemd.to = current;
                 analyzer.visit(write);
 
@@ -1067,10 +1071,10 @@ class External {
                     }
                 }
 
-                segments.add(new CastSegment(casts[0]));
+                segments.add(new CastSegment(source, casts[0]));
                 segments.add(new NodeSegment(write));
                 segments.add(new TokenSegment(current, token));
-                segments.add(new CastSegment(casts[1]));
+                segments.add(new CastSegment(source, casts[1]));
 
                 if (read && !post) {
                     if (type.metadata.size == 1) {
@@ -1109,19 +1113,18 @@ class External {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private void shortcut(final ExpressionContext exprctx, final boolean last) {
+    private void shortcut(final ParserRuleContext source, final ExpressionContext exprctx, final boolean last) {
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.promotion = caster.shortcut;
         analyzer.visit(exprctx);
 
-        final Type promote = caster.getTypePromotion(expremd.from, null, expremd.promotion);
+        final Type promote = caster.getTypePromotion(source, expremd.from, null, expremd.promotion);
         final boolean list = promote.metadata == TypeMetadata.INT;
         expremd.to = promote;
         caster.markCast(expremd);
 
-        final Cast cast = caster.getLegalCast(current, list ? standard.listType : standard.mapType, true);
-        segments.add(new CastSegment(cast));
+        final Cast cast = caster.getLegalCast(source, current, list ? standard.listType : standard.mapType, true);
+        segments.add(new CastSegment(source, cast));
         current = cast.to;
         final Struct struct = current.struct;
         segments.add(new NodeSegment(exprctx));
@@ -1213,14 +1216,14 @@ class External {
         }
     }
 
-    private Cast[] toNumericCasts() {
+    private Cast[] toNumericCasts(final ParserRuleContext source) {
         final boolean decimal = token == MUL || token == DIV || token == REM || token == ADD || token == SUB;
         final Promotion promotion = decimal ? caster.decimal : caster.numeric;
-        final Type promote = caster.getTypePromotion(current, null, promotion);
+        final Type promote = caster.getTypePromotion(source, current, null, promotion);
         final Cast[] casts = new Cast[2];
 
-        casts[0] = caster.getLegalCast(current, promote, false);
-        casts[1] = caster.getLegalCast(promote, current, true);
+        casts[0] = caster.getLegalCast(source, current, promote, false);
+        casts[1] = caster.getLegalCast(source, promote, current, true);
         current = promote;
 
         return casts;

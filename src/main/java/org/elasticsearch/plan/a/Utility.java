@@ -19,6 +19,8 @@ package org.elasticsearch.plan.a;
  * under the License.
  */
 
+import org.antlr.v4.runtime.ParserRuleContext;
+
 public class Utility {
     public static boolean numberToBoolean(final Number value) {
         return value.longValue() != 0;
@@ -216,4 +218,10 @@ public class Utility {
 
         return string.substring(localBegin, localEnd);
     }
+
+    static String line(final ParserRuleContext ctx) {
+        return "Line " + ctx.getStart().getLine() + ": ";
+    }
+
+    private Utility() {}
 }

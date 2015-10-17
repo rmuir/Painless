@@ -19,6 +19,7 @@ package org.elasticsearch.plan.a;
  * under the License.
  */
 
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -31,15 +32,16 @@ import java.util.List;
 import static org.elasticsearch.plan.a.Adapter.*;
 import static org.elasticsearch.plan.a.Default.*;
 import static org.elasticsearch.plan.a.Definition.*;
+import static org.elasticsearch.plan.a.Utility.*;
 
 class Caster {
     private abstract static class Segment {
-        abstract Type promote(final Type from0, final Type from1);
+        abstract Type promote(final ParserRuleContext source, final Type from0, final Type from1);
     }
 
     private static class SameTypeSegment extends Segment {
         @Override
-        Type promote(final Type from0, final Type from1) {
+        Type promote(final ParserRuleContext ctx, final Type from0, final Type from1) {
             if (from1 != null && from0.equals(from1)) {
                 return from0;
             }
@@ -58,7 +60,7 @@ class Caster {
         }
 
         @Override
-        Type promote(final Type from0, final Type from1) {
+        Type promote(final ParserRuleContext source, final Type from0, final Type from1) {
             final boolean eq0 = from0.equals(to);
             final boolean eq1 = from1 != null && from1.equals(to);
 
@@ -68,7 +70,7 @@ class Caster {
 
             if (eq0 || eq1) {
                 try {
-                    caster.getLegalCast(eq0 ? from1 : from0, to, false);
+                    caster.getLegalCast(source, eq0 ? from1 : from0, to, false);
 
                     return to;
                 } catch (ClassCastException exception) {
@@ -90,7 +92,7 @@ class Caster {
         }
 
         @Override
-        Type promote(final Type from0, final Type from1) {
+        Type promote(final ParserRuleContext source, final Type from0, final Type from1) {
             final boolean eq0 = from0.equals(to);
             final boolean eq1 = from1 == null || from1.equals(to);
 
@@ -102,7 +104,7 @@ class Caster {
 
             if (!eq0) {
                 try {
-                    caster.getLegalCast(from0, to, false);
+                    caster.getLegalCast(source,from0, to, false);
                 } catch (ClassCastException exception) {
                     castable = false;
                 }
@@ -110,7 +112,7 @@ class Caster {
 
             if (!eq1) {
                 try {
-                    caster.getLegalCast(from1, to, false);
+                    caster.getLegalCast(source, from1, to, false);
                 } catch (ClassCastException exception) {
                     castable = false;
                 }
@@ -134,10 +136,10 @@ class Caster {
         }
 
         @Override
-        Type promote(final Type from0, final Type from1) {
+        Type promote(final ParserRuleContext source, final Type from0, final Type from1) {
             if (from0.metadata.numeric || from1 != null && from1.metadata.numeric) {
                 try {
-                    return caster.getNumericPromotion(from0, from1, decimal);
+                    return caster.getNumericPromotion(source, from0, from1, decimal);
                 } catch (ClassCastException exception) {
                     // Do nothing.
                 }
@@ -157,9 +159,9 @@ class Caster {
         }
 
         @Override
-        Type promote(final Type from0, final Type from1) {
+        Type promote(final ParserRuleContext source, final Type from0, final Type from1) {
             try {
-                return caster.getNumericPromotion(from0, from1, decimal);
+                return caster.getNumericPromotion(source, from0, from1, decimal);
             } catch (ClassCastException exception) {
                 return null;
             }
@@ -174,7 +176,7 @@ class Caster {
         }
 
         @Override
-        Type promote(final Type from0, final Type from1) {
+        Type promote(final ParserRuleContext source, final Type from0, final Type from1) {
             if (from0.equals(from1)) {
                 return from0;
             }
@@ -204,7 +206,7 @@ class Caster {
         }
 
         @Override
-        Type promote(final Type from0, final Type from1) {
+        Type promote(final ParserRuleContext source, final Type from0, final Type from1) {
             if (from0.equals(from1)) {
                 return from0;
             }
@@ -302,21 +304,21 @@ class Caster {
 
     void markCast(final ExpressionMetadata emd) {
         if (emd.from == null) {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException(line(emd.source) + "From cast type should never be null.");
         }
 
         if (emd.to != null) {
-            emd.cast = getLegalCast(emd.from, emd.to, emd.explicit);
+            emd.cast = getLegalCast(emd.source, emd.from, emd.to, emd.explicit);
 
             if (emd.preConst != null && emd.to.metadata.constant) {
-                emd.postConst = constCast(emd.preConst, emd.cast);
+                emd.postConst = constCast(emd.source, emd.preConst, emd.cast);
             }
         } else if (emd.promotion == null) {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException(line(emd.source) + "There must always be a cast or promotion specified.");
         }
     }
 
-    Cast getLegalCast(final Type from, final Type to, final boolean force) {
+    Cast getLegalCast(final ParserRuleContext source, final Type from, final Type to, final boolean force) {
         final Cast cast = new Cast(from, to);
 
         if (from.equals(to)) {
@@ -354,18 +356,20 @@ class Caster {
 
                     return cast;
                 } else {
-                    throw new ClassCastException(); // TODO: message
+                    throw new ClassCastException(
+                            line(source) + "Cannot cast from [" + from.name + "] to [" + to.name + "].");
                 }
             } catch (ClassCastException cce1) {
-                throw new ClassCastException(); // TODO: message
+                throw new ClassCastException(
+                        line(source) + "Cannot cast from [" + from.name + "] to [" + to.name + "].");
             }
         }
     }
 
-    Object constCast(final Object constant, final Cast cast) {
+    Object constCast(final ParserRuleContext source, final Object constant, final Cast cast) {
         if (cast instanceof Transform) {
             final Transform transform = (Transform)cast;
-            return invokeTransform(transform, constant);
+            return invokeTransform(source, transform, constant);
         } else {
             final TypeMetadata fromTMD = cast.from.metadata;
             final TypeMetadata toTMD = cast.to.metadata;
@@ -390,15 +394,17 @@ class Caster {
                     case FLOAT:  return number.floatValue();
                     case DOUBLE: return number.doubleValue();
                     default:
-                        throw new IllegalStateException();
+                        throw new IllegalStateException(line(source) + "Expected numeric type for cast.");
                 }
             } else {
-                throw new IllegalStateException(); // TODO: message
+                throw new IllegalStateException(line(source) + "No valid constant cast from " +
+                        "[" + cast.from.clazz.getCanonicalName() + "] to " +
+                        "[" + cast.to.clazz.getCanonicalName() + "].");
             }
         }
     }
 
-    private Object invokeTransform(final Transform transform, final Object object) {
+    private Object invokeTransform(final ParserRuleContext source, final Transform transform, final Object object) {
         final Method method = transform.method;
         final java.lang.reflect.Method jmethod = method.method;
         final int modifiers = jmethod.getModifiers();
@@ -412,23 +418,24 @@ class Caster {
         } catch (IllegalAccessException | IllegalArgumentException |
                 java.lang.reflect.InvocationTargetException | NullPointerException |
                 ExceptionInInitializerError exception) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalStateException(line(source) + "Unable to invoke transform to cast constant from " +
+                    "[" + transform.from.name + "] to [" + transform.to.name + "].");
         }
     }
 
-    Type getTypePromotion(final Type from0, final Type from1, final Promotion promotion) {
+    Type getTypePromotion(final ParserRuleContext source, final Type from0, final Type from1, final Promotion promotion) {
         for (final Segment segment : promotion.segments) {
-            final Type type = segment.promote(from0, from1);
+            final Type type = segment.promote(source, from0, from1);
 
             if (type != null) {
                 return type;
             }
         }
 
-        throw new ClassCastException(); // TODO: message
+        throw new ClassCastException();
     }
 
-    Type getNumericPromotion(final Type from0, final Type from1, boolean decimal) {
+    Type getNumericPromotion(final ParserRuleContext source, final Type from0, final Type from1, boolean decimal) {
         final Deque<Type> upcast = new ArrayDeque<>();
         final Deque<Type> downcast = new ArrayDeque<>();
 
@@ -468,20 +475,26 @@ class Caster {
             return to;
         }
 
-        throw new ClassCastException(); // TODO: message
+        if (from1 == null) {
+            throw new ClassCastException(line(source) + "Unable to find numeric promotion for types" +
+                    " [" + from0.name + "] and [" + from1.name + "].");
+        } else {
+            throw new ClassCastException(
+                    line(source) + "Unable to find numeric promotion for type [" + from0.name + "].");
+        }
     }
 
     void checkWriteCast(final MethodVisitor visitor, final ExpressionMetadata metadata) {
-        checkWriteCast(visitor, metadata.cast);
+        checkWriteCast(visitor, metadata.source, metadata.cast);
     }
 
-    void checkWriteCast(final MethodVisitor visitor, final Cast cast) {
+    void checkWriteCast(final MethodVisitor visitor, final ParserRuleContext source, final Cast cast) {
         if (cast instanceof Transform) {
             writeTransform(visitor, (Transform)cast);
         } else if (cast != null) {
             writeCast(visitor, cast);
         } else {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException(line(source) + "Unexpected cast object.");
         }
     }
 

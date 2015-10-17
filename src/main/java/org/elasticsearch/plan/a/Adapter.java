@@ -27,7 +27,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
-import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -35,6 +35,7 @@ import org.objectweb.asm.Opcodes;
 import static org.elasticsearch.plan.a.Caster.*;
 import static org.elasticsearch.plan.a.Default.*;
 import static org.elasticsearch.plan.a.Definition.*;
+import static org.elasticsearch.plan.a.Utility.*;
 
 class Adapter {
     static class Variable {
@@ -50,7 +51,7 @@ class Adapter {
     }
 
     static class StatementMetadata {
-        final ParseTree source;
+        final ParserRuleContext source;
 
         boolean allExit;
         boolean allReturn;
@@ -60,7 +61,7 @@ class Adapter {
         boolean allContinue;
         boolean anyContinue;
 
-        private StatementMetadata(final ParseTree source) {
+        private StatementMetadata(final ParserRuleContext source) {
             this.source = source;
 
             allExit = false;
@@ -74,7 +75,7 @@ class Adapter {
     }
 
     static class ExpressionMetadata {
-        ParseTree source;
+        ParserRuleContext source;
 
         boolean statement;
 
@@ -108,14 +109,14 @@ class Adapter {
     }
 
     static class Branch {
-        final ParseTree source;
+        final ParserRuleContext source;
 
         Label begin;
         Label end;
         Label tru;
         Label fals;
 
-        private Branch(final ParseTree source) {
+        private Branch(final ParserRuleContext source) {
             this.source = source;
 
             begin = null;
@@ -129,21 +130,21 @@ class Adapter {
     final Standard standard;
     final Caster caster;
     final String source;
-    final ParseTree root;
+    final ParserRuleContext root;
 
     private final Deque<Integer> scopes;
     private final Deque<Variable> variables;
 
-    private final Map<ParseTree, StatementMetadata> statementMetadata;
-    private final Map<ParseTree, ExpressionMetadata> expressionMetadata;
-    private final Map<ParseTree, External> externals;
+    private final Map<ParserRuleContext, StatementMetadata> statementMetadata;
+    private final Map<ParserRuleContext, ExpressionMetadata> expressionMetadata;
+    private final Map<ParserRuleContext, External> externals;
 
-    private final Map<ParseTree, Branch> branches;
+    private final Map<ParserRuleContext, Branch> branches;
     private final Deque<Branch> jumps;
-    private final Set<ParseTree> strings;
+    private final Set<ParserRuleContext> strings;
 
     Adapter(final Definition definition, final Standard standard, final Caster caster,
-            final String source, final ParseTree root) {
+            final String source, final ParserRuleContext root) {
         this.definition = definition;
         this.standard = standard;
         this.caster = caster;
@@ -189,9 +190,10 @@ class Adapter {
         return null;
     }
 
-     Variable addVariable(final String name, final Type ptype) {
+     Variable addVariable(final ParserRuleContext source, final String name, final Type type) {
          if (getVariable(name) != null) {
-             throw new IllegalArgumentException(); // TODO: message
+             throw new IllegalArgumentException(
+                     line(source) + "Variable name [" + name + "] already defined within the scope.");
          }
 
          final Variable previous = variables.peekFirst();
@@ -201,7 +203,7 @@ class Adapter {
              slot += previous.slot + previous.type.metadata.size;
          }
 
-         final Variable variable = new Variable(name, ptype, slot);
+         final Variable variable = new Variable(name, type, slot);
          variables.push(variable);
 
          final int update = scopes.pop() + 1;
@@ -210,24 +212,25 @@ class Adapter {
          return variable;
     }
 
-    StatementMetadata createStatementMetadata(final ParseTree source) {
+    StatementMetadata createStatementMetadata(final ParserRuleContext source) {
         final StatementMetadata sourcesmd = new StatementMetadata(source);
         statementMetadata.put(source, sourcesmd);
 
         return sourcesmd;
     }
 
-    StatementMetadata getStatementMetadata(final ParseTree source) {
+    StatementMetadata getStatementMetadata(final ParserRuleContext source) {
         final StatementMetadata sourcesmd = statementMetadata.get(source);
 
         if (sourcesmd == null) {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException(line(source) + "Statement metadata does not exist at" +
+                    " the parse node with text [" + source.getText() + "].");
         }
 
         return sourcesmd;
     }
 
-    ExpressionMetadata createExpressionMetadata(final ParseTree source) {
+    ExpressionMetadata createExpressionMetadata(final ParserRuleContext source) {
         final ExpressionMetadata sourceemd = new ExpressionMetadata();
         sourceemd.source = source;
         expressionMetadata.put(source, sourceemd);
@@ -235,37 +238,39 @@ class Adapter {
         return sourceemd;
     }
 
-    void updateExpressionMetadata(final ParseTree source, final ExpressionMetadata expremd) {
+    void updateExpressionMetadata(final ParserRuleContext source, final ExpressionMetadata expremd) {
         expressionMetadata.remove(expremd.source);
         expremd.source = source;
         expressionMetadata.put(source, expremd);
     }
     
-    ExpressionMetadata getExpressionMetadata(final ParseTree source) {
+    ExpressionMetadata getExpressionMetadata(final ParserRuleContext source) {
         final ExpressionMetadata sourceemd = expressionMetadata.get(source);
 
         if (sourceemd == null) {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException(line(source) + "Expression metadata does not exist at" +
+                    " the parse node with text [" + source.getText() + "].");
         }
 
         return sourceemd;
     }
 
-    void putExternal(final ParseTree source, final External external) {
+    void putExternal(final ParserRuleContext source, final External external) {
         externals.put(source, external);
     }
 
-    External getExternal(final ParseTree source) {
+    External getExternal(final ParserRuleContext source) {
         final External external = externals.get(source);
 
         if (external == null) {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException(line(source) + "External data does not exist at" +
+                    " the parse node with text [" + source.getText() + "].");
         }
 
         return external;
     }
 
-    Branch markBranch(final ParseTree source, final ParseTree node) {
+    Branch markBranch(final ParserRuleContext source, final ParserRuleContext node) {
         Branch branch = getBranch(source);
 
         if (branch == null) {
@@ -279,11 +284,11 @@ class Adapter {
         return branch;
     }
 
-    Branch getBranch(final ParseTree source) {
+    Branch getBranch(final ParserRuleContext source) {
         return branches.get(source);
     }
 
-    void checkWriteBranch(final MethodVisitor visitor, final ParseTree source) {
+    void checkWriteBranch(final MethodVisitor visitor, final ParserRuleContext source) {
         final Branch branch = getBranch(source);
 
         if (branch != null) {
@@ -307,15 +312,15 @@ class Adapter {
         jumps.pop();
     }
 
-    void markStrings(final ParseTree node) {
+    void markStrings(final ParserRuleContext node) {
         strings.add(node);
     }
 
-    void unmarkStrings(final ParseTree node) {
+    void unmarkStrings(final ParserRuleContext node) {
         strings.remove(node);
     }
 
-    boolean getStrings(final ParseTree node) {
+    boolean getStrings(final ParserRuleContext node) {
         return strings.contains(node);
     }
 }

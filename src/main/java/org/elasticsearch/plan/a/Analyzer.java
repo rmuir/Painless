@@ -25,8 +25,9 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import static org.elasticsearch.plan.a.Adapter.*;
 import static org.elasticsearch.plan.a.Caster.*;
 import static org.elasticsearch.plan.a.Default.*;
-import static org.elasticsearch.plan.a.PlanAParser.*;
 import static org.elasticsearch.plan.a.Definition.*;
+import static org.elasticsearch.plan.a.PlanAParser.*;
+import static org.elasticsearch.plan.a.Utility.*;
 
 class Analyzer extends PlanABaseVisitor<Void> {
     static void analyze(final Adapter adapter) {
@@ -56,18 +57,21 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         for (final StatementContext statectx : ctx.statement()) {
             if (sourcesmd.allExit) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException(line(statectx) +
+                        "A statement will never be executed because all prior paths exit.");
             }
 
             final StatementMetadata statesmd = adapter.createStatementMetadata(statectx);
             visit(statectx);
 
             if (statesmd.anyContinue) {
-                throw new IllegalArgumentException();
+                throw new IllegalArgumentException(line(statectx) +
+                        "Cannot have a continue statement outside of a loop.");
             }
 
             if (statesmd.anyBreak) {
-                throw new IllegalArgumentException();
+                throw new IllegalArgumentException(line(statectx) +
+                        "Cannot have a break statement outside of a loop.");
             }
 
             sourcesmd.allExit = statesmd.allExit;
@@ -91,7 +95,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         visit(exprctx);
 
         if (expremd.postConst != null) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(line(ctx) + "If statement is not necessary.");
         }
 
         final BlockContext blockctx0 = ctx.block(0);
@@ -138,7 +142,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             boolean constant = (boolean)expremd.postConst;
 
             if (!constant) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException(line(ctx) + "The loop will never be executed.");
             }
 
             exitrequired = true;
@@ -151,15 +155,15 @@ class Analyzer extends PlanABaseVisitor<Void> {
             visit(blockctx);
 
             if (blocksmd.allReturn) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException(line(ctx) + "All paths return so the loop is not necessary.");
             }
 
             if (blocksmd.allBreak) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException(line(ctx) + "All paths break so the loop is not necessary.");
             }
 
             if (exitrequired && !blocksmd.anyReturn && !blocksmd.anyBreak) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException(line(ctx) + "The loop will never exit.");
             }
 
             if (exitrequired && blocksmd.anyReturn && !blocksmd.anyBreak) {
@@ -167,7 +171,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 whilesmd.allReturn = true;
             }
         } else if (exitrequired) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(line(ctx) + "The loop will never exit.");
         }
 
         adapter.decrementScope();
@@ -186,15 +190,15 @@ class Analyzer extends PlanABaseVisitor<Void> {
         visit(blockctx);
 
         if (blocksmd.allReturn) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(line(ctx) + "All paths return so the loop is not necessary.");
         }
 
         if (blocksmd.allBreak) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(line(ctx) + "All paths break so the loop is not necessary.");
         }
 
         if (blocksmd.allContinue) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(line(ctx) + "The loop will never exit.");
         }
 
         final ExpressionContext exprctx = ctx.expression();
@@ -206,7 +210,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             final boolean exitrequired = (boolean)expremd.postConst;
 
             if (exitrequired && !blocksmd.anyReturn && !blocksmd.anyBreak) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException(line(ctx) + "The loop will never exit.");
             }
 
             if (exitrequired && blocksmd.anyReturn && !blocksmd.anyBreak) {
@@ -215,7 +219,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             }
 
             if (!exitrequired && !blocksmd.anyContinue) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException(line(ctx) + "All paths exit so the loop is not necessary.");
             }
         }
 
@@ -249,7 +253,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 boolean constant = (boolean)expremd0.postConst;
 
                 if (!constant) {
-                    throw new IllegalArgumentException(); // TODO: message
+                    throw new IllegalArgumentException(line(ctx) + "The loop will never be executed.");
                 }
 
                 exitrequired = true;
@@ -266,7 +270,8 @@ class Analyzer extends PlanABaseVisitor<Void> {
             visit(exprctx1);
 
             if (!expremd1.statement) {
-                throw new IllegalStateException(); // TODO: message
+                throw new IllegalArgumentException(line(exprctx1) +
+                        "The afterthought of a for loop must be a statement.");
             }
         }
 
@@ -277,15 +282,15 @@ class Analyzer extends PlanABaseVisitor<Void> {
             visit(blockctx);
 
             if (blocksmd.allReturn) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException(line(ctx) + "All paths return so the loop is not necessary.");
             }
 
             if (blocksmd.allBreak) {
-                throw new IllegalArgumentException(); //TODO: message
+                throw new IllegalArgumentException(line(ctx) + "All paths break so the loop is not necessary.");
             }
 
             if (exitrequired && !blocksmd.anyReturn && !blocksmd.anyBreak) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException(line(ctx) + "The loop will never exit.");
             }
 
             if (exitrequired && blocksmd.anyReturn && !blocksmd.anyBreak) {
@@ -293,7 +298,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 forsmd.allReturn = true;
             }
         } else if (exitrequired) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(line(ctx) + "The loop will never exit.");
         }
 
         adapter.decrementScope();
@@ -356,7 +361,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         visit(exprctx);
 
         if (!expremd.statement) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(line(ctx) + "Not a statement.");
         }
 
         return null;
@@ -368,7 +373,8 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         for (StatementContext statectx : ctx.statement()) {
             if (multiplesmd.allExit) {
-                throw new IllegalStateException();  // TODO: message
+                throw new IllegalArgumentException(line(statectx) +
+                        "A statement will never be executed because all prior paths exit.");
             }
 
             final StatementMetadata statesmd = adapter.createStatementMetadata(statectx);
@@ -407,7 +413,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
     @Override
     public Void visitEmpty(final EmptyContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("An internal error has occurred.");
     }
 
     @Override
@@ -487,14 +493,14 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     numericemd.from = standard.floatType;
                     numericemd.preConst = Float.parseFloat(svalue.substring(0, svalue.length() - 1));
                 } catch (NumberFormatException exception) {
-                    throw new IllegalArgumentException(); // TODO: message
+                    throw new IllegalArgumentException(line(ctx) + "Invalid float constant.");
                 }
             } else {
                 try {
                     numericemd.from = standard.doubleType;
                     numericemd.preConst = Double.parseDouble(svalue);
                 } catch (NumberFormatException exception) {
-                    throw new IllegalArgumentException(); // TODO: message
+                    throw new IllegalArgumentException(line(ctx) + "Invalid double constant.");
                 }
             }
         } else {
@@ -511,7 +517,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 svalue = ctx.HEX().getText();
                 radix = 16;
             } else {
-                throw new IllegalStateException(); // TODO: message
+                throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
             }
 
             if (svalue.endsWith("l") || svalue.endsWith("L")) {
@@ -519,7 +525,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     numericemd.from = standard.longType;
                     numericemd.preConst = Long.parseLong(svalue.substring(0, svalue.length() - 1), radix);
                 } catch (NumberFormatException exception) {
-                    throw new IllegalArgumentException(); // TODO: message
+                    throw new IllegalArgumentException(line(ctx) + "Invalid long constant.");
                 }
             } else {
                 try {
@@ -538,7 +544,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                         numericemd.from = standard.intType;
                     }
                 } catch (NumberFormatException exception) {
-                    throw new IllegalArgumentException(); // TODO: message
+                    throw new IllegalArgumentException(line(ctx) + "Invalid int constant.");
                 }
             }
         }
@@ -553,7 +559,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExpressionMetadata stringemd = adapter.getExpressionMetadata(ctx);
 
         if (ctx.STRING() == null) {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
         }
 
         final int length = ctx.STRING().getText().length();
@@ -570,11 +576,11 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExpressionMetadata charemd = adapter.getExpressionMetadata(ctx);
 
         if (ctx.CHAR() == null) {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
         }
 
         if (ctx.CHAR().getText().length() != 3) {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException(line(ctx) + "Invalid character constant.");
         }
 
         charemd.preConst = ctx.CHAR().getText().charAt(1);
@@ -590,7 +596,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExpressionMetadata trueemd = adapter.getExpressionMetadata(ctx);
 
         if (ctx.TRUE() == null) {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
         }
 
         trueemd.preConst = true;
@@ -606,7 +612,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExpressionMetadata falseemd = adapter.getExpressionMetadata(ctx);
 
         if (ctx.FALSE() == null) {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
         }
 
         falseemd.preConst = false;
@@ -622,7 +628,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExpressionMetadata nullemd = adapter.getExpressionMetadata(ctx);
 
         if (ctx.NULL() == null) {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
         }
 
         nullemd.isNull = true;
@@ -709,7 +715,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             expremd.promotion = promotion;
             visit(exprctx);
 
-            final Type promote = caster.getTypePromotion(expremd.from, null, promotion);
+            final Type promote = caster.getTypePromotion(ctx, expremd.from, null, promotion);
 
             expremd.to = promote;
             caster.markCast(expremd);
@@ -723,7 +729,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     } else if (tmd == TypeMetadata.LONG) {
                         unaryemd.preConst = ~(long)expremd.postConst;
                     } else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
                     }
                 } else if (ctx.SUB() != null) {
                     if (tmd == TypeMetadata.INT) {
@@ -735,7 +741,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     } else if (tmd == TypeMetadata.DOUBLE) {
                         unaryemd.preConst = -(double)expremd.postConst;
                     } else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
                     }
                 } else if (ctx.ADD() != null) {
                     if (tmd == TypeMetadata.INT) {
@@ -747,16 +753,16 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     } else if (tmd == TypeMetadata.DOUBLE) {
                         unaryemd.preConst = +(double)expremd.postConst;
                     } else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
                     }
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
                 }
             }
 
             unaryemd.from = promote;
         } else {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
         }
 
         caster.markCast(unaryemd);
@@ -812,7 +818,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         expremd1.promotion = promotion;
         visit(exprctx1);
 
-        final Type promote = caster.getTypePromotion(expremd0.from, expremd1.from, promotion);
+        final Type promote = caster.getTypePromotion(ctx, expremd0.from, expremd1.from, promotion);
 
         expremd0.to = promote;
         caster.markCast(expremd0);
@@ -832,7 +838,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 } else if (tmd == TypeMetadata.DOUBLE) {
                     binaryemd.preConst = (double)expremd0.postConst * (double)expremd1.postConst;
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
                 }
             } else if (ctx.DIV() != null) {
                 if (tmd == TypeMetadata.INT) {
@@ -844,7 +850,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 } else if (tmd == TypeMetadata.DOUBLE) {
                     binaryemd.preConst = (double)expremd0.postConst / (double)expremd1.postConst;
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
                 }
             } else if (ctx.REM() != null) {
                 if (tmd == TypeMetadata.INT) {
@@ -856,7 +862,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 } else if (tmd == TypeMetadata.DOUBLE) {
                     binaryemd.preConst = (double)expremd0.postConst % (double)expremd1.postConst;
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
                 }
             } else if (ctx.ADD() != null) {
                 if (tmd == TypeMetadata.INT) {
@@ -868,7 +874,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 } else if (tmd == TypeMetadata.DOUBLE) {
                     binaryemd.preConst = (double)expremd0.postConst + (double)expremd1.postConst;
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
                 }
             } else if (ctx.SUB() != null) {
                 if (tmd == TypeMetadata.INT) {
@@ -880,7 +886,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 } else if (tmd == TypeMetadata.DOUBLE) {
                     binaryemd.preConst = (double)expremd0.postConst - (double)expremd1.postConst;
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
                 }
             } else if (ctx.LSH() != null) {
                 if (tmd == TypeMetadata.INT) {
@@ -888,7 +894,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 } else if (tmd == TypeMetadata.LONG) {
                     binaryemd.preConst = (long)expremd0.postConst << (long)expremd1.postConst;
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
                 }
             } else if (ctx.RSH() != null) {
                 if (tmd == TypeMetadata.INT) {
@@ -896,7 +902,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 } else if (tmd == TypeMetadata.LONG) {
                     binaryemd.preConst = (long)expremd0.postConst >> (long)expremd1.postConst;
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
                 }
             } else if (ctx.USH() != null) {
                 if (tmd == TypeMetadata.INT) {
@@ -904,7 +910,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 } else if (tmd == TypeMetadata.LONG) {
                     binaryemd.preConst = (long)expremd0.postConst >>> (long)expremd1.postConst;
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
                 }
             } else if (ctx.BWAND() != null) {
                 if (tmd == TypeMetadata.INT) {
@@ -912,7 +918,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 } else if (tmd == TypeMetadata.LONG) {
                     binaryemd.preConst = (long)expremd0.postConst & (long)expremd1.postConst;
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
                 }
             } else if (ctx.BWXOR() != null) {
                 if (tmd == TypeMetadata.INT) {
@@ -920,7 +926,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 } else if (tmd == TypeMetadata.LONG) {
                     binaryemd.preConst = (long)expremd0.postConst ^ (long)expremd1.postConst;
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
                 }
             } else if (ctx.BWOR() != null) {
                 if (tmd == TypeMetadata.INT) {
@@ -928,10 +934,10 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 } else if (tmd == TypeMetadata.LONG) {
                     binaryemd.preConst = (long)expremd0.postConst | (long)expremd1.postConst;
                 } else {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
                 }
             } else {
-                throw new IllegalStateException(); // TODO: message
+                throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
             }
         }
 
@@ -956,10 +962,10 @@ class Analyzer extends PlanABaseVisitor<Void> {
         expremd1.promotion = promotion;
         visit(exprctx1);
 
-        final Type promote = caster.getTypePromotion(expremd0.from, expremd1.from, promotion);
+        final Type promote = caster.getTypePromotion(ctx, expremd0.from, expremd1.from, promotion);
 
         if (expremd0.isNull && expremd1.isNull) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(line(ctx) + "Unnecessary comparison of null constants.");
         }
 
         expremd0.to = promote;
@@ -999,7 +1005,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     compemd.preConst = expremd0.postConst != expremd1.postConst;
                 }
             } else {
-                throw new IllegalStateException(); // TODO: message
+                throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
             }
 
             if (ctx.GTE() != null) {
@@ -1043,7 +1049,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     compemd.preConst = (double)expremd0.postConst < (double)expremd1.postConst;
                 }
             } else {
-                throw new IllegalStateException(); // TODO: message
+                throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
             }
         }
 
@@ -1073,7 +1079,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             } else if (ctx.BOOLOR() != null) {
                 boolemd.preConst = (boolean)expremd0.postConst || (boolean)expremd1.postConst;
             } else {
-                throw new IllegalStateException(); // TODO: message
+                throw new IllegalStateException(line(ctx) + "An internal error has occurrec.");
             }
         }
 
@@ -1093,7 +1099,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         visit(exprctx0);
 
         if (expremd0.postConst != null) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(line(ctx) + "Unnecessary conditional statement.");
         }
 
         final ExpressionContext exprctx1 = ctx.expression(1);
@@ -1111,7 +1117,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         if (condemd.to != null) {
             condemd.from = condemd.to;
         } else if (condemd.promotion != null) {
-            final Type promote = caster.getTypePromotion(expremd1.from, expremd2.from, condemd.promotion);
+            final Type promote = caster.getTypePromotion(ctx, expremd1.from, expremd2.from, condemd.promotion);
 
             expremd0.to = promote;
             caster.markCast(expremd1);
@@ -1120,7 +1126,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
             condemd.from = promote;
         } else {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException("An internal error has occurred.");
         }
 
         caster.markCast(condemd);
@@ -1139,47 +1145,47 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
     @Override
     public Void visitExtstart(final ExtstartContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("An internal error has occurred.");
     }
 
     @Override
     public Void visitExtprec(final ExtprecContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("An internal error has occurred.");
     }
 
     @Override
     public Void visitExtcast(final ExtcastContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("An internal error has occurred.");
     }
 
     @Override
     public Void visitExtbrace(final ExtbraceContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("An internal error has occurred.");
     }
 
     @Override
     public Void visitExtdot(final ExtdotContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("An internal error has occurred.");
     }
 
     @Override
     public Void visitExttype(final ExttypeContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("An internal error has occurred.");
     }
 
     @Override
     public Void visitExtcall(final ExtcallContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("An internal error has occurred.");
     }
 
     @Override
     public Void visitExtmember(final ExtmemberContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("An internal error has occurred.");
     }
 
     @Override
     public Void visitArguments(final ArgumentsContext ctx) {
-        throw new UnsupportedOperationException(); // TODO: message
+        throw new UnsupportedOperationException("An internal error has occurred.");
     }
 
     @Override
