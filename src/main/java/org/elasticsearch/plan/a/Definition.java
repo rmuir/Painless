@@ -267,7 +267,8 @@ class Definition {
         try (final InputStream stream = Definition.class.getResourceAsStream(PROPERTIES_FILE)) {
             properties.load(stream);
         } catch (IOException exception) {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException(
+                    "Unable to load definition properties file [" + PROPERTIES_FILE + "].");
         }
 
         return loadFromProperties(properties);
@@ -290,7 +291,7 @@ class Definition {
                                 key.startsWith("upcast");
 
                 if (!valid) {
-                    throw new IllegalArgumentException(); // TODO: message
+                    throw new IllegalArgumentException("Invalid property key [" + key + "] used in definition.");
                 }
             }
         }
@@ -325,7 +326,8 @@ class Definition {
         final String[] split = property.split("\\s+");
 
         if (split.length != 2) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Struct must be defined with exactly two arguments " +
+                    "(name, Java class). Found: [" + property + "].");
         }
 
         final String namestr = split[0];
@@ -339,7 +341,8 @@ class Definition {
         int index = parsed.indexOf(' ');
 
         if (index == -1) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Constructor must be defined as (struct, name, " +
+                    "Java constructor name with argument types). Found: [" + property + "].");
         }
 
         final String ownerstr = parsed.substring(0, index);
@@ -347,7 +350,8 @@ class Definition {
         index = parsed.indexOf(' ');
 
         if (index == -1) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Constructor must be defined as (struct, name, " +
+                    "Java constructor name with argument types). Found: [" + property + "].");
         }
 
         final String namestr = parsed.substring(0, index);
@@ -363,7 +367,9 @@ class Definition {
         int index = parsed.indexOf(' ');
 
         if (index == -1) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException((statik ? "Function" : "Method") +
+                    " must be defined as (struct, name, Java method name with argument types)." +
+                    " Found: [" + property + "].");
         }
 
         final String ownerstr = parsed.substring(0, index);
@@ -371,7 +377,9 @@ class Definition {
         index = parsed.indexOf(' ');
 
         if (index == -1) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException((statik ? "Function" : "Method") +
+                    " must be defined as (struct, name, Java method name with argument types)." +
+                    " Found: [" + property + "].");
         }
 
         final String namestr = parsed.substring(0, index);
@@ -379,7 +387,9 @@ class Definition {
         index = parsed.indexOf(' ');
 
         if (index == -1) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException((statik ? "Function" : "Method") +
+                    " must be defined as (struct, name, Java method name with argument types)." +
+                    " Found: [" + property + "].");
         }
 
         final String returnstr = parsed.substring(0, index);
@@ -387,7 +397,9 @@ class Definition {
         index = parsed.indexOf('(');
 
         if (index == -1) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException((statik ? "Function" : "Method") +
+                    " must be defined as (struct, name, Java method name with argument types)." +
+                    " Found: [" + property + "].");
         }
 
         final String clazzstr = parsed.substring(0, index);
@@ -402,7 +414,9 @@ class Definition {
         final String[] split = property.split("\\s+");
 
         if (split.length != 4) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException((statik ? "Static" : "Member") +
+                    " must be defined with exactly four arguments (type, name, Java type, Java name)." +
+                    " Found: [" + property + "].");
         }
 
         final String ownerstr = split[0];
@@ -417,7 +431,8 @@ class Definition {
         final String[] split = property.split("\\s+");
 
         if (split.length < 2) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Copy must be defined with at least two arguments " +
+                    "(sub type, super type(s)). Found: [" + property + "].");
         }
 
         final String ownerstr = split[0];
@@ -429,7 +444,9 @@ class Definition {
         final String[] split = property.split("\\s+");
 
         if (split.length != 6) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Transform must be defined with exactly six arguments " +
+                    "([explicit/implicit], cast from type, cast to type, owner struct, " +
+                    "[function/method], call name). Found: [" + property + "].");
         }
 
         final String typestr = split[0];
@@ -446,7 +463,8 @@ class Definition {
         final String[] split = property.split("\\s+");
 
         if (split.length != 2) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Numeric cast must be defined with exactly two arguments " +
+                    "(cast from type, cast to type). Found: [" + property + "].");
         }
 
         final String fromstr = split[0];
@@ -459,7 +477,8 @@ class Definition {
         final String[] split = property.split("\\s+");
 
         if (split.length != 2) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Upcast must be defined with exactly two arguments " +
+                    "(cast from type, cast to type). Found: [" + property + "].");
         }
 
         final String fromstr = split[0];
@@ -471,11 +490,11 @@ class Definition {
     private static void loadStruct(final Definition definition, final String namestr,
                                    final String clazzstr, final boolean generic, final boolean runtime) {
         if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Invalid struct name [" + namestr + "].");
         }
 
         if (definition.structs.containsKey(namestr)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Duplicate struct name [" + namestr + "].");
         }
 
         final Class clazz = getClassFromCanonicalName(clazzstr);
@@ -490,23 +509,28 @@ class Definition {
         final Struct owner = definition.structs.get(ownerstr);
 
         if (owner == null) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(
+                    "Owner struct [" + ownerstr + "] not defined for constructor [" + namestr + "].");
         }
 
         if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(
+                    "Invalid constructor name [" + namestr + "] with the struct [" + ownerstr + "].");
         }
 
         if (owner.constructors.containsKey(namestr)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(
+                    "Duplicate constructor name [" + namestr + "] found within the struct [" + ownerstr + "].");
         }
 
         if (owner.statics.containsKey(namestr)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Constructors and functions may not have the same name " +
+                    "[" + namestr + "] within the same struct [" + ownerstr + "].");
         }
 
         if (owner.methods.containsKey(namestr)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Constructors and methods may not have the same name " +
+                    "[" + namestr + "] within the same struct [" + ownerstr + "].");
         }
 
         final int length = argumentsstrs.length;
@@ -526,7 +550,9 @@ class Definition {
                 arguments[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[1]);
                 originals[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[0]);
             } else {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalStateException("Argument type definition without one or two parameters. " +
+                        "Found [" + argumentstrs.length + "] parameters for argument type [" + argumentstrs[0] + "] " +
+                        "in constructor [" + namestr + "] within the struct [" + ownerstr + "].");
             }
 
             jarguments[argumentindex] = originals[argumentindex].clazz;
@@ -548,23 +574,38 @@ class Definition {
         final Struct owner = definition.structs.get(ownerstr);
 
         if (owner == null) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Owner struct [" + ownerstr + "] not defined for " +
+                    (statik ? "function" : "method") + " [" + namestr + "].");
         }
 
         if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(
+                    "Invalid " + (statik ? "function" : "method") +  " name [" + namestr + "].");
         }
 
         if (owner.constructors.containsKey(namestr)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Constructors and " + (statik ? "functions" : "methods") +
+                    " may not have the same name [" + namestr + "] within the same struct [" + ownerstr + "].");
         }
 
         if (owner.statics.containsKey(namestr)) {
-            throw new IllegalArgumentException(); // TODO: message
+            if (statik) {
+                throw new IllegalArgumentException(
+                        "Duplicate function name [" + namestr + "] found within the struct [" + ownerstr + "].");
+            } else {
+                throw new IllegalArgumentException("Functions and methods may not have the same name" +
+                        " [" + namestr + "] within the same struct [" + ownerstr + "].");
+            }
         }
 
         if (owner.methods.containsKey(namestr)) {
-            throw new IllegalArgumentException(); // TODO: message
+            if (statik) {
+                throw new IllegalArgumentException("Functions and methods may not have the same name" +
+                        " [" + namestr + "] within the same struct [" + ownerstr + "].");
+            } else {
+                throw new IllegalArgumentException(
+                        "Duplicate method name [" + namestr + "] found within the struct [" + ownerstr + "].");
+            }
         }
 
         final String[] returnstrs = parseArgumentStr(returnstr);
@@ -579,7 +620,9 @@ class Definition {
             rtn = getTypeFromCanonicalName(definition, returnstrs[1]);
             oreturn = getTypeFromCanonicalName(definition, returnstrs[0]);
         } else {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalStateException("Return type definition without one or two parameters. " +
+                    "Found [" + returnstrs.length + "] parameters for return type [" + returnstrs[0] + "] in " +
+                    (statik ? "function" : "method") + "[" + namestr + "] within the struct [" + ownerstr + "].");
         }
 
         jreturn = oreturn.clazz;
@@ -601,7 +644,9 @@ class Definition {
                 arguments[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[1]);
                 originals[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[0]);
             } else {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalStateException("Argument type definition without one or two parameters. " +
+                        "Found [" + returnstrs.length + "] parameters for argument type [" + returnstrs[0] + "] in " +
+                        (statik ? "function" : "method") + "[" + namestr + "] within the struct [" + ownerstr + "].");
             }
 
             jarguments[argumentindex] = originals[argumentindex].clazz;
@@ -614,7 +659,10 @@ class Definition {
         final java.lang.reflect.Method jmethod = getJMethodFromJClass(owner.clazz, clazzstr, jarguments);
 
         if (!jreturn.equals(jmethod.getReturnType())) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Defined Java return type [" + jreturn.getCanonicalName() +
+                    " does not match the Java return type [" + jmethod.getReturnType().getCanonicalName() +
+                    "] for " + (statik ? "function" : "method") + " [" + namestr + "] " +
+                    "within the struct [" + ownerstr + "].");
         }
 
         final Method method = new Method(namestr, owner, rtn, oreturn,
@@ -623,13 +671,15 @@ class Definition {
 
         if (statik) {
             if (!java.lang.reflect.Modifier.isStatic(modifiers)) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException("Function [" + namestr + "]" +
+                        " within the struct [" + ownerstr + "] is not linked to static Java method.");
             }
 
             owner.functions.put(namestr, method);
         } else {
             if (java.lang.reflect.Modifier.isStatic(modifiers)) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException("Method [" + namestr + "]" +
+                        " within the struct [" + ownerstr + "] is not linked to a Java method that is non-static.");
             }
 
             owner.methods.put(namestr, method);
@@ -641,19 +691,33 @@ class Definition {
         final Struct owner = definition.structs.get(ownerstr);
 
         if (owner == null) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Owner struct [" + ownerstr + "] not defined for " +
+                    (statik ? "static" : "member") + " [" + namestr + "].");
         }
 
         if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(
+                    "Invalid " + (statik ? "static" : "member") + " name [" + namestr + "].");
         }
 
         if (owner.statics.containsKey(namestr)) {
-            throw new IllegalArgumentException(); // TODO: message
+            if (statik) {
+                throw new IllegalArgumentException(
+                        "Duplicate static name [" + namestr + "] found within the struct [" + ownerstr + "].");
+            } else {
+                throw new IllegalArgumentException("Statics and members may not have the same name " +
+                        "[" + namestr + "] within the same struct [" + ownerstr + "].");
+            }
         }
 
         if (owner.members.containsKey(namestr)) {
-            throw new IllegalArgumentException(); // TODO: message
+            if (statik) {
+                throw new IllegalArgumentException("Statics and members may not have the same name " +
+                        "[" + namestr + "] within the same struct [" + ownerstr + "].");
+            } else {
+                throw new IllegalArgumentException(
+                        "Duplicate member name [" + namestr + "] found within the struct [" + ownerstr + "].");
+            }
         }
 
         final Type type = getTypeFromCanonicalName(definition, typestr);
@@ -663,17 +727,19 @@ class Definition {
 
         if (statik) {
             if (!java.lang.reflect.Modifier.isStatic(modifiers)) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException();
             }
 
             if (!java.lang.reflect.Modifier.isFinal(modifiers)) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException("Static [" + namestr + "]" +
+                        " within the struct [" + ownerstr + "] is not linked to static Java field.");
             }
 
             owner.statics.put(namestr, field);
         } else {
             if (java.lang.reflect.Modifier.isStatic(modifiers)) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException("Member [" + namestr + "]" +
+                        " within the struct [" + ownerstr + "] is not linked to non-static Java field.");
             }
 
             owner.members.put(namestr, field);
@@ -684,20 +750,22 @@ class Definition {
         final Struct owner = definition.structs.get(ownerstr);
 
         if (owner == null) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Owner struct [" + ownerstr + "] not defined for copy.");
         }
 
         for (int child = 1; child < childstrs.length; ++child) {
             final Struct struct = definition.structs.get(childstrs[child]);
 
             if (struct == null) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException("Child struct [" + childstrs[child] + "] " +
+                        "not defined for copy to owner struct [" + ownerstr + "].");
             }
 
             try {
                 owner.clazz.asSubclass(struct.clazz);
             } catch (ClassCastException exception) {
-                throw new ClassCastException(); // TODO: message
+                throw new ClassCastException("Child struct [" + childstrs[child] + "] " +
+                        "is not a super type of owner struct [" + ownerstr + "] in copy.");
             }
 
             final boolean object = struct.clazz.equals(Object.class) &&
@@ -729,24 +797,42 @@ class Definition {
         final Struct owner = definition.structs.get(ownerstr);
 
         if (owner == null) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Owner struct [" + ownerstr + "] not defined for " +
+                    " transform with cast type from [" + fromstr + "] and cast type to [" + tostr + "].");
         }
 
         final Type from = getTypeFromCanonicalName(definition, fromstr);
         final Type to = getTypeFromCanonicalName(definition, tostr);
 
         if (from.equals(to)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] cannot " +
+                    " have cast type from [" + fromstr + "] be the same as cast type to [" + tostr + "].");
         }
 
         final Cast cast = new Cast(from, to);
 
         if (definition.numerics.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
+                    "and cast type from [" + fromstr + "] to cast type to [" + tostr +
+                    "] already defined as a numeric cast.");
         }
 
         if (definition.upcasts.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
+                    "and cast type from [" + fromstr + "] to cast type to [" + tostr +
+                    "] already defined as an upcast.");
+        }
+
+        if (definition.implicits.containsKey(cast)) {
+            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
+                    "and cast type from [" + fromstr + "] to cast type to [" + tostr +
+                    "] already defined as an implicit transform.");
+        }
+
+        if (definition.explicits.containsKey(cast)) {
+            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
+                    "and cast type from [" + fromstr + "] to cast type to [" + tostr +
+                    "] already defined as an explicit transform.");
         }
 
         Method method;
@@ -757,11 +843,15 @@ class Definition {
             method = owner.functions.get(methodstr);
 
             if (method == null) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
+                        "and cast type from [" + fromstr + "] to cast type to [" + tostr +
+                        "] using a function [" + methodstr + "] that is not defined.");
             }
 
             if (method.arguments.size() != 1) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
+                        "and cast type from [" + fromstr + "] to cast type to [" + tostr +
+                        "] using function [" + methodstr + "] does not have a single type argument.");
             }
 
             Type argument = method.arguments.get(0);
@@ -773,7 +863,9 @@ class Definition {
                     argument.clazz.asSubclass(from.clazz);
                     upcast = argument;
                 } catch (ClassCastException cce1) {
-                    throw new IllegalArgumentException(); // TODO: message
+                    throw new ClassCastException("Transform with owner struct [" + ownerstr + "] " +
+                            "and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using function [" +
+                            methodstr + "] cannot cast from type to the function input argument type.");
                 }
             }
 
@@ -786,18 +878,24 @@ class Definition {
                     to.clazz.asSubclass(rtn.clazz);
                     downcast = to;
                 } catch (ClassCastException cce1) {
-                    throw new IllegalArgumentException(); // TODO: message
+                    throw new ClassCastException("Transform with owner struct [" + ownerstr + "] " +
+                            "and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using function [" +
+                            methodstr + "] cannot cast to type to the function return argument type.");
                 }
             }
         } else if ("method".equals(staticstr)) {
             method = owner.methods.get(methodstr);
 
             if (method == null) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
+                        "and cast type from [" + fromstr + "] to cast type to [" + tostr +
+                        "] using a method [" + methodstr + "] that is not defined.");
             }
 
             if (!method.arguments.isEmpty()) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
+                        "and cast type from [" + fromstr + "] to cast type to [" + tostr +
+                        "] using method [" + methodstr + "] does not have a single type argument.");
             }
 
             try {
@@ -807,7 +905,9 @@ class Definition {
                     owner.clazz.asSubclass(from.clazz);
                     upcast = getTypeFromCanonicalName(definition, owner.name);
                 } catch (ClassCastException cce1) {
-                    throw new IllegalArgumentException(); // TODO: message
+                    throw new ClassCastException("Transform with owner struct [" + ownerstr + "] " +
+                            "and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using method [" +
+                            methodstr + "] cannot cast from type to the method input argument type.");
                 }
             }
 
@@ -820,29 +920,27 @@ class Definition {
                     to.clazz.asSubclass(rtn.clazz);
                     downcast = to;
                 } catch (ClassCastException cce1) {
-                    throw new IllegalArgumentException(); // TODO: message
+                    throw new ClassCastException("Transform with owner struct [" + ownerstr + "] " +
+                            "and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using method [" +
+                            methodstr + "] cannot cast to type to the method return argument type.");
                 }
             }
         } else {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
+                    "and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using function [" +
+                    methodstr + "] is not specified to use a function or a method.");
         }
 
         final Transform transform = new Transform(cast, method, upcast, downcast);
 
         if ("explicit".equals(typestr)) {
-            if (definition.explicits.containsKey(cast)) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
-
             definition.explicits.put(cast, transform);
         } else if ("implicit".equals(typestr)) {
-            if (definition.implicits.containsKey(cast)) {
-                throw new IllegalArgumentException(); // TODO: message
-            }
-
             definition.implicits.put(cast, transform);
         } else {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
+                    "and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using function [" +
+                    methodstr + "] is not specified to be explicit or implicit.");
         }
     }
 
@@ -851,33 +949,40 @@ class Definition {
         final Type to = getTypeFromCanonicalName(definition, tostr);
 
         if (from.equals(to)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Numeric cast cannot have cast type from [" + fromstr + "]" +
+                    " be the same as cast type to [" + tostr + "].");
         }
 
         final Cast cast = new Cast(from, to);
 
         if (definition.numerics.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Numeric cast with cast type from [" + fromstr + "]" +
+                    " to cast type to [" + tostr + "] already defined.");
         }
 
         if (definition.upcasts.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Numeric cast with cast type from [" + fromstr + "]" +
+                    " to cast type to [" + tostr + "] already defined as an upcast.");
         }
 
         if (definition.explicits.containsKey(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Numeric cast with cast type from [" + fromstr + "]" +
+                    " to cast type to [" + tostr + "] already defined as an explicit transform.");
         }
 
         if (definition.implicits.containsKey(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Numeric cast with cast type from [" + fromstr + "]" +
+                    " to cast type to [" + tostr + "] already defined as an implicit transform.");
         }
 
         if (!from.metadata.numeric) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Numeric cast with cast type from [" + fromstr + "]" +
+                    " to cast type to [" + tostr + "] cannot have the from cast type as a non-numeric.");
         }
 
         if (!to.metadata.numeric) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Numeric cast with cast type from [" + fromstr + "]" +
+                    " to cast type to [" + tostr + "] cannot have the to cast type as a non-numeric.");
         }
 
         definition.numerics.add(cast);
@@ -888,31 +993,37 @@ class Definition {
         final Type to = getTypeFromCanonicalName(definition, tostr);
 
         if (from.equals(to)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Upcast cannot have cast type from [" + fromstr + "]" +
+                    " be the same as cast type to [" + tostr + "].");
         }
 
         final Cast cast = new Cast(from, to);
 
         if (definition.numerics.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Upcast with cast type from [" + fromstr + "]" +
+                    " to cast type to [" + tostr + "] already defined as a numeric cast.");
         }
 
         if (definition.upcasts.contains(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Upcast with cast type from [" + fromstr + "]" +
+                    " to cast type to [" + tostr + "] already defined.");
         }
 
         if (definition.explicits.containsKey(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Upcast with cast type from [" + fromstr + "]" +
+                    " to cast type to [" + tostr + "] already defined as an explicit transform.");
         }
 
         if (definition.implicits.containsKey(cast)) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(" Upcast with cast type from [" + fromstr + "]" +
+                    " to cast type to [" + tostr + "] already defined as an implicit transform.");
         }
 
         try {
             to.clazz.asSubclass(from.clazz);
         } catch (ClassCastException exception) {
-            throw new IllegalArgumentException();
+            throw new ClassCastException("Upcast with cast type from [" + fromstr + "]" +
+                    " is not a super type of cast type to [" + tostr + "].");
         }
 
         definition.upcasts.add(cast);
@@ -920,7 +1031,8 @@ class Definition {
 
     private static String[][] parseArgumentsStr(final String argumentstr) {
         if (!argumentstr.startsWith("(") || !argumentstr.endsWith(")")) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Arguments [" + argumentstr + "]" +
+                    " is missing opening and/or closing parenthesis.");
         }
 
         final String tidy = argumentstr.substring(1, argumentstr.length() - 1).replace(" ", "");
@@ -947,7 +1059,8 @@ class Definition {
         } else if (argumentstrs.length == 2) {
             return new String[] {argumentstrs[0], argumentstrs[1]};
         } else {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(
+                    "Argument [" + argumentstr + "] must contain only one or two paremeters");
         }
     }
 
@@ -957,7 +1070,7 @@ class Definition {
         final Struct struct = definition.structs.get(structstr);
 
         if (struct == null) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("The struct with name [" + namestr + "] has not been defined.");
         }
 
         return getTypeWithArrayDimensions(struct, dimensions);
@@ -1070,7 +1183,8 @@ class Definition {
                 return Class.forName(descriptor);
             }
         } catch (ClassNotFoundException exception) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(
+                    "Unable to create a Java class from the canonical name [" + namestr + "].");
         }
     }
 
@@ -1085,7 +1199,7 @@ class Definition {
                 if (name.charAt(index) == '[' && ++index < length && name.charAt(index++) == ']') {
                     ++dimensions;
                 } else {
-                    throw new IllegalArgumentException(); // TODO: message
+                    throw new IllegalArgumentException("Invalid array braces in canonical name [" + name + "].");
                 }
             }
         }
@@ -1130,7 +1244,8 @@ class Definition {
         try {
             return clazz.getConstructor(arguments);
         } catch (NoSuchMethodException exception) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Java constructor not found for Java class [" + clazz.getName() + "]" +
+                    "with Java argument types [" + Arrays.toString(arguments) + "].");
         }
     }
 
@@ -1139,7 +1254,8 @@ class Definition {
         try {
             return clazz.getMethod(namestr, arguments);
         } catch (NoSuchMethodException exception) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Java method not found for Java class [" + clazz.getName() + "]" +
+                    "with Java argument types [" + Arrays.toString(arguments) + "].");
         }
     }
 
@@ -1147,7 +1263,8 @@ class Definition {
         try {
             return clazz.getField(namestr);
         } catch (NoSuchFieldException exception) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Java field not found for Java class [" + clazz.getName() + "]" +
+                    "with Java name [" + namestr + ".");
         }
     }
 
