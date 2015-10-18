@@ -91,10 +91,15 @@ final class Compiler {
 
     private static ParserRuleContext createParseTree(String source, Definition definition) {
         final ANTLRInputStream stream = new ANTLRInputStream(source);
-        final PlanALexer lexer = new PlanALexer(stream);
+        final ErrorHandlingLexer lexer = new ErrorHandlingLexer(stream);
         final PlanAParser parser = new PlanAParser(new CommonTokenStream(lexer));
+        final ParserErrorStrategy strategy = new ParserErrorStrategy();
+
+        lexer.removeErrorListeners();
 
         parser.setTypes(definition.structs.keySet());
+        parser.removeErrorListeners();
+        parser.setErrorHandler(strategy);
 
         ParserRuleContext root = parser.source();
         System.out.println(root.toStringTree(parser));

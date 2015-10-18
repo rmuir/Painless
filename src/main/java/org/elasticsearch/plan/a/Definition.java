@@ -47,13 +47,13 @@ class Definition {
         STRING(  String.class  , 1 , false , true  , true  ),
         ARRAY(   null          , 1 , false , false , true  );
 
-        final Class clazz;
+        final Class<?> clazz;
         final int size;
         final boolean numeric;
         final boolean constant;
         final boolean object;
 
-        TypeMetadata(final Class clazz, final int size, final boolean numeric,
+        TypeMetadata(final Class<?> clazz, final int size, final boolean numeric,
                      final boolean constant, final boolean object) {
             this.clazz = clazz;
             this.size = size;
@@ -66,13 +66,13 @@ class Definition {
     static class Type {
         final String name;
         final Struct struct;
-        final Class clazz;
+        final Class<?> clazz;
         final String internal;
         final String descriptor;
         final int dimensions;
         final TypeMetadata metadata;
 
-        Type(final String name, final Struct struct, final Class clazz, final String internal,
+        Type(final String name, final Struct struct, final Class<?> clazz, final String internal,
              final String descriptor, final int dimensions, final TypeMetadata metadata) {
             this.name = name;
             this.struct = struct;
@@ -167,7 +167,7 @@ class Definition {
 
     static class Struct {
         final String name;
-        final Class clazz;
+        final Class<?> clazz;
         final String internal;
         final boolean generic;
         final boolean runtime;
@@ -179,7 +179,7 @@ class Definition {
         final Map<String, Field> statics;
         final Map<String, Field> members;
 
-        private Struct(final String name, final Class clazz, final String internal,
+        private Struct(final String name, final Class<?> clazz, final String internal,
                        final boolean generic, final boolean runtime) {
             this.name = name;
             this.clazz = clazz;
@@ -524,7 +524,7 @@ class Definition {
             throw new IllegalArgumentException("Duplicate struct name [" + namestr + "].");
         }
 
-        final Class clazz = getClassFromCanonicalName(clazzstr);
+        final Class<?> clazz = getClassFromCanonicalName(clazzstr);
         final String internal = clazz.getName().replace('.', '/');
         final Struct struct = new Struct(namestr, clazz, internal, generic, runtime);
 
@@ -563,7 +563,7 @@ class Definition {
         final int length = argumentsstrs.length;
         final Type[] arguments = new Type[length];
         final Type[] originals = new Type[length];
-        final Class[] jarguments = new Class[length];
+        final Class<?>[] jarguments = new Class<?>[length];
 
         String descriptor = "(";
 
@@ -638,7 +638,7 @@ class Definition {
         final String[] returnstrs = parseArgumentStr(returnstr);
         Type rtn;
         Type oreturn;
-        Class jreturn;
+        Class<?> jreturn;
 
         if (returnstrs.length == 1) {
             rtn = getTypeFromCanonicalName(definition, returnstrs[0]);
@@ -657,7 +657,7 @@ class Definition {
         final int length = argumentsstrs.length;
         final Type[] arguments = new Type[length];
         final Type[] originals = new Type[length];
-        final Class[] jarguments = new Class[length];
+        final Class<?>[] jarguments = new Class<?>[length];
 
         String descriptor = "(";
 
@@ -1105,7 +1105,7 @@ class Definition {
 
     static Type getTypeWithArrayDimensions(final Struct struct, final int dimensions) {
         if (dimensions == 0) {
-            final Class clazz = struct.clazz;
+            final Class<?> clazz = struct.clazz;
             final String internal = struct.internal;
             final String descriptor = getDescriptorFromClass(clazz);
 
@@ -1134,7 +1134,7 @@ class Definition {
 
             final String name = struct.name + new String(brackets);
             final String clazzstr = struct.clazz.getCanonicalName() + new String(brackets);
-            final Class clazz = getClassFromCanonicalName(clazzstr);
+            final Class<?> clazz = getClassFromCanonicalName(clazzstr);
             final String internal = clazz.getName().replace('.', '/');
             final String descriptor = getDescriptorFromClass(clazz);
 
@@ -1142,7 +1142,7 @@ class Definition {
         }
     }
 
-    private static Class getClassFromCanonicalName(final String namestr) {
+    private static Class<?> getClassFromCanonicalName(final String namestr) {
         try {
             final int dimensions = getArrayDimensionsFromCanonicalName(namestr);
 
@@ -1235,7 +1235,7 @@ class Definition {
         return dimensions;
     }
 
-    private static String getDescriptorFromClass(final Class clazz) {
+    private static String getDescriptorFromClass(final Class<?> clazz) {
         final String namestr = clazz.getName();
 
         switch (namestr) {
@@ -1268,7 +1268,8 @@ class Definition {
         }
     }
 
-    private static java.lang.reflect.Constructor getJConstructorFromJClass(final Class<?> clazz, final Class[] arguments) {
+    private static java.lang.reflect.Constructor getJConstructorFromJClass(final Class<?> clazz,
+                                                                           final Class<?>[] arguments) {
         try {
             return clazz.getConstructor(arguments);
         } catch (NoSuchMethodException exception) {
@@ -1278,7 +1279,7 @@ class Definition {
     }
 
     private static java.lang.reflect.Method getJMethodFromJClass(final Class<?> clazz, final String namestr,
-                                                                 final Class[] arguments) {
+                                                                 final Class<?>[] arguments) {
         try {
             return clazz.getMethod(namestr, arguments);
         } catch (NoSuchMethodException exception) {
@@ -1288,7 +1289,7 @@ class Definition {
         }
     }
 
-    private static java.lang.reflect.Field getJFieldFromJClass(final Class clazz, final String namestr) {
+    private static java.lang.reflect.Field getJFieldFromJClass(final Class<?> clazz, final String namestr) {
         try {
             return clazz.getField(namestr);
         } catch (NoSuchFieldException exception) {

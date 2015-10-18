@@ -203,7 +203,7 @@ public class Utility {
         final int localBegin = begin == null ? 0 : begin;
 
         if (localBegin < 0 || localBegin > length) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("Start of substring [" + localBegin + "] is out of bounds.");
         }
 
         int localEnd = end == null ? string.length() : end;
@@ -213,7 +213,7 @@ public class Utility {
         }
 
         if (localEnd < 0 || localEnd > length) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException("End of substring [" + localEnd + "] is out of bounds.");
         }
 
         return string.substring(localBegin, localEnd);

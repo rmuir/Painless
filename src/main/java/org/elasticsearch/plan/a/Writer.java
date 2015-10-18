@@ -19,6 +19,7 @@ package org.elasticsearch.plan.a;
  * under the License.
  */
 
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.*;
 
@@ -304,7 +305,7 @@ class Writer extends PlanABaseVisitor<Void>{
 
     @Override
     public Void visitEmpty(final EmptyContext ctx) {
-        throw new UnsupportedOperationException("An internal error has occurred.");
+        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
     }
 
     @Override
@@ -318,7 +319,7 @@ class Writer extends PlanABaseVisitor<Void>{
 
     @Override
     public Void visitDecltype(final DecltypeContext ctx) {
-        throw new UnsupportedOperationException("An internal error has occurred.");
+        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
     }
 
     @Override
@@ -334,16 +335,15 @@ class Writer extends PlanABaseVisitor<Void>{
         }
 
         switch (variable.type.metadata) {
-            case VOID:
-                throw new IllegalStateException(error(ctx) + "The void type cannot be used in a declaration.");
+            case VOID:   throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
             case BOOL:
             case BYTE:
             case SHORT:
             case CHAR:
-            case INT:    if (initialize) writeNumeric(0);    execute.visitVarInsn(Opcodes.ISTORE, variable.slot); break;
-            case LONG:   if (initialize) writeNumeric(0L);   execute.visitVarInsn(Opcodes.LSTORE, variable.slot); break;
-            case FLOAT:  if (initialize) writeNumeric(0.0F); execute.visitVarInsn(Opcodes.FSTORE, variable.slot); break;
-            case DOUBLE: if (initialize) writeNumeric(0.0);  execute.visitVarInsn(Opcodes.DSTORE, variable.slot); break;
+            case INT:    if (initialize) writeNumeric(ctx, 0);    execute.visitVarInsn(Opcodes.ISTORE, variable.slot); break;
+            case LONG:   if (initialize) writeNumeric(ctx, 0L);   execute.visitVarInsn(Opcodes.LSTORE, variable.slot); break;
+            case FLOAT:  if (initialize) writeNumeric(ctx, 0.0F); execute.visitVarInsn(Opcodes.FSTORE, variable.slot); break;
+            case DOUBLE: if (initialize) writeNumeric(ctx, 0.0);  execute.visitVarInsn(Opcodes.DSTORE, variable.slot); break;
             default:
                 if (initialize) {
                     execute.visitInsn(Opcodes.ACONST_NULL);
@@ -357,7 +357,7 @@ class Writer extends PlanABaseVisitor<Void>{
 
     @Override
     public Void visitPrecedence(final PrecedenceContext ctx) {
-        throw new UnsupportedOperationException("Internal error has occurred.");
+        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
     }
 
     @Override
@@ -366,10 +366,10 @@ class Writer extends PlanABaseVisitor<Void>{
         final Object postConst = numericemd.postConst;
 
         if (postConst == null) {
-            writeNumeric(numericemd.preConst);
+            writeNumeric(ctx, numericemd.preConst);
             caster.checkWriteCast(execute, numericemd);
         } else {
-            writeConstant(postConst);
+            writeConstant(ctx, postConst);
         }
 
         adapter.checkWriteBranch(execute, ctx);
@@ -383,10 +383,10 @@ class Writer extends PlanABaseVisitor<Void>{
         final Object postConst = stringemd.postConst;
 
         if (postConst == null) {
-            writeString(stringemd.preConst);
+            writeString(ctx, stringemd.preConst);
             caster.checkWriteCast(execute, stringemd);
         } else {
-            writeConstant(postConst);
+            writeConstant(ctx, postConst);
         }
 
         adapter.checkWriteBranch(execute, ctx);
@@ -400,10 +400,10 @@ class Writer extends PlanABaseVisitor<Void>{
         final Object postConst = charemd.postConst;
 
         if (postConst == null) {
-            writeString(charemd.preConst);
+            writeString(ctx, charemd.preConst);
             caster.checkWriteCast(execute, charemd);
         } else {
-            writeConstant(postConst);
+            writeConstant(ctx, postConst);
         }
 
         adapter.checkWriteBranch(execute, ctx);
@@ -419,10 +419,10 @@ class Writer extends PlanABaseVisitor<Void>{
 
         if (branch == null) {
             if (postConst == null) {
-                writeBoolean(true);
+                writeBoolean(ctx, true);
                 caster.checkWriteCast(execute, trueemd);
             } else {
-                writeConstant(postConst);
+                writeConstant(ctx, postConst);
             }
         } else if (branch.tru != null) {
             execute.visitJumpInsn(Opcodes.GOTO, branch.tru);
@@ -439,10 +439,10 @@ class Writer extends PlanABaseVisitor<Void>{
 
         if (branch == null) {
             if (postConst == null) {
-                writeBoolean(false);
+                writeBoolean(ctx, false);
                 caster.checkWriteCast(execute, falseemd);
             } else {
-                writeConstant(postConst);
+                writeConstant(ctx, postConst);
             }
         } else if (branch.fals != null) {
             execute.visitJumpInsn(Opcodes.GOTO, branch.fals);
@@ -468,7 +468,7 @@ class Writer extends PlanABaseVisitor<Void>{
         final boolean strings = adapter.getStrings(ctx);
 
         if (catemd.postConst != null) {
-            writeConstant(catemd.postConst);
+            writeConstant(ctx, catemd.postConst);
         } else {
             if (!strings) {
                 writeNewStrings();
@@ -480,7 +480,7 @@ class Writer extends PlanABaseVisitor<Void>{
             visit(exprctx0);
 
             if (adapter.getStrings(exprctx0)) {
-                writeAppendStrings(expremd0.to.metadata);
+                writeAppendStrings(ctx, expremd0.to.metadata);
                 adapter.unmarkStrings(exprctx0);
             }
 
@@ -490,7 +490,7 @@ class Writer extends PlanABaseVisitor<Void>{
             visit(exprctx1);
 
             if (adapter.getStrings(exprctx1)) {
-                writeAppendStrings(expremd1.to.metadata);
+                writeAppendStrings(ctx, expremd1.to.metadata);
                 adapter.unmarkStrings(exprctx1);
             }
 
@@ -573,10 +573,10 @@ class Writer extends PlanABaseVisitor<Void>{
                 visit(exprctx);
 
                 if (ctx.BWNOT() != null) {
-                    if      (metadata == TypeMetadata.INT)  { writeConstant(-1);  execute.visitInsn(Opcodes.IXOR); }
-                    else if (metadata == TypeMetadata.LONG) { writeConstant(-1L); execute.visitInsn(Opcodes.LXOR); }
+                    if      (metadata == TypeMetadata.INT)  { writeConstant(ctx, -1);  execute.visitInsn(Opcodes.IXOR); }
+                    else if (metadata == TypeMetadata.LONG) { writeConstant(ctx, -1L); execute.visitInsn(Opcodes.LXOR); }
                     else {
-                        throw new IllegalStateException("An internal error has occurred.");
+                        throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                     }
                 } else if (ctx.SUB() != null) {
                     if      (metadata == TypeMetadata.INT)    execute.visitInsn(Opcodes.INEG);
@@ -584,7 +584,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     else if (metadata == TypeMetadata.FLOAT)  execute.visitInsn(Opcodes.FNEG);
                     else if (metadata == TypeMetadata.DOUBLE) execute.visitInsn(Opcodes.DNEG);
                     else {
-                        throw new IllegalStateException("An intenral error has occurred.");
+                        throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                     }
                 }
 
@@ -594,7 +594,7 @@ class Writer extends PlanABaseVisitor<Void>{
         } else {
             if (ctx.BOOLNOT() != null) {
                 if (branch == null) {
-                    writeConstant(postConst);
+                    writeConstant(ctx, postConst);
                 } else {
                     if ((boolean)postConst && branch.tru != null) {
                         execute.visitJumpInsn(Opcodes.GOTO, branch.tru);
@@ -603,7 +603,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     }
                 }
             } else {
-                writeConstant(postConst);
+                writeConstant(ctx, postConst);
                 adapter.checkWriteBranch(execute, ctx);
             }
         }
@@ -620,7 +620,7 @@ class Writer extends PlanABaseVisitor<Void>{
             visit(ctx.expression());
             caster.checkWriteCast(execute, castemd);
         } else {
-            writeConstant(postConst);
+            writeConstant(ctx, postConst);
         }
 
         adapter.checkWriteBranch(execute, ctx);
@@ -642,24 +642,24 @@ class Writer extends PlanABaseVisitor<Void>{
 
             final TypeMetadata metadata = binaryemd.from.metadata;
 
-            if      (ctx.MUL()   != null) writeBinaryInstruction(metadata, MUL);
-            else if (ctx.DIV()   != null) writeBinaryInstruction(metadata, DIV);
-            else if (ctx.REM()   != null) writeBinaryInstruction(metadata, REM);
-            else if (ctx.SUB()   != null) writeBinaryInstruction(metadata, SUB);
-            else if (ctx.LSH()   != null) writeBinaryInstruction(metadata, LSH);
-            else if (ctx.USH()   != null) writeBinaryInstruction(metadata, USH);
-            else if (ctx.RSH()   != null) writeBinaryInstruction(metadata, RSH);
-            else if (ctx.BWAND() != null) writeBinaryInstruction(metadata, BWAND);
-            else if (ctx.BWXOR() != null) writeBinaryInstruction(metadata, BWXOR);
-            else if (ctx.BWOR()  != null) writeBinaryInstruction(metadata, BWOR);
-            else if (ctx.ADD()   != null) writeBinaryInstruction(metadata, ADD);
+            if      (ctx.MUL()   != null) writeBinaryInstruction(ctx, metadata, MUL);
+            else if (ctx.DIV()   != null) writeBinaryInstruction(ctx, metadata, DIV);
+            else if (ctx.REM()   != null) writeBinaryInstruction(ctx, metadata, REM);
+            else if (ctx.SUB()   != null) writeBinaryInstruction(ctx, metadata, SUB);
+            else if (ctx.LSH()   != null) writeBinaryInstruction(ctx, metadata, LSH);
+            else if (ctx.USH()   != null) writeBinaryInstruction(ctx, metadata, USH);
+            else if (ctx.RSH()   != null) writeBinaryInstruction(ctx, metadata, RSH);
+            else if (ctx.BWAND() != null) writeBinaryInstruction(ctx, metadata, BWAND);
+            else if (ctx.BWXOR() != null) writeBinaryInstruction(ctx, metadata, BWXOR);
+            else if (ctx.BWOR()  != null) writeBinaryInstruction(ctx, metadata, BWOR);
+            else if (ctx.ADD()   != null) writeBinaryInstruction(ctx, metadata, ADD);
             else {
-                throw new IllegalStateException("An internal error has occurred.");
+                throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
             }
 
             caster.checkWriteCast(execute, binaryemd);
         } else {
-            writeConstant(postConst);
+            writeConstant(ctx, postConst);
         }
 
         adapter.checkWriteBranch(execute, ctx);
@@ -699,19 +699,19 @@ class Writer extends PlanABaseVisitor<Void>{
 
             switch (metadata) {
                 case VOID:
-                    throw new IllegalStateException(error(ctx) + "Void type not allowed for use in comparisons.");
+                    throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                 case BOOL:
                     if      (eq) execute.visitJumpInsn(Opcodes.IF_ICMPEQ, jump);
                     else if (ne) execute.visitJumpInsn(Opcodes.IF_ICMPNE, jump);
                     else {
-                        throw new IllegalStateException(error(ctx) + "Illegal use of boolean in comparison.");
+                        throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                     }
 
                     break;
                 case BYTE:
                 case SHORT:
                 case CHAR:
-                    throw new IllegalStateException(error(ctx) + "Illegal use of byte/short/char in comparison.");
+                    throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                 case INT:
                     if      (eq)  execute.visitJumpInsn(Opcodes.IF_ICMPEQ, jump);
                     else if (ne)  execute.visitJumpInsn(Opcodes.IF_ICMPNE, jump);
@@ -720,7 +720,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     else if (gt)  execute.visitJumpInsn(Opcodes.IF_ICMPGT, jump);
                     else if (gte) execute.visitJumpInsn(Opcodes.IF_ICMPGE, jump);
                     else {
-                        throw new IllegalStateException(error(ctx) + "Illegal use of int in comparison.");
+                        throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                     }
 
                     break;
@@ -734,7 +734,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     else if (gt)  execute.visitJumpInsn(Opcodes.IFGT, jump);
                     else if (gte) execute.visitJumpInsn(Opcodes.IFGE, jump);
                     else {
-                        throw new IllegalStateException(error(ctx) + "Illegal use of long in comparison.");
+                        throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                     }
 
                     break;
@@ -746,7 +746,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     else if (gt)  { execute.visitInsn(Opcodes.FCMPL); execute.visitJumpInsn(Opcodes.IFGT, jump); }
                     else if (gte) { execute.visitInsn(Opcodes.FCMPL); execute.visitJumpInsn(Opcodes.IFGE, jump); }
                     else {
-                        throw new IllegalStateException(error(ctx) + "Illegal use of float in comparison.");
+                        throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                     }
 
                     break;
@@ -758,7 +758,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     else if (gt)  { execute.visitInsn(Opcodes.DCMPL); execute.visitJumpInsn(Opcodes.IFGT, jump); }
                     else if (gte) { execute.visitInsn(Opcodes.DCMPL); execute.visitJumpInsn(Opcodes.IFGE, jump); }
                     else {
-                        throw new IllegalStateException(error(ctx) + "Illegal use of double in comparison.");
+                        throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                     }
 
                     break;
@@ -776,7 +776,7 @@ class Writer extends PlanABaseVisitor<Void>{
                             execute.visitJumpInsn(Opcodes.IF_ACMPNE, jump);
                         }
                     } else {
-                        throw new IllegalStateException(error(ctx) + "Illegal use of object in comparison.");
+                        throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                     }
             }
 
@@ -791,7 +791,7 @@ class Writer extends PlanABaseVisitor<Void>{
             }
         } else {
             if (branch == null) {
-                writeConstant(postConst);
+                writeConstant(ctx, postConst);
             } else {
                 if ((boolean)postConst && branch.tru != null) {
                     execute.visitLabel(branch.tru);
@@ -846,7 +846,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     execute.visitInsn(Opcodes.ICONST_0);
                     execute.visitLabel(aend);
                 } else {
-                    throw new IllegalStateException("An internal error has occurred.");
+                    throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                 }
 
                 caster.checkWriteCast(execute, boolemd);
@@ -878,12 +878,12 @@ class Writer extends PlanABaseVisitor<Void>{
                         execute.visitLabel(branch0.tru);
                     }
                 } else {
-                    throw new IllegalStateException("An internal error has occurred.");
+                    throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                 }
             }
         } else {
             if (branch == null) {
-                writeConstant(postConst);
+                writeConstant(ctx, postConst);
             } else {
                 if ((boolean)postConst && branch.tru != null) {
                     execute.visitLabel(branch.tru);
@@ -934,47 +934,47 @@ class Writer extends PlanABaseVisitor<Void>{
 
     @Override
     public Void visitExtstart(ExtstartContext ctx) {
-        throw new UnsupportedOperationException("Internal error has occurred.");
+        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
     }
 
     @Override
     public Void visitExtprec(final ExtprecContext ctx) {
-        throw new UnsupportedOperationException("Internal error has occurred.");
+        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
     }
 
     @Override
     public Void visitExtcast(final ExtcastContext ctx) {
-        throw new UnsupportedOperationException("Internal error has occurred.");
+        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
     }
 
     @Override
     public Void visitExtbrace(final ExtbraceContext ctx) {
-        throw new UnsupportedOperationException("Internal error has occurred.");
+        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
     }
 
     @Override
     public Void visitExtdot(final ExtdotContext ctx) {
-        throw new UnsupportedOperationException("Internal error has occurred.");
+        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
     }
 
     @Override
     public Void visitExttype(final ExttypeContext ctx) {
-        throw new UnsupportedOperationException("Internal error has occurred.");
+        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
     }
 
     @Override
     public Void visitExtcall(final ExtcallContext ctx) {
-        throw new UnsupportedOperationException("Internal error has occurred.");
+        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
     }
 
     @Override
     public Void visitExtmember(final ExtmemberContext ctx) {
-        throw new UnsupportedOperationException("Internal error has occurred.");
+        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
     }
 
     @Override
     public Void visitArguments(final ArgumentsContext ctx) {
-        throw new UnsupportedOperationException("Internal error has occurred.");
+        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
     }
 
     @Override
@@ -983,10 +983,10 @@ class Writer extends PlanABaseVisitor<Void>{
         final Object postConst = incremd.postConst;
 
         if (postConst == null) {
-            writeString(incremd.preConst);
+            writeString(ctx, incremd.preConst);
             caster.checkWriteCast(execute, incremd);
         } else {
-            writeConstant(postConst);
+            writeConstant(ctx, postConst);
         }
 
         adapter.checkWriteBranch(execute, ctx);
@@ -994,21 +994,21 @@ class Writer extends PlanABaseVisitor<Void>{
         return null;
     }
 
-    void writeConstant(final Object constant) {
+    void writeConstant(final ParserRuleContext source, final Object constant) {
         if (constant instanceof Number) {
-            writeNumeric(constant);
+            writeNumeric(source, constant);
         } else if (constant instanceof Character) {
-            writeNumeric((int)(char)constant);
+            writeNumeric(source, (int)(char)constant);
         } else if (constant instanceof String) {
-            writeString(constant);
+            writeString(source, constant);
         } else if (constant instanceof Boolean) {
-            writeBoolean(constant);
+            writeBoolean(source, constant);
         } else if (constant != null) {
-            throw new IllegalStateException("Cannot write null constant.");
+            throw new IllegalStateException(error(source) + "Unexpected writer state.");
         }
     }
 
-    private void writeNumeric(final Object numeric) {
+    private void writeNumeric(final ParserRuleContext source, final Object numeric) {
         if (numeric instanceof Double) {
             final long bits = Double.doubleToLongBits((Double)numeric);
 
@@ -1066,19 +1066,19 @@ class Writer extends PlanABaseVisitor<Void>{
                 execute.visitLdcInsn(value);
             }
         } else {
-            throw new IllegalStateException("Cannot write invalid numeric [" + numeric + "].");
+            throw new IllegalStateException(error(source) + "Unexpected writer state.");
         }
     }
 
-    private void writeString(final Object string) {
+    private void writeString(final ParserRuleContext source, final Object string) {
         if (string instanceof String) {
             execute.visitLdcInsn(string);
         } else {
-            throw new IllegalStateException("Cannot write invalid string [" + string + "].");
+            throw new IllegalStateException(error(source) + "Unexpected writer state.");
         }
     }
 
-    private void writeBoolean(final Object bool) {
+    private void writeBoolean(final ParserRuleContext source, final Object bool) {
         if (bool instanceof Boolean) {
             boolean value = (boolean)bool;
 
@@ -1088,7 +1088,7 @@ class Writer extends PlanABaseVisitor<Void>{
                 execute.visitInsn(Opcodes.ICONST_0);
             }
         } else {
-            throw new IllegalStateException("Cannot write invalid boolean [" + bool + "].");
+            throw new IllegalStateException(error(source) + "Unexpected writer state.");
         }
     }
 
@@ -1098,7 +1098,7 @@ class Writer extends PlanABaseVisitor<Void>{
         execute.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/StringBuilder", "<init>", "()V", false);
     }
 
-    void writeAppendStrings(final TypeMetadata metadata) {
+    void writeAppendStrings(final ParserRuleContext source, final TypeMetadata metadata) {
         final String internal = "java/lang/StringBuilder";
         final String builder = "Ljava/lang/StringBuilder;";
         final String string = "(Ljava/lang/String;)" + builder;
@@ -1117,7 +1117,7 @@ class Writer extends PlanABaseVisitor<Void>{
             case ARRAY:
             case OBJECT: execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", object, false);          break;
             default:
-                throw new IllegalStateException("An internal error has occurred.");
+                throw new IllegalStateException(error(source) + "Unexpected writer state.");
         }
     }
 
@@ -1125,7 +1125,7 @@ class Writer extends PlanABaseVisitor<Void>{
         execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
     }
 
-    void writeBinaryInstruction(final TypeMetadata metadata, final int token) {
+    void writeBinaryInstruction(final ParserRuleContext source, final TypeMetadata metadata, final int token) {
         switch (metadata) {
             case INT:
                 switch (token) {
@@ -1141,7 +1141,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     case BWXOR: execute.visitInsn(Opcodes.IXOR);  break;
                     case BWOR:  execute.visitInsn(Opcodes.IOR);   break;
                     default:
-                        throw new IllegalStateException("Cannot use token [" + token + " with int.");
+                        throw new IllegalStateException(error(source) + "Unexpected writer state.");
                 }
 
                 break;
@@ -1159,7 +1159,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     case BWXOR: execute.visitInsn(Opcodes.LXOR);  break;
                     case BWOR:  execute.visitInsn(Opcodes.LOR);   break;
                     default:
-                        throw new IllegalStateException("Cannot use token [" + token + " with long.");
+                        throw new IllegalStateException(error(source) + "Unexpected writer state.");
                 }
 
                 break;
@@ -1171,7 +1171,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     case ADD: execute.visitInsn(Opcodes.FADD); break;
                     case SUB: execute.visitInsn(Opcodes.FSUB); break;
                     default:
-                        throw new IllegalStateException("Cannot use token [" + token + " with float.");
+                        throw new IllegalStateException(error(source) + "Unexpected writer state.");
                 }
 
                 break;
@@ -1183,12 +1183,12 @@ class Writer extends PlanABaseVisitor<Void>{
                     case ADD: execute.visitInsn(Opcodes.DADD); break;
                     case SUB: execute.visitInsn(Opcodes.DSUB); break;
                     default:
-                        throw new IllegalStateException("Cannot use token [" + token + " with double.");
+                        throw new IllegalStateException(error(source) + "Unexpected writer state.");
                 }
 
                 break;
             default:
-                throw new IllegalStateException("No binary instruction exists for [" + metadata.name() + "].");
+                throw new IllegalStateException(error(source) + "Unexpected writer state.");
         }
     }
 

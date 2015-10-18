@@ -25,7 +25,6 @@ import java.util.Deque;
 import java.util.List;
 
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -34,9 +33,16 @@ import static org.elasticsearch.plan.a.Caster.*;
 import static org.elasticsearch.plan.a.Default.*;
 import static org.elasticsearch.plan.a.Definition.*;
 import static org.elasticsearch.plan.a.PlanAParser.*;
+import static org.elasticsearch.plan.a.Utility.*;
 
 class External {
     private abstract class Segment {
+        final ParserRuleContext source;
+
+        Segment(final ParserRuleContext source) {
+            this.source = source;
+        }
+
         abstract void write();
     }
 
@@ -44,7 +50,9 @@ class External {
         private final Variable variable;
         private final boolean store;
 
-        VariableSegment(final Variable variable, final boolean store) {
+        VariableSegment(final ParserRuleContext source, final Variable variable, final boolean store) {
+            super(source);
+
             this.variable = variable;
             this.store = store;
         }
@@ -73,7 +81,9 @@ class External {
         private final Field field;
         private final boolean store;
 
-        FieldSegment(final Field field, final boolean store) {
+        FieldSegment(final ParserRuleContext source, final Field field, final boolean store) {
+            super(source);
+
             this.field = field;
             this.store = store;
         }
@@ -99,7 +109,9 @@ class External {
     private class NewSegment extends Segment {
         private final Struct struct;
 
-        NewSegment(final Struct struct) {
+        NewSegment(final ParserRuleContext source, final Struct struct) {
+            super(source);
+
             this.struct = struct;
         }
 
@@ -113,7 +125,9 @@ class External {
     private class ConstructorSegment extends Segment {
         private final Constructor constructor;
 
-        ConstructorSegment(final Constructor constructor) {
+        ConstructorSegment(final ParserRuleContext source, final Constructor constructor) {
+            super(source);
+
             this.constructor = constructor;
         }
 
@@ -132,7 +146,9 @@ class External {
         private final boolean statik;
         private final boolean iface;
 
-        MethodSegment(final Method method) {
+        MethodSegment(final ParserRuleContext source, final Method method) {
+            super(source);
+
             this.internal = method.owner.internal;
             this.name = method.method.getName();
             this.descriptor = method.descriptor;
@@ -140,7 +156,10 @@ class External {
             iface = java.lang.reflect.Modifier.isInterface(method.owner.clazz.getModifiers());
         }
 
-        MethodSegment(final String internal, final Class clazz, final java.lang.reflect.Method method) {
+        MethodSegment(final ParserRuleContext source, final String internal, final Class clazz,
+                      final java.lang.reflect.Method method) {
+            super(source);
+
             this.internal = internal;
             this.name = method.getName();
             this.descriptor = org.objectweb.asm.commons.Method.getMethod(method).getDescriptor();
@@ -161,15 +180,13 @@ class External {
     }
 
     private class NodeSegment extends Segment {
-        private final ParseTree node;
-
-        NodeSegment(final ParseTree node) {
-            this.node = node;
+        NodeSegment(final ParserRuleContext source) {
+            super(source);
         }
 
         @Override
         void write() {
-            writer.visit(node);
+            writer.visit(source);
         }
     }
 
@@ -177,7 +194,9 @@ class External {
         private final Type type;
         private final boolean store;
 
-        ArraySegment(final Type type, final boolean store) {
+        ArraySegment(final ParserRuleContext source, final Type type, final boolean store) {
+            super(source);
+
             this.type = type;
             this.store = store;
         }
@@ -185,7 +204,7 @@ class External {
         @Override
         void write() {
             switch (type.metadata) {
-                case VOID:   throw new IllegalStateException(); // TODO: message
+                case VOID:   throw new IllegalStateException(error(source) + "Unexpected state during write.");
                 case BOOL:
                 case BYTE:
                 case SHORT:
@@ -203,7 +222,9 @@ class External {
         private final Type type;
         private final int dimensions;
 
-        MakeSegment(final Type type, final int dimensions) {
+        MakeSegment(final ParserRuleContext source, final Type type, final int dimensions) {
+            super(source);
+
             this.type = type;
             this.dimensions = dimensions;
         }
@@ -212,7 +233,7 @@ class External {
         void write() {
             if (dimensions == 1) {
                 switch (type.metadata) {
-                    case VOID:   throw new IllegalStateException(); // TODO: message
+                    case VOID:   throw new IllegalStateException(error(source) + "Unexpected state during write.");
                     case BOOL:   visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_BOOLEAN); break;
                     case SHORT:  visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_SHORT);   break;
                     case CHAR:   visitor.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_CHAR);    break;
@@ -226,12 +247,16 @@ class External {
                 final String descriptor = getTypeWithArrayDimensions(type.struct, dimensions).descriptor;
                 visitor.visitMultiANewArrayInsn(descriptor, dimensions);
             } else {
-                throw new IllegalStateException(); // TODO: message
+                throw new IllegalStateException(error(source) + "Unexpected state during write.");
             }
         }
     }
 
     private class LengthSegment extends Segment {
+        LengthSegment(final ParserRuleContext source) {
+            super(source);
+        }
+
         @Override
         void write() {
             visitor.visitInsn(Opcodes.ARRAYLENGTH);
@@ -239,11 +264,11 @@ class External {
     }
 
     private class CastSegment extends Segment {
-        private final ParserRuleContext source;
         private final Cast cast;
 
         CastSegment(final ParserRuleContext source, final Cast cast) {
-            this.source = source;
+            super(source);
+
             this.cast = cast;
         }
 
@@ -257,54 +282,53 @@ class External {
         private final Type type;
         private final int token;
 
-        TokenSegment(final Type type, final int token) {
+        TokenSegment(final ParserRuleContext source, final Type type, final int token) {
+            super(source);
+
             this.type = type;
             this.token = token;
         }
 
         @Override
         void write() {
-            writer.writeBinaryInstruction(type.metadata, token);
+            writer.writeBinaryInstruction(source, type.metadata, token);
         }
     }
 
     private class NewStringsSegment extends Segment {
-        private final ParserRuleContext mark;
-
-        NewStringsSegment(final ParserRuleContext mark) {
-            this.mark = mark;
+        NewStringsSegment(final ParserRuleContext source) {
+            super(source);
         }
 
         @Override
         void write() {
             writer.writeNewStrings();
-            adapter.markStrings(mark);
+            adapter.markStrings(source);
         }
     }
 
     private class AppendStringsSegment extends Segment {
-        private final ParserRuleContext mark;
         private final Type type;
 
-        AppendStringsSegment(final Type type) {
-            mark = null;
-            this.type = type;
-        }
+        AppendStringsSegment(final ParserRuleContext source, final Type type) {
+            super(source);
 
-        AppendStringsSegment(final ParserRuleContext mark, final Type type) {
-            this.mark = mark;
             this.type = type;
         }
 
         @Override
         void write() {
-            if (mark == null || adapter.getStrings(mark)) {
-                writer.writeAppendStrings(type.metadata);
+            if (source == null || adapter.getStrings(source)) {
+                writer.writeAppendStrings(source, type.metadata);
             }
         }
     }
 
     private class ToStringsSegment extends Segment {
+        ToStringsSegment(final ParserRuleContext source) {
+            super(source);
+        }
+
         @Override
         void write() {
             writer.writeToStrings();
@@ -314,7 +338,9 @@ class External {
     private class InstructionSegment extends Segment {
         private final int instruction;
 
-        InstructionSegment(final int instruction) {
+        InstructionSegment(final ParserRuleContext source, final int instruction) {
+            super(source);
+
             this.instruction = instruction;
         }
 
@@ -328,7 +354,9 @@ class External {
         private final Variable variable;
         private final int value;
 
-        IncrementSegment(final Variable variable, final int value) {
+        IncrementSegment(final ParserRuleContext source, final Variable variable, final int value) {
+            super(source);
+
             this.variable = variable;
             this.value = value;
         }
@@ -483,7 +511,7 @@ class External {
         } else if (memberctx != null) {
             member(memberctx);
         } else {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException();
         }
     }
 
@@ -508,7 +536,7 @@ class External {
         } else if (memberctx != null) {
             member(memberctx);
         } else {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
         }
 
         if (dotctx != null) {
@@ -537,7 +565,7 @@ class External {
         } else if (memberctx != null) {
             member(memberctx);
         } else {
-            throw new IllegalStateException(); // TODO: message
+            throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
         }
 
         final DecltypeContext declctx = ctx.decltype();
@@ -557,9 +585,9 @@ class External {
         final boolean colon = ctx.COLON() != null;
 
         if (!colon && exprctx1 != null) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(error(ctx) + "Missing ':' to separate substring arguments.");
         } else if (colon && exprctx0 == null && exprctx1 == null) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(error(ctx) + "Must specify at least one argument for substring.");
         }
 
         final ExtdotContext dotctx = ctx.extdot();
@@ -599,7 +627,7 @@ class External {
 
     public void type(final ExttypeContext ctx) {
         if (current != null) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(error(ctx) + "Unexpected static type.");
         }
 
         final String typestr = ctx.ID().getText();
@@ -618,7 +646,7 @@ class External {
 
         final boolean last = prec == 0 && dotctx == null && bracectx == null;
 
-        method(name, arguments, last);
+        method(ctx, name, arguments, last);
 
         if (dotctx != null) {
             dot(dotctx);
@@ -652,7 +680,7 @@ class External {
         final Variable variable = adapter.getVariable(name);
 
         if (variable == null) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(error(source) + "Unknown variable [" + name + "].");
         }
 
         final Type type = variable.type;
@@ -668,24 +696,24 @@ class External {
 
                 final Cast cast = caster.getLegalCast(source, standard.stringType, type, false);
 
-                segments.add(new VariableSegment(variable, false));
-                segments.add(new AppendStringsSegment(type));
+                segments.add(new VariableSegment(source, variable, false));
+                segments.add(new AppendStringsSegment(source, type));
                 segments.add(new NodeSegment(write));
                 segments.add(new AppendStringsSegment(write, writeemd.to));
-                segments.add(new ToStringsSegment());
+                segments.add(new ToStringsSegment(source));
                 segments.add(new CastSegment(source, cast));
 
                 if (read) {
                     if (type.metadata.size == 1) {
-                        segments.add(new InstructionSegment(Opcodes.DUP));
+                        segments.add(new InstructionSegment(source, Opcodes.DUP));
                     } else if (type.metadata.size == 2) {
-                        segments.add(new InstructionSegment(Opcodes.DUP2));
+                        segments.add(new InstructionSegment(source, Opcodes.DUP2));
                     } else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException(error(source) + "Unexpected type size.");
                     }
                 }
 
-                segments.add(new VariableSegment(variable, true));
+                segments.add(new VariableSegment(source, variable, true));
             } else if (token > 0) {
                 final boolean increment = type.metadata == TypeMetadata.INT && (token == ADD || token == SUB);
                 current = type;
@@ -695,44 +723,44 @@ class External {
 
                 if (increment && writeemd.postConst != null) {
                     if (read && post) {
-                        segments.add(new VariableSegment(variable, false));
+                        segments.add(new VariableSegment(source, variable, false));
                     }
 
                     final int value = token == SUB ? -1*(int)writeemd.postConst : (int)writeemd.postConst;
-                    segments.add(new IncrementSegment(variable, value));
+                    segments.add(new IncrementSegment(source, variable, value));
 
                     if (read && !post) {
-                        segments.add(new VariableSegment(variable, false));
+                        segments.add(new VariableSegment(source, variable, false));
                     }
                 } else {
-                    segments.add(new VariableSegment(variable, false));
+                    segments.add(new VariableSegment(source, variable, false));
 
                     if (read && post) {
                         if (type.metadata.size == 1) {
-                            segments.add(new InstructionSegment(Opcodes.DUP));
+                            segments.add(new InstructionSegment(source, Opcodes.DUP));
                         } else if (type.metadata.size == 2) {
-                            segments.add(new InstructionSegment(Opcodes.DUP2));
+                            segments.add(new InstructionSegment(source, Opcodes.DUP2));
                         } else {
-                            throw new IllegalStateException(); // TODO: message
+                            throw new IllegalStateException(error(source) + "Unexpected type size.");
                         }
                     }
 
                     segments.add(new CastSegment(source, casts[0]));
                     segments.add(new NodeSegment(write));
-                    segments.add(new TokenSegment(current, token));
+                    segments.add(new TokenSegment(source, current, token));
                     segments.add(new CastSegment(source, casts[1]));
 
                     if (read && !post) {
                         if (type.metadata.size == 1) {
-                            segments.add(new InstructionSegment(Opcodes.DUP));
+                            segments.add(new InstructionSegment(source, Opcodes.DUP));
                         } else if (type.metadata.size == 2) {
-                            segments.add(new InstructionSegment(Opcodes.DUP2));
+                            segments.add(new InstructionSegment(source, Opcodes.DUP2));
                         } else {
-                            throw new IllegalStateException(); // TODO: message
+                            throw new IllegalStateException(error(source) + "Unexpected type size.");
                         }
                     }
 
-                    segments.add(new VariableSegment(variable, true));
+                    segments.add(new VariableSegment(source, variable, true));
                 }
             } else {
                 writeemd.to = type;
@@ -742,20 +770,20 @@ class External {
 
                 if (read && !post) {
                     if (type.metadata.size == 1) {
-                        segments.add(new InstructionSegment(Opcodes.DUP));
+                        segments.add(new InstructionSegment(source, Opcodes.DUP));
                     } else if (type.metadata.size == 2) {
-                        segments.add(new InstructionSegment(Opcodes.DUP2));
+                        segments.add(new InstructionSegment(source, Opcodes.DUP2));
                     } else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException(error(source) + "Unexpected type size.");
                     }
                 }
 
-                segments.add(new VariableSegment(variable, true));
+                segments.add(new VariableSegment(source, variable, true));
             }
 
             current = read ? type : standard.voidType;
         } else {
-            segments.add(new VariableSegment(variable, false));
+            segments.add(new VariableSegment(source, variable, false));
             current = variable.type;
         }
     }
@@ -764,25 +792,27 @@ class External {
         if (current.metadata == TypeMetadata.ARRAY) {
             if ("length".equals(name)) {
                 if (!read || last && write != null) {
-                    throw new IllegalArgumentException(); // TODO: message
+                    throw new IllegalArgumentException(error(source) + "Cannot write to read-only field [length].");
                 }
 
-                segments.add(new LengthSegment());
+                segments.add(new LengthSegment(source));
                 current = standard.intType;
             } else {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException(error(source) + "Unexpected array field [" + name + "].");
             }
         } else {
             final Struct struct = current.struct;
             final Field field = statik ? struct.statics.get(name) : struct.members.get(name);
 
             if (field == null) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException(
+                        error(source) + "Unknown field [" + name + "] for type [" + struct.name + "].");
             }
 
             if (last && write != null) {
                 if (java.lang.reflect.Modifier.isFinal(field.field.getModifiers())) {
-                    throw new IllegalArgumentException(); // TODO: message
+                    throw new IllegalArgumentException(error(source) + "Cannot write to read-only" +
+                            " field [" + name + "] for type [" + struct.name + "].");
                 }
 
                 final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
@@ -796,60 +826,60 @@ class External {
 
                     final Cast cast = caster.getLegalCast(source, standard.stringType, type, false);
 
-                    segments.add(new InstructionSegment(Opcodes.DUP_X1));
-                    segments.add(new FieldSegment(field, false));
-                    segments.add(new AppendStringsSegment(type));
+                    segments.add(new InstructionSegment(source, Opcodes.DUP_X1));
+                    segments.add(new FieldSegment(source, field, false));
+                    segments.add(new AppendStringsSegment(source, type));
                     segments.add(new NodeSegment(write));
                     segments.add(new AppendStringsSegment(write, writeemd.to));
-                    segments.add(new ToStringsSegment());
+                    segments.add(new ToStringsSegment(source));
                     segments.add(new CastSegment(source, cast));
 
                     if (read) {
                         if (type.metadata.size == 1) {
-                            segments.add(new InstructionSegment(Opcodes.DUP_X1));
+                            segments.add(new InstructionSegment(source, Opcodes.DUP_X1));
                         } else if (type.metadata.size == 2) {
-                            segments.add(new InstructionSegment(Opcodes.DUP2_X1));
+                            segments.add(new InstructionSegment(source, Opcodes.DUP2_X1));
                         } else {
-                            throw new IllegalStateException(); // TODO: message
+                            throw new IllegalStateException(error(source) + "Unexpected type size.");
                         }
                     }
 
-                    segments.add(new FieldSegment(field, true));
+                    segments.add(new FieldSegment(source, field, true));
                 } else if (token > 0) {
                     current = type;
                     final Cast[] casts = toNumericCasts(source);
                     writeemd.to = current;
                     analyzer.visit(write);
 
-                    segments.add(new InstructionSegment(Opcodes.DUP));
-                    segments.add(new FieldSegment(field, false));
+                    segments.add(new InstructionSegment(source, Opcodes.DUP));
+                    segments.add(new FieldSegment(source, field, false));
 
                     if (read && post) {
                         if (type.metadata.size == 1) {
-                            segments.add(new InstructionSegment(Opcodes.DUP_X1));
+                            segments.add(new InstructionSegment(source, Opcodes.DUP_X1));
                         } else if (type.metadata.size == 2) {
-                            segments.add(new InstructionSegment(Opcodes.DUP2_X1));
+                            segments.add(new InstructionSegment(source, Opcodes.DUP2_X1));
                         } else {
-                            throw new IllegalStateException(); // TODO: message
+                            throw new IllegalStateException(error(source) + "Unexpected type size.");
                         }
                     }
 
                     segments.add(new CastSegment(source, casts[0]));
                     segments.add(new NodeSegment(write));
-                    segments.add(new TokenSegment(current, token));
+                    segments.add(new TokenSegment(source, current, token));
                     segments.add(new CastSegment(source, casts[1]));
 
                     if (read && !post) {
                         if (type.metadata.size == 1) {
-                            segments.add(new InstructionSegment(Opcodes.DUP_X1));
+                            segments.add(new InstructionSegment(source, Opcodes.DUP_X1));
                         } else if (type.metadata.size == 2) {
-                            segments.add(new InstructionSegment(Opcodes.DUP2_X1));
+                            segments.add(new InstructionSegment(source, Opcodes.DUP2_X1));
                         } else {
-                            throw new IllegalStateException(); // TODO: message
+                            throw new IllegalStateException(error(source) + "Unexpected type size.");
                         }
                     }
 
-                    segments.add(new FieldSegment(field, true));
+                    segments.add(new FieldSegment(source, field, true));
                 } else {
                     writeemd.to = type;
                     analyzer.visit(write);
@@ -858,44 +888,45 @@ class External {
 
                     if (read && !post) {
                         if (type.metadata.size == 1) {
-                            segments.add(new InstructionSegment(Opcodes.DUP_X1));
+                            segments.add(new InstructionSegment(source, Opcodes.DUP_X1));
                         } else if (type.metadata.size == 2) {
-                            segments.add(new InstructionSegment(Opcodes.DUP2_X1));
+                            segments.add(new InstructionSegment(source, Opcodes.DUP2_X1));
                         } else {
-                            throw new IllegalStateException(); // TODO: message
+                            throw new IllegalStateException(error(source) + "Unexpected type size.");
                         }
                     }
 
-                    segments.add(new FieldSegment(field, true));
+                    segments.add(new FieldSegment(source, field, true));
                 }
 
                 current = read ? type : standard.voidType;
             } else {
-                segments.add(new FieldSegment(field, false));
+                segments.add(new FieldSegment(source, field, false));
                 current = field.type;
             }
         }
     }
 
-    private void method(final String name, final List<ExpressionContext> arguments, final boolean last) {
+    private void method(final ParserRuleContext source, final String name,
+                        final List<ExpressionContext> arguments, final boolean last) {
         final Struct struct = current.struct;
 
         Type[] types;
-        Segment segment0 = null;
+        Segment segment0;
         Segment segment1 = null;
 
         if (current.dimensions > 0) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(error(source) + "Unexpected call [" + name + "] on an array.");
         } else if (last && write != null) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(error(source) + "Cannot assign a value to a call [" + name + "].");
         } else if (statik && "makearray".equals(name)) {
             if (!read) {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException(error(source) + "A newly created array must be assigned.");
             }
 
             types = new Type[arguments.size()];
             Arrays.fill(types, standard.intType);
-            segment0 = new MakeSegment(current, arguments.size());
+            segment0 = new MakeSegment(source, current, arguments.size());
             current = getTypeWithArrayDimensions(struct, arguments.size());
         } else {
             final Constructor constructor = statik ? struct.constructors.get(name) : null;
@@ -905,16 +936,16 @@ class External {
                 types = new Type[constructor.arguments.size()];
                 constructor.arguments.toArray(types);
 
-                segments.add(new NewSegment(constructor.owner));
+                segments.add(new NewSegment(source, constructor.owner));
 
                 if (read) {
-                    segments.add(new InstructionSegment(Opcodes.DUP));
+                    segments.add(new InstructionSegment(source, Opcodes.DUP));
                 } else {
                     current = standard.voidType;
                     statement = true;
                 }
 
-                segment0 = new ConstructorSegment(constructor);
+                segment0 = new ConstructorSegment(source, constructor);
             } else if (method != null) {
                 types = new Type[method.arguments.size()];
                 method.arguments.toArray(types);
@@ -923,9 +954,11 @@ class External {
                     final int size = method.rtn.metadata.size;
 
                     if (size == 1) {
-                        segment1 = new InstructionSegment(Opcodes.POP);
+                        segment1 = new InstructionSegment(source, Opcodes.POP);
                     } else if (size == 2) {
-                        segment1 = new InstructionSegment(Opcodes.POP2);
+                        segment1 = new InstructionSegment(source, Opcodes.POP2);
+                    } else if (size != 0) {
+                        throw new IllegalStateException(error(source) + "Unexpected type size.");
                     }
 
                     current = standard.voidType;
@@ -934,14 +967,15 @@ class External {
                     current = method.rtn;
                 }
 
-                segment0 = new MethodSegment(method);
+                segment0 = new MethodSegment(source, method);
             } else {
-                throw new IllegalArgumentException(); // TODO: message
+                throw new IllegalArgumentException(
+                        error(source) + "Unknown call [" + name + "] on type [" + struct.name + "].");
             }
         }
 
         if (arguments.size() != types.length) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException();
         }
 
         for (int argument = 0; argument < arguments.size(); ++argument) {
@@ -953,21 +987,19 @@ class External {
             segments.add(new NodeSegment(exprctx));
         }
 
-        if (segment0 != null) {
-            segments.add(segment0);
-        }
+        segments.add(segment0);
 
         if (segment1 != null) {
             segments.add(segment1);
         }
     }
 
-    private void substring(final ParserRuleContext source,
-                           final ExpressionContext exprctx0, final ExpressionContext exprctx1, final boolean last) {
+    private void substring(final ParserRuleContext source, final ExpressionContext exprctx0,
+                           final ExpressionContext exprctx1, final boolean last) {
         if (last && write != null) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(error(source) + "A substring may not be assigned to.");
         } else if (!read) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalArgumentException(error(source) + "A substring must be assigned.");
         }
 
         final Cast cast0 = caster.getLegalCast(source, current, standard.stringType, false);
@@ -979,10 +1011,10 @@ class External {
         try {
             method = Integer.class.getMethod("valueOf", int.class);
         } catch (NoSuchMethodException exception) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalStateException(error(source) + "Unexpected parser state.");
         }
 
-        Segment box = new MethodSegment("java/lang/Integer", Integer.class, method);
+        Segment box = new MethodSegment(source, "java/lang/Integer", Integer.class, method);
 
         if (exprctx0 != null) {
             final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
@@ -991,7 +1023,7 @@ class External {
             segments.add(new NodeSegment(exprctx0));
             segments.add(box);
         } else {
-            segments.add(new InstructionSegment(Opcodes.ACONST_NULL));
+            segments.add(new InstructionSegment(source, Opcodes.ACONST_NULL));
         }
 
         if (exprctx1 != null) {
@@ -1001,16 +1033,16 @@ class External {
             segments.add(new NodeSegment(exprctx1));
             segments.add(box);
         } else {
-            segments.add(new InstructionSegment(Opcodes.ACONST_NULL));
+            segments.add(new InstructionSegment(source, Opcodes.ACONST_NULL));
         }
 
         try {
             method = Utility.class.getMethod("substring", String.class, Integer.class, Integer.class);
         } catch (NoSuchMethodException exception) {
-            throw new IllegalArgumentException(); // TODO: message
+            throw new IllegalStateException(error(source) + "Unexpected parser state.");
         }
 
-        segments.add(new MethodSegment("org/elasticsearch/plan/a/Utility", Utility.class, method));
+        segments.add(new MethodSegment(source, "org/elasticsearch/plan/a/Utility", Utility.class, method));
         current = standard.stringType;
     }
 
@@ -1033,60 +1065,60 @@ class External {
 
                 final Cast cast = caster.getLegalCast(source, standard.stringType, type, false);
 
-                segments.add(new InstructionSegment(Opcodes.DUP2_X1));
-                segments.add(new ArraySegment(type, false));
-                segments.add(new AppendStringsSegment(type));
+                segments.add(new InstructionSegment(source, Opcodes.DUP2_X1));
+                segments.add(new ArraySegment(source, type, false));
+                segments.add(new AppendStringsSegment(source, type));
                 segments.add(new NodeSegment(write));
                 segments.add(new AppendStringsSegment(write, writeemd.to));
-                segments.add(new ToStringsSegment());
+                segments.add(new ToStringsSegment(source));
                 segments.add(new CastSegment(source, cast));
 
                 if (read) {
                     if (type.metadata.size == 1) {
-                        segments.add(new InstructionSegment(Opcodes.DUP_X2));
+                        segments.add(new InstructionSegment(source, Opcodes.DUP_X2));
                     } else if (type.metadata.size == 2) {
-                        segments.add(new InstructionSegment(Opcodes.DUP2_X2));
+                        segments.add(new InstructionSegment(source, Opcodes.DUP2_X2));
                     } else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException(error(source) + "Unexpected type size.");
                     }
                 }
 
-                segments.add(new ArraySegment(type, true));
+                segments.add(new ArraySegment(source, type, true));
             } else if (token > 0) {
                 current = type;
                 final Cast[] casts = toNumericCasts(source);
                 writeemd.to = current;
                 analyzer.visit(write);
 
-                segments.add(new InstructionSegment(Opcodes.DUP2));
-                segments.add(new ArraySegment(type, false));
+                segments.add(new InstructionSegment(source, Opcodes.DUP2));
+                segments.add(new ArraySegment(source, type, false));
 
                 if (read && post) {
                     if (type.metadata.size == 1) {
-                        segments.add(new InstructionSegment(Opcodes.DUP_X2));
+                        segments.add(new InstructionSegment(source, Opcodes.DUP_X2));
                     } else if (type.metadata.size == 2) {
-                        segments.add(new InstructionSegment(Opcodes.DUP2_X2));
+                        segments.add(new InstructionSegment(source, Opcodes.DUP2_X2));
                     } else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException(error(source) + "Unexpected type size.");
                     }
                 }
 
                 segments.add(new CastSegment(source, casts[0]));
                 segments.add(new NodeSegment(write));
-                segments.add(new TokenSegment(current, token));
+                segments.add(new TokenSegment(source, current, token));
                 segments.add(new CastSegment(source, casts[1]));
 
                 if (read && !post) {
                     if (type.metadata.size == 1) {
-                        segments.add(new InstructionSegment(Opcodes.DUP_X2));
+                        segments.add(new InstructionSegment(source, Opcodes.DUP_X2));
                     } else if (type.metadata.size == 2) {
-                        segments.add(new InstructionSegment(Opcodes.DUP2_X2));
+                        segments.add(new InstructionSegment(source, Opcodes.DUP2_X2));
                     } else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException(error(source) + "Unexpected type size.");
                     }
                 }
 
-                segments.add(new ArraySegment(type, true));
+                segments.add(new ArraySegment(source, type, true));
             } else {
                 writeemd.to = type;
                 analyzer.visit(write);
@@ -1095,20 +1127,20 @@ class External {
 
                 if (read && !post) {
                     if (type.metadata.size == 1) {
-                        segments.add(new InstructionSegment(Opcodes.DUP_X2));
+                        segments.add(new InstructionSegment(source, Opcodes.DUP_X2));
                     } else if (type.metadata.size == 2) {
-                        segments.add(new InstructionSegment(Opcodes.DUP2_X2));
+                        segments.add(new InstructionSegment(source, Opcodes.DUP2_X2));
                     } else {
-                        throw new IllegalStateException(); // TODO: message
+                        throw new IllegalStateException(error(source) + "Unexpected type size.");
                     }
                 }
 
-                segments.add(new ArraySegment(type, true));
+                segments.add(new ArraySegment(source, type, true));
             }
 
             current = read ? type : standard.voidType;
         } else {
-            segments.add(new ArraySegment(current, false));
+            segments.add(new ArraySegment(source, current, false));
             current = type;
         }
     }
@@ -1132,7 +1164,8 @@ class External {
         if (list) {
             if (last && write != null) {
                 if (token > 0) {
-                    throw new IllegalArgumentException(); // TODO: message
+                    throw new IllegalArgumentException(
+                            error(source) + "Only basic assignment allowed using shortcuts.");
                 }
 
                 java.lang.reflect.Method method;
@@ -1140,7 +1173,7 @@ class External {
                 try {
                     method = current.clazz.getMethod("add", int.class, Object.class);
                 } catch (NoSuchMethodException exception) {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(error(source) + "Unexpected parser state.");
                 }
 
                 final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
@@ -1149,26 +1182,26 @@ class External {
                 segments.add(new NodeSegment(write));
 
                 if (read) {
-                    segments.add(new InstructionSegment(Opcodes.DUP_X1));
+                    segments.add(new InstructionSegment(source, Opcodes.DUP_X1));
                     current = standard.objectType;
                 } else {
                     current = standard.voidType;
                 }
 
-                segments.add(new MethodSegment(struct.internal, struct.clazz, method));
+                segments.add(new MethodSegment(source, struct.internal, struct.clazz, method));
             } else {
                 java.lang.reflect.Method method;
 
                 try {
                     method = current.clazz.getMethod("get", int.class);
                 } catch (NoSuchMethodException exception) {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(error(source) + "Unexpected parser state.");
                 }
 
-                segments.add(new MethodSegment(struct.internal, struct.clazz, method));
+                segments.add(new MethodSegment(source, struct.internal, struct.clazz, method));
 
                 if (!read) {
-                    segments.add(new InstructionSegment(Opcodes.POP));
+                    segments.add(new InstructionSegment(source, Opcodes.POP));
                     current = standard.voidType;
                 } else {
                     current = standard.objectType;
@@ -1177,7 +1210,8 @@ class External {
         } else {
             if (last && write != null) {
                 if (token > 0) {
-                    throw new IllegalArgumentException(); // TODO: message
+                    throw new IllegalArgumentException(
+                            error(source) + "Only basic assignment allowed using shortcuts.");
                 }
 
                 java.lang.reflect.Method method;
@@ -1185,7 +1219,7 @@ class External {
                 try {
                     method = current.clazz.getMethod("put", Object.class, Object.class);
                 } catch (NoSuchMethodException exception) {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(error(source) + "Unexpected parser state.");
                 }
 
                 final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
@@ -1193,10 +1227,10 @@ class External {
                 analyzer.visit(write);
                 segments.add(new NodeSegment(write));
 
-                segments.add(new MethodSegment(struct.internal, struct.clazz, method));
+                segments.add(new MethodSegment(source, struct.internal, struct.clazz, method));
 
                 if (!read) {
-                    segments.add(new InstructionSegment(Opcodes.POP));
+                    segments.add(new InstructionSegment(source, Opcodes.POP));
                     current = standard.voidType;
                 } else {
                     current = standard.objectType;
@@ -1207,10 +1241,10 @@ class External {
                 try {
                     method = current.clazz.getMethod("get", Object.class);
                 } catch (NoSuchMethodException exception) {
-                    throw new IllegalStateException(); // TODO: message
+                    throw new IllegalStateException(error(source) + "Unexpected parser state.");
                 }
 
-                segments.add(new MethodSegment(struct.internal, struct.clazz, method));
+                segments.add(new MethodSegment(source, struct.internal, struct.clazz, method));
                 current = standard.objectType;
             }
         }

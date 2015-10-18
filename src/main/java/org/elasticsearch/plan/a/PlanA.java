@@ -19,13 +19,13 @@ package org.elasticsearch.plan.a;
  * under the License.
  */
 
-import org.elasticsearch.common.SuppressForbidden;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+
+import org.elasticsearch.common.SuppressForbidden;
 
 @SuppressForbidden(reason = "some of this is for debugging")
 public final class PlanA {
