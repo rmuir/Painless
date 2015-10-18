@@ -219,8 +219,8 @@ public class Utility {
         return string.substring(localBegin, localEnd);
     }
 
-    static String line(final ParserRuleContext ctx) {
-        return "Line " + ctx.getStart().getLine() + ": ";
+    static String error(final ParserRuleContext ctx) {
+        return "Error [" + ctx.getStart().getLine() + ":" + ctx.getStart().getCharPositionInLine() + "]: ";
     }
 
     private Utility() {}

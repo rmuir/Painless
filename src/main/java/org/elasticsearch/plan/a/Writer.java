@@ -335,7 +335,7 @@ class Writer extends PlanABaseVisitor<Void>{
 
         switch (variable.type.metadata) {
             case VOID:
-                throw new IllegalStateException(line(ctx) + "The void type cannot be used in a declaration.");
+                throw new IllegalStateException(error(ctx) + "The void type cannot be used in a declaration.");
             case BOOL:
             case BYTE:
             case SHORT:
@@ -699,19 +699,19 @@ class Writer extends PlanABaseVisitor<Void>{
 
             switch (metadata) {
                 case VOID:
-                    throw new IllegalStateException(line(ctx) + "Void type not allowed for use in comparisons.");
+                    throw new IllegalStateException(error(ctx) + "Void type not allowed for use in comparisons.");
                 case BOOL:
                     if      (eq) execute.visitJumpInsn(Opcodes.IF_ICMPEQ, jump);
                     else if (ne) execute.visitJumpInsn(Opcodes.IF_ICMPNE, jump);
                     else {
-                        throw new IllegalStateException(line(ctx) + "Illegal use of boolean in comparison.");
+                        throw new IllegalStateException(error(ctx) + "Illegal use of boolean in comparison.");
                     }
 
                     break;
                 case BYTE:
                 case SHORT:
                 case CHAR:
-                    throw new IllegalStateException(line(ctx) + "Illegal use of byte/short/char in comparison.");
+                    throw new IllegalStateException(error(ctx) + "Illegal use of byte/short/char in comparison.");
                 case INT:
                     if      (eq)  execute.visitJumpInsn(Opcodes.IF_ICMPEQ, jump);
                     else if (ne)  execute.visitJumpInsn(Opcodes.IF_ICMPNE, jump);
@@ -720,7 +720,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     else if (gt)  execute.visitJumpInsn(Opcodes.IF_ICMPGT, jump);
                     else if (gte) execute.visitJumpInsn(Opcodes.IF_ICMPGE, jump);
                     else {
-                        throw new IllegalStateException(line(ctx) + "Illegal use of int in comparison.");
+                        throw new IllegalStateException(error(ctx) + "Illegal use of int in comparison.");
                     }
 
                     break;
@@ -734,7 +734,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     else if (gt)  execute.visitJumpInsn(Opcodes.IFGT, jump);
                     else if (gte) execute.visitJumpInsn(Opcodes.IFGE, jump);
                     else {
-                        throw new IllegalStateException(line(ctx) + "Illegal use of long in comparison.");
+                        throw new IllegalStateException(error(ctx) + "Illegal use of long in comparison.");
                     }
 
                     break;
@@ -746,7 +746,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     else if (gt)  { execute.visitInsn(Opcodes.FCMPL); execute.visitJumpInsn(Opcodes.IFGT, jump); }
                     else if (gte) { execute.visitInsn(Opcodes.FCMPL); execute.visitJumpInsn(Opcodes.IFGE, jump); }
                     else {
-                        throw new IllegalStateException(line(ctx) + "Illegal use of float in comparison.");
+                        throw new IllegalStateException(error(ctx) + "Illegal use of float in comparison.");
                     }
 
                     break;
@@ -758,7 +758,7 @@ class Writer extends PlanABaseVisitor<Void>{
                     else if (gt)  { execute.visitInsn(Opcodes.DCMPL); execute.visitJumpInsn(Opcodes.IFGT, jump); }
                     else if (gte) { execute.visitInsn(Opcodes.DCMPL); execute.visitJumpInsn(Opcodes.IFGE, jump); }
                     else {
-                        throw new IllegalStateException(line(ctx) + "Illegal use of double in comparison.");
+                        throw new IllegalStateException(error(ctx) + "Illegal use of double in comparison.");
                     }
 
                     break;
@@ -776,7 +776,7 @@ class Writer extends PlanABaseVisitor<Void>{
                             execute.visitJumpInsn(Opcodes.IF_ACMPNE, jump);
                         }
                     } else {
-                        throw new IllegalStateException(line(ctx) + "Illegal use of object in comparison.");
+                        throw new IllegalStateException(error(ctx) + "Illegal use of object in comparison.");
                     }
             }
 

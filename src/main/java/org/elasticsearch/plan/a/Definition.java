@@ -373,8 +373,8 @@ class Definition {
         int index = parsed.indexOf(' ');
 
         if (index == -1) {
-            throw new IllegalArgumentException("Constructor must be defined as (struct, name, " +
-                    "Java constructor name with argument types).");
+            throw new IllegalArgumentException("Constructor must be defined as (struct, name," +
+                    " Java constructor name with argument types).");
         }
 
         final String ownerstr = parsed.substring(0, index);
@@ -382,8 +382,8 @@ class Definition {
         index = parsed.indexOf(' ');
 
         if (index == -1) {
-            throw new IllegalArgumentException("Constructor must be defined as (struct, name, " +
-                    "Java constructor name with argument types).");
+            throw new IllegalArgumentException("Constructor must be defined as (struct, name," +
+                    " Java constructor name with argument types).");
         }
 
         final String namestr = parsed.substring(0, index);
@@ -471,9 +471,9 @@ class Definition {
         final String[] split = property.split("\\s+");
 
         if (split.length != 6) {
-            throw new IllegalArgumentException("Transform must be defined with exactly six arguments " +
-                    "([explicit/implicit], cast from type, cast to type, owner struct, " +
-                    "[function/method], call name).");
+            throw new IllegalArgumentException("Transform must be defined with exactly six arguments" +
+                    " ([explicit/implicit], cast from type, cast to type, owner struct," +
+                    " [function/method], call name).");
         }
 
         final String typestr = split[0];
@@ -551,13 +551,13 @@ class Definition {
         }
 
         if (owner.statics.containsKey(namestr)) {
-            throw new IllegalArgumentException("Constructors and functions may not have the same name " +
-                    "[" + namestr + "] within the same struct [" + ownerstr + "].");
+            throw new IllegalArgumentException("Constructors and functions may not have the same name" +
+                    " [" + namestr + "] within the same struct [" + ownerstr + "].");
         }
 
         if (owner.methods.containsKey(namestr)) {
-            throw new IllegalArgumentException("Constructors and methods may not have the same name " +
-                    "[" + namestr + "] within the same struct [" + ownerstr + "].");
+            throw new IllegalArgumentException("Constructors and methods may not have the same name" +
+                    " [" + namestr + "] within the same struct [" + ownerstr + "].");
         }
 
         final int length = argumentsstrs.length;
@@ -577,9 +577,9 @@ class Definition {
                 arguments[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[1]);
                 originals[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[0]);
             } else {
-                throw new IllegalStateException("Argument type definition without one or two parameters. " +
-                        "Found [" + argumentstrs.length + "] parameters for argument type [" + argumentstrs[0] + "] " +
-                        "in constructor [" + namestr + "] within the struct [" + ownerstr + "].");
+                throw new IllegalStateException("Argument type definition without one or two parameters." +
+                        " Found [" + argumentstrs.length + "] parameters for argument type [" + argumentstrs[0] + "]" +
+                        " in constructor [" + namestr + "] within the struct [" + ownerstr + "].");
             }
 
             jarguments[argumentindex] = originals[argumentindex].clazz;
@@ -601,13 +601,13 @@ class Definition {
         final Struct owner = definition.structs.get(ownerstr);
 
         if (owner == null) {
-            throw new IllegalArgumentException("Owner struct [" + ownerstr + "] not defined for " +
-                    (statik ? "function" : "method") + " [" + namestr + "].");
+            throw new IllegalArgumentException("Owner struct [" + ownerstr + "] not defined" +
+                    " for " + (statik ? "function" : "method") + " [" + namestr + "].");
         }
 
         if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
-            throw new IllegalArgumentException(
-                    "Invalid " + (statik ? "function" : "method") +  " name [" + namestr + "].");
+            throw new IllegalArgumentException("Invalid " + (statik ? "function" : "method") +
+                    " name [" + namestr + "] with the struct [" + ownerstr + "].");
         }
 
         if (owner.constructors.containsKey(namestr)) {
@@ -647,8 +647,8 @@ class Definition {
             rtn = getTypeFromCanonicalName(definition, returnstrs[1]);
             oreturn = getTypeFromCanonicalName(definition, returnstrs[0]);
         } else {
-            throw new IllegalStateException("Return type definition without one or two parameters. " +
-                    "Found [" + returnstrs.length + "] parameters for return type [" + returnstrs[0] + "] in " +
+            throw new IllegalStateException("Return type definition without one or two parameters. Found" +
+                    " [" + returnstrs.length + "] parameters for return type [" + returnstrs[0] + "] in " +
                     (statik ? "function" : "method") + "[" + namestr + "] within the struct [" + ownerstr + "].");
         }
 
@@ -671,8 +671,8 @@ class Definition {
                 arguments[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[1]);
                 originals[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[0]);
             } else {
-                throw new IllegalStateException("Argument type definition without one or two parameters. " +
-                        "Found [" + returnstrs.length + "] parameters for argument type [" + returnstrs[0] + "] in " +
+                throw new IllegalStateException("Argument type definition without one or two parameters." +
+                        " Found [" + returnstrs.length + "] parameters for argument type [" + returnstrs[0] + "] in " +
                         (statik ? "function" : "method") + "[" + namestr + "] within the struct [" + ownerstr + "].");
             }
 
@@ -699,14 +699,14 @@ class Definition {
         if (statik) {
             if (!java.lang.reflect.Modifier.isStatic(modifiers)) {
                 throw new IllegalArgumentException("Function [" + namestr + "]" +
-                        " within the struct [" + ownerstr + "] is not linked to static Java method.");
+                        " within the struct [" + ownerstr + "] is not linked to a static Java method.");
             }
 
             owner.functions.put(namestr, method);
         } else {
             if (java.lang.reflect.Modifier.isStatic(modifiers)) {
                 throw new IllegalArgumentException("Method [" + namestr + "]" +
-                        " within the struct [" + ownerstr + "] is not linked to a Java method that is non-static.");
+                        " within the struct [" + ownerstr + "] is not linked to a non-static Java method.");
             }
 
             owner.methods.put(namestr, method);
@@ -723,8 +723,8 @@ class Definition {
         }
 
         if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
-            throw new IllegalArgumentException(
-                    "Invalid " + (statik ? "static" : "member") + " name [" + namestr + "].");
+            throw new IllegalArgumentException("Invalid " + (statik ? "static" : "member") +
+                    " name [" + namestr + "] with the struct [" + ownerstr + "].");
         }
 
         if (owner.statics.containsKey(namestr)) {
@@ -784,15 +784,15 @@ class Definition {
             final Struct struct = definition.structs.get(childstrs[child]);
 
             if (struct == null) {
-                throw new IllegalArgumentException("Child struct [" + childstrs[child] + "] " +
-                        "not defined for copy to owner struct [" + ownerstr + "].");
+                throw new IllegalArgumentException("Child struct [" + childstrs[child] + "]" +
+                        " not defined for copy to owner struct [" + ownerstr + "].");
             }
 
             try {
                 owner.clazz.asSubclass(struct.clazz);
             } catch (ClassCastException exception) {
-                throw new ClassCastException("Child struct [" + childstrs[child] + "] " +
-                        "is not a super type of owner struct [" + ownerstr + "] in copy.");
+                throw new ClassCastException("Child struct [" + childstrs[child] + "]" +
+                        " is not a super type of owner struct [" + ownerstr + "] in copy.");
             }
 
             final boolean object = struct.clazz.equals(Object.class) &&
@@ -824,7 +824,7 @@ class Definition {
         final Struct owner = definition.structs.get(ownerstr);
 
         if (owner == null) {
-            throw new IllegalArgumentException("Owner struct [" + ownerstr + "] not defined for " +
+            throw new IllegalArgumentException("Owner struct [" + ownerstr + "] not defined for" +
                     " transform with cast type from [" + fromstr + "] and cast type to [" + tostr + "].");
         }
 
@@ -832,33 +832,33 @@ class Definition {
         final Type to = getTypeFromCanonicalName(definition, tostr);
 
         if (from.equals(to)) {
-            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] cannot " +
+            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] cannot" +
                     " have cast type from [" + fromstr + "] be the same as cast type to [" + tostr + "].");
         }
 
         final Cast cast = new Cast(from, to);
 
         if (definition.numerics.contains(cast)) {
-            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
-                    "and cast type from [" + fromstr + "] to cast type to [" + tostr +
+            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
+                    " and cast type from [" + fromstr + "] to cast type to [" + tostr +
                     "] already defined as a numeric cast.");
         }
 
         if (definition.upcasts.contains(cast)) {
-            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
-                    "and cast type from [" + fromstr + "] to cast type to [" + tostr +
+            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
+                    " and cast type from [" + fromstr + "] to cast type to [" + tostr +
                     "] already defined as an upcast.");
         }
 
         if (definition.implicits.containsKey(cast)) {
-            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
-                    "and cast type from [" + fromstr + "] to cast type to [" + tostr +
+            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
+                    " and cast type from [" + fromstr + "] to cast type to [" + tostr +
                     "] already defined as an implicit transform.");
         }
 
         if (definition.explicits.containsKey(cast)) {
-            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
-                    "and cast type from [" + fromstr + "] to cast type to [" + tostr +
+            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
+                    " and cast type from [" + fromstr + "] to cast type to [" + tostr +
                     "] already defined as an explicit transform.");
         }
 
@@ -870,14 +870,14 @@ class Definition {
             method = owner.functions.get(methodstr);
 
             if (method == null) {
-                throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
-                        "and cast type from [" + fromstr + "] to cast type to [" + tostr +
+                throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
+                        " and cast type from [" + fromstr + "] to cast type to [" + tostr +
                         "] using a function [" + methodstr + "] that is not defined.");
             }
 
             if (method.arguments.size() != 1) {
-                throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
-                        "and cast type from [" + fromstr + "] to cast type to [" + tostr +
+                throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
+                        " and cast type from [" + fromstr + "] to cast type to [" + tostr +
                         "] using function [" + methodstr + "] does not have a single type argument.");
             }
 
@@ -890,8 +890,8 @@ class Definition {
                     argument.clazz.asSubclass(from.clazz);
                     upcast = argument;
                 } catch (ClassCastException cce1) {
-                    throw new ClassCastException("Transform with owner struct [" + ownerstr + "] " +
-                            "and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using function [" +
+                    throw new ClassCastException("Transform with owner struct [" + ownerstr + "]" +
+                            " and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using function [" +
                             methodstr + "] cannot cast from type to the function input argument type.");
                 }
             }
@@ -905,8 +905,8 @@ class Definition {
                     to.clazz.asSubclass(rtn.clazz);
                     downcast = to;
                 } catch (ClassCastException cce1) {
-                    throw new ClassCastException("Transform with owner struct [" + ownerstr + "] " +
-                            "and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using function [" +
+                    throw new ClassCastException("Transform with owner struct [" + ownerstr + "]" +
+                            " and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using function [" +
                             methodstr + "] cannot cast to type to the function return argument type.");
                 }
             }
@@ -914,14 +914,14 @@ class Definition {
             method = owner.methods.get(methodstr);
 
             if (method == null) {
-                throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
-                        "and cast type from [" + fromstr + "] to cast type to [" + tostr +
+                throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
+                        " and cast type from [" + fromstr + "] to cast type to [" + tostr +
                         "] using a method [" + methodstr + "] that is not defined.");
             }
 
             if (!method.arguments.isEmpty()) {
-                throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
-                        "and cast type from [" + fromstr + "] to cast type to [" + tostr +
+                throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
+                        " and cast type from [" + fromstr + "] to cast type to [" + tostr +
                         "] using method [" + methodstr + "] does not have a single type argument.");
             }
 
@@ -932,8 +932,8 @@ class Definition {
                     owner.clazz.asSubclass(from.clazz);
                     upcast = getTypeFromCanonicalName(definition, owner.name);
                 } catch (ClassCastException cce1) {
-                    throw new ClassCastException("Transform with owner struct [" + ownerstr + "] " +
-                            "and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using method [" +
+                    throw new ClassCastException("Transform with owner struct [" + ownerstr + "]" +
+                            " and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using method [" +
                             methodstr + "] cannot cast from type to the method input argument type.");
                 }
             }
@@ -947,14 +947,14 @@ class Definition {
                     to.clazz.asSubclass(rtn.clazz);
                     downcast = to;
                 } catch (ClassCastException cce1) {
-                    throw new ClassCastException("Transform with owner struct [" + ownerstr + "] " +
-                            "and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using method [" +
+                    throw new ClassCastException("Transform with owner struct [" + ownerstr + "]" +
+                            " and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using method [" +
                             methodstr + "] cannot cast to type to the method return argument type.");
                 }
             }
         } else {
-            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
-                    "and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using function [" +
+            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
+                    " and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using function [" +
                     methodstr + "] is not specified to use a function or a method.");
         }
 
@@ -965,9 +965,9 @@ class Definition {
         } else if ("implicit".equals(typestr)) {
             definition.implicits.put(cast, transform);
         } else {
-            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] " +
-                    "and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using function [" +
-                    methodstr + "] is not specified to be explicit or implicit.");
+            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
+                    " and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using" +
+                    " function/method [" + methodstr + "] is not specified to be implicit or explicit.");
         }
     }
 
@@ -1273,7 +1273,7 @@ class Definition {
             return clazz.getConstructor(arguments);
         } catch (NoSuchMethodException exception) {
             throw new IllegalArgumentException("Java constructor not found for Java class [" + clazz.getName() + "]" +
-                    "with Java argument types [" + Arrays.toString(arguments) + "].");
+                    " with Java argument types [" + Arrays.toString(arguments) + "].");
         }
     }
 
@@ -1282,8 +1282,9 @@ class Definition {
         try {
             return clazz.getMethod(namestr, arguments);
         } catch (NoSuchMethodException exception) {
-            throw new IllegalArgumentException("Java method not found for Java class [" + clazz.getName() + "]" +
-                    "with Java argument types [" + Arrays.toString(arguments) + "].");
+            throw new IllegalArgumentException("Java method [" + namestr +
+                    "] not found for Java class [" + clazz.getName() + "]" +
+                    " with Java argument types [" + Arrays.toString(arguments) + "].");
         }
     }
 
@@ -1291,8 +1292,8 @@ class Definition {
         try {
             return clazz.getField(namestr);
         } catch (NoSuchFieldException exception) {
-            throw new IllegalArgumentException("Java field not found for Java class [" + clazz.getName() + "]" +
-                    "with Java name [" + namestr + ".");
+            throw new IllegalArgumentException(
+                    "Java field [" + namestr + "] not found for Java class [" + clazz.getName() + "].");
         }
     }
 
@@ -1385,7 +1386,7 @@ class Definition {
                                     MethodHandles.publicLookup().in(struct.clazz).unreflect(method.method));
                         } catch (IllegalAccessException exception) {
                             throw new IllegalStateException("Unable to find method [" + method.name + "] from the" +
-                                    "struct [" + struct.name + "] to define as a runtime method.");
+                                    " struct [" + struct.name + "] to define as a runtime method.");
                         }
                     }
                 }

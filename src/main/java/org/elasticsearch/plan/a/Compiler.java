@@ -63,8 +63,8 @@ final class Compiler {
 
         final Adapter adapter = new Adapter(definition, standard, caster, source, root);
         adapter.incrementScope();
-        adapter.addVariable("this", adapter.standard.execType);
-        adapter.addVariable("input", adapter.standard.smapType);
+        adapter.addVariable(null, "this", adapter.standard.execType);
+        adapter.addVariable(null, "input", adapter.standard.smapType);
 
         start = System.currentTimeMillis();
 
@@ -118,8 +118,9 @@ final class Compiler {
                     clazz.getConstructor(String.class, String.class);
 
             return constructor.newInstance(name, source);
-        } catch (ReflectiveOperationException exception) {
-            throw new IllegalStateException(exception);
+        } catch (Exception exception) {
+            throw new IllegalStateException(
+                    "An internal error occurred attempting to define the script [" + name + "].", exception);
         }
     }
 

@@ -192,8 +192,12 @@ class Adapter {
 
      Variable addVariable(final ParserRuleContext source, final String name, final Type type) {
          if (getVariable(name) != null) {
-             throw new IllegalArgumentException(
-                     line(source) + "Variable name [" + name + "] already defined within the scope.");
+             if (source == null) {
+                 throw new IllegalArgumentException("Argument name [" + name + "] already defined within the scope.");
+             } else {
+                 throw new IllegalArgumentException(
+                         error(source) + "Variable name [" + name + "] already defined within the scope.");
+             }
          }
 
          final Variable previous = variables.peekFirst();
@@ -223,7 +227,7 @@ class Adapter {
         final StatementMetadata sourcesmd = statementMetadata.get(source);
 
         if (sourcesmd == null) {
-            throw new IllegalStateException(line(source) + "Statement metadata does not exist at" +
+            throw new IllegalStateException(error(source) + "Statement metadata does not exist at" +
                     " the parse node with text [" + source.getText() + "].");
         }
 
@@ -248,7 +252,7 @@ class Adapter {
         final ExpressionMetadata sourceemd = expressionMetadata.get(source);
 
         if (sourceemd == null) {
-            throw new IllegalStateException(line(source) + "Expression metadata does not exist at" +
+            throw new IllegalStateException(error(source) + "Expression metadata does not exist at" +
                     " the parse node with text [" + source.getText() + "].");
         }
 
@@ -263,7 +267,7 @@ class Adapter {
         final External external = externals.get(source);
 
         if (external == null) {
-            throw new IllegalStateException(line(source) + "External data does not exist at" +
+            throw new IllegalStateException(error(source) + "External data does not exist at" +
                     " the parse node with text [" + source.getText() + "].");
         }
 

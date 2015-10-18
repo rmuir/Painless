@@ -41,7 +41,7 @@ class Caster {
 
     private static class SameTypeSegment extends Segment {
         @Override
-        Type promote(final ParserRuleContext ctx, final Type from0, final Type from1) {
+        Type promote(final ParserRuleContext source, final Type from0, final Type from1) {
             if (from1 != null && from0.equals(from1)) {
                 return from0;
             }
@@ -304,7 +304,7 @@ class Caster {
 
     void markCast(final ExpressionMetadata emd) {
         if (emd.from == null) {
-            throw new IllegalStateException(line(emd.source) + "From cast type should never be null.");
+            throw new IllegalStateException(error(emd.source) + "From cast type should never be null.");
         }
 
         if (emd.to != null) {
@@ -314,7 +314,7 @@ class Caster {
                 emd.postConst = constCast(emd.source, emd.preConst, emd.cast);
             }
         } else if (emd.promotion == null) {
-            throw new IllegalStateException(line(emd.source) + "There must always be a cast or promotion specified.");
+            throw new IllegalStateException(error(emd.source) + "No cast or promotion specified.");
         }
     }
 
@@ -357,11 +357,11 @@ class Caster {
                     return cast;
                 } else {
                     throw new ClassCastException(
-                            line(source) + "Cannot cast from [" + from.name + "] to [" + to.name + "].");
+                            error(source) + "Cannot cast from [" + from.name + "] to [" + to.name + "].");
                 }
             } catch (ClassCastException cce1) {
                 throw new ClassCastException(
-                        line(source) + "Cannot cast from [" + from.name + "] to [" + to.name + "].");
+                        error(source) + "Cannot cast from [" + from.name + "] to [" + to.name + "].");
             }
         }
     }
@@ -394,10 +394,10 @@ class Caster {
                     case FLOAT:  return number.floatValue();
                     case DOUBLE: return number.doubleValue();
                     default:
-                        throw new IllegalStateException(line(source) + "Expected numeric type for cast.");
+                        throw new IllegalStateException(error(source) + "Expected numeric type for cast.");
                 }
             } else {
-                throw new IllegalStateException(line(source) + "No valid constant cast from " +
+                throw new IllegalStateException(error(source) + "No valid constant cast from " +
                         "[" + cast.from.clazz.getCanonicalName() + "] to " +
                         "[" + cast.to.clazz.getCanonicalName() + "].");
             }
@@ -418,7 +418,7 @@ class Caster {
         } catch (IllegalAccessException | IllegalArgumentException |
                 java.lang.reflect.InvocationTargetException | NullPointerException |
                 ExceptionInInitializerError exception) {
-            throw new IllegalStateException(line(source) + "Unable to invoke transform to cast constant from " +
+            throw new IllegalStateException(error(source) + "Unable to invoke transform to cast constant from " +
                     "[" + transform.from.name + "] to [" + transform.to.name + "].");
         }
     }
@@ -476,11 +476,11 @@ class Caster {
         }
 
         if (from1 == null) {
-            throw new ClassCastException(line(source) + "Unable to find numeric promotion for types" +
+            throw new ClassCastException(error(source) + "Unable to find numeric promotion for types" +
                     " [" + from0.name + "] and [" + from1.name + "].");
         } else {
             throw new ClassCastException(
-                    line(source) + "Unable to find numeric promotion for type [" + from0.name + "].");
+                    error(source) + "Unable to find numeric promotion for type [" + from0.name + "].");
         }
     }
 
@@ -494,7 +494,7 @@ class Caster {
         } else if (cast != null) {
             writeCast(visitor, cast);
         } else {
-            throw new IllegalStateException(line(source) + "Unexpected cast object.");
+            throw new IllegalStateException(error(source) + "Unexpected cast object.");
         }
     }
 
