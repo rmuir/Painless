@@ -816,8 +816,7 @@ class Writer extends PlanABaseVisitor<Void>{
 
             if (branch == null) {
                 if (ctx.BOOLAND() != null) {
-                    final Branch local = adapter.markBranch(ctx, exprctx0);
-                    adapter.markBranch(exprctx0, exprctx1);
+                    final Branch local = adapter.markBranch(ctx, exprctx0, exprctx1);
                     local.fals = new Label();
                     final Label end = new Label();
 

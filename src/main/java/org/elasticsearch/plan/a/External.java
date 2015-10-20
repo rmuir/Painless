@@ -528,6 +528,8 @@ class External {
             throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
         }
 
+        statement = false;
+
         if (dotctx != null) {
             --prec;
             dot(dotctx);
@@ -535,8 +537,6 @@ class External {
             --prec;
             brace(bracectx);
         }
-
-        statement = false;
     }
 
     public void cast(final ExtcastContext ctx) {

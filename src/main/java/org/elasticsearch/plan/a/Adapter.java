@@ -274,14 +274,10 @@ class Adapter {
         return external;
     }
 
-    Branch markBranch(final ParserRuleContext source, final ParserRuleContext node) {
-        Branch branch = getBranch(source);
+    Branch markBranch(final ParserRuleContext source, final ParserRuleContext... nodes) {
+        final Branch branch = new Branch(source);
 
-        if (branch == null) {
-            branch = new Branch(source);
-        }
-
-        if (node != null) {
+        for (final ParserRuleContext node : nodes) {
             branches.put(node, branch);
         }
 
