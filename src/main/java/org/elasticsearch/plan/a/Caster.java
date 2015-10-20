@@ -476,11 +476,11 @@ class Caster {
         }
 
         if (from1 == null) {
-            throw new ClassCastException(error(source) + "Unable to find numeric promotion for types" +
-                    " [" + from0.name + "] and [" + from1.name + "].");
-        } else {
             throw new ClassCastException(
                     error(source) + "Unable to find numeric promotion for type [" + from0.name + "].");
+        } else {
+            throw new ClassCastException(error(source) + "Unable to find numeric promotion for types" +
+                    " [" + from0.name + "] and [" + from1.name + "].");
         }
     }
 
