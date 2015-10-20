@@ -90,11 +90,11 @@ class Writer extends PlanABaseVisitor<Void>{
 
     private void writeExecute() {
         final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
-        final String aname = "execute";
-        final String adescriptor = "(Ljava/util/Map;)Ljava/lang/Object;";
+        final String name = "execute";
+        final String descriptor = "(Ljava/util/Map;)Ljava/lang/Object;";
         final String signature = "(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)Ljava/lang/Object;";
 
-        execute = writer.visitMethod(access, aname, adescriptor, signature, null);
+        execute = writer.visitMethod(access, name, descriptor, signature, null);
         execute.visitCode();
         visit(root);
         execute.visitMaxs(0, 0);

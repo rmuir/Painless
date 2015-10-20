@@ -307,9 +307,7 @@ class External {
 
         @Override
         void write() {
-            if (source == null || adapter.getStrings(source)) {
-                writer.writeAppendStrings(source, type.metadata);
-            }
+            writer.writeAppendStrings(source, type.metadata);
         }
     }
 
