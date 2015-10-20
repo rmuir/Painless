@@ -19,6 +19,8 @@
 
 package org.elasticsearch.plan.a;
 
+import com.sun.org.apache.xalan.internal.xsltc.cmdline.Compile;
+import org.apache.tools.ant.taskdefs.Exec;
 import org.elasticsearch.common.collect.MapBuilder;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.script.CompiledScript;
@@ -35,9 +37,6 @@ import java.util.Map;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 
-/**
- *
- */
 public class PlanAScriptEngineTests extends ESTestCase {
 
     private PlanAScriptEngineService se;
@@ -47,61 +46,72 @@ public class PlanAScriptEngineTests extends ESTestCase {
         se = new PlanAScriptEngineService(Settings.Builder.EMPTY_SETTINGS);
     }
 
+    public Object testScript(final String test, final String script, final Map<String, Object> vars) {
+        final Object object = se.compile(script);
+        final CompiledScript compiled = new CompiledScript(ScriptService.ScriptType.INLINE, test, "plan-a", object);
+        final Object value = se.executable(compiled, vars).run();
+
+        return value;
+    }
+
     public void testSimpleEquation() {
-        Map<String, Object> vars = new HashMap<String, Object>();
-        Object o = se.executable(new CompiledScript(ScriptService.ScriptType.INLINE, "testSimpleEquation", "plan-a", se.compile("return 1 + 2;")), vars).run();
-        assertEquals(3, ((Number) o).intValue());
+        final Object value = testScript("testSimpleEquation", "return 1 + 2;", null);
+        assertEquals(3, ((Number)value).intValue());
     }
 
     public void testMapAccess() {
-        Map<String, Object> vars = new HashMap<String, Object>();
-
-        Map<String, Object> obj2 = MapBuilder.<String, Object>newMapBuilder().put("prop2", "value2").map();
-        Map<String, Object> obj1 = MapBuilder.<String, Object>newMapBuilder().put("prop1", "value1").put("obj2", obj2).put("l", Arrays.asList("2", "1")).map();
+        Map<String, Object> vars = new HashMap<>();
+        Map<String, Object> obj2 = new HashMap<>();
+        obj2.put("prop2", "value2");
+        Map<String, Object> obj1 = new HashMap<>();
+        obj1.put("prop1", "value1");
+        obj1.put("obj2", obj2);
+        obj1.put("l", Arrays.asList("2", "1"));
         vars.put("obj1", obj1);
-        Object o = se.executable(new CompiledScript(ScriptService.ScriptType.INLINE, "testMapAccess", "plan-a", se.compile("return input[\"obj1\"];")), vars).run();
-        assertThat(o, instanceOf(Map.class));
-        obj1 = (Map<String, Object>) o;
+
+        Object value = testScript("testMapAccess", "return input.get(\"obj1\");", vars);
+        assertThat(value, instanceOf(Map.class));
+        obj1 = (Map<String, Object>)value;
         assertEquals("value1", obj1.get("prop1"));
         assertEquals("value2", ((Map<String, Object>) obj1.get("obj2")).get("prop2"));
 
-        o = se.executable(new CompiledScript(ScriptService.ScriptType.INLINE, "testMapAccess", "plan-a", se.compile("return input[\"obj1\"][\"l\"][0];")), vars).run();
-        assertEquals("2", o);
+        value = testScript("testMapAccess", "return ((list)((smap)input.get(\"obj1\")).get(\"l\")).get(0);", vars);
+        assertEquals("2", value);
     }
 
     public void testAccessListInScript() {
-        Map<String, Object> vars = new HashMap<String, Object>();
-        Map<String, Object> obj2 = MapBuilder.<String, Object>newMapBuilder().put("prop2", "value2").map();
-        Map<String, Object> obj1 = MapBuilder.<String, Object>newMapBuilder().put("prop1", "value1").put("obj2", obj2).map();
+        Map<String, Object> vars = new HashMap<>();
+        Map<String, Object> obj2 = new HashMap<>();
+        obj2.put("prop2", "value2");
+        Map<String, Object> obj1 = new HashMap<>();
+        obj1.put("prop1", "value1");
+        obj1.put("obj2", obj2);
         vars.put("l", Arrays.asList("1", "2", "3", obj1));
 
-        Object o = se.executable(new CompiledScript(ScriptService.ScriptType.INLINE, "testAccessInScript", "plan-a",
-                se.compile("return ((list)input[\"l\"]).size();")), vars).run();
-        assertThat(((Number) o).intValue(), equalTo(4));
+        Object value = testScript("testAccessInScript", "return ((list)input.get(\"l\")).size();", vars);
+        assertThat(((Number)value).intValue(), equalTo(4));
 
-        o = se.executable(new CompiledScript(ScriptService.ScriptType.INLINE, "testAccessInScript", "plan-a",
-                se.compile("return input[\"l\"][0];")), vars).run();
-        assertThat(((String) o), equalTo("1"));
+        value = testScript("testAccessInScript", "return ((list)input.get(\"l\")).get(0);", vars);
+        assertThat(value, equalTo("1"));
 
-        o = se.executable(new CompiledScript(ScriptService.ScriptType.INLINE, "testAccessInScript", "plan-a",
-                se.compile("return input[\"l\"][3];")), vars).run();
-        obj1 = (Map<String, Object>) o;
-        assertThat((String) obj1.get("prop1"), equalTo("value1"));
-        assertThat((String) ((Map<String, Object>) obj1.get("obj2")).get("prop2"), equalTo("value2"));
+        value = testScript("testAccessInScript", "return ((list)input.get(\"l\")).get(3);", vars);
+        obj1 = (Map<String, Object>)value;
+        assertThat(obj1.get("prop1"), equalTo("value1"));
+        assertThat(((Map<String, Object>)obj1.get("obj2")).get("prop2"), equalTo("value2"));
 
-        o = se.executable(new CompiledScript(ScriptService.ScriptType.INLINE, "testAccessInScript", "plan-a",
-                se.compile("return input[\"l\"][3][\"prop1\"];")), vars).run();
-        assertThat(((String) o), equalTo("value1"));
+        value = testScript("testAccessInScript", "return ((smap)((list)input.get(\"l\")).get(3)).get(\"prop1\");", vars);
+        assertThat(value, equalTo("value1"));
     }
 
     public void testChangingVarsCrossExecution1() {
-        Map<String, Object> vars = new HashMap<String, Object>();
-        Map<String, Object> ctx = new HashMap<String, Object>();
+        Map<String, Object> vars = new HashMap<>();
+        Map<String, Object> ctx = new HashMap<>();
         vars.put("ctx", ctx);
-        Object compiledScript = se.compile("return input[\"ctx\"][\"value\"];");
 
-        ExecutableScript script = se.executable(new CompiledScript(ScriptService.ScriptType.INLINE, "testChangingVarsCrossExecution1", "plan-a",
-                compiledScript), vars);
+        Object compiledScript = se.compile("return ((smap)input.get(\"ctx\")).get(\"value\");");
+        ExecutableScript script = se.executable(new CompiledScript(ScriptService.ScriptType.INLINE,
+                "testChangingVarsCrossExecution1", "plan-a", compiledScript), vars);
+
         ctx.put("value", 1);
         Object o = script.run();
         assertEquals(1, ((Number) o).intValue());
@@ -112,17 +122,18 @@ public class PlanAScriptEngineTests extends ESTestCase {
     }
 
     public void testChangingVarsCrossExecution2() {
-        Map<String, Object> vars = new HashMap<String, Object>();
-        Object compiledScript = se.compile("return input[\"value\"];");
+        Map<String, Object> vars = new HashMap<>();
+        Object compiledScript = se.compile("return input.get(\"value\");");
 
-        ExecutableScript script = se.executable(new CompiledScript(ScriptService.ScriptType.INLINE, "testChangingVarsCrossExecution2", "plan-a",
-                compiledScript), vars);
+        ExecutableScript script = se.executable(new CompiledScript(ScriptService.ScriptType.INLINE,
+                "testChangingVarsCrossExecution2", "plan-a", compiledScript), vars);
+
         script.setNextVar("value", 1);
-        Object o = script.run();
-        assertEquals(1, ((Number) o).intValue());
+        Object value = script.run();
+        assertEquals(1, ((Number)value).intValue());
 
         script.setNextVar("value", 2);
-        o = script.run();
-        assertEquals(2, ((Number) o).intValue());
+        value = script.run();
+        assertEquals(2, ((Number)value).intValue());
     }
 }

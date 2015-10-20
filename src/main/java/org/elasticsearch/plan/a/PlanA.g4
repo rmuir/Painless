@@ -96,7 +96,7 @@ extstart
 
 extprec:   LP ( extprec | extcast | exttype | extmember) RP ( extdot | extbrace )?;
 extcast:   LP decltype RP ( extprec | extcast | exttype | extmember );
-extbrace:  LBRACE expression? COLON? expression? RBRACE ( extdot | extbrace )?;
+extbrace:  LBRACE expression RBRACE ( extdot | extbrace )?;
 extdot:    DOT ( extcall | extmember );
 exttype:   {isType()}? ID extdot;
 extcall:   ID arguments ( extdot | extbrace )?;

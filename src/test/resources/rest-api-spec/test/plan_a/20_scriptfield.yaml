@@ -19,7 +19,7 @@ setup:
                 script_fields:
                     bar:
                         script: 
-                            inline: "return input[\"doc\"][\"foo\"][0] .. input[\"x\"];"
+                            inline: "return ((list)((map)input.get(\"doc\")).get(\"foo\")).get(0) .. input.get(\"x\");"
                             lang: plan-a
                             params:
                                 x: "bbb"

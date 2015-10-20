@@ -156,17 +156,6 @@ class External {
             iface = java.lang.reflect.Modifier.isInterface(method.owner.clazz.getModifiers());
         }
 
-        MethodSegment(final ParserRuleContext source, final String internal, final Class clazz,
-                      final java.lang.reflect.Method method) {
-            super(source);
-
-            this.internal = internal;
-            this.name = method.getName();
-            this.descriptor = org.objectweb.asm.commons.Method.getMethod(method).getDescriptor();
-            statik = java.lang.reflect.Modifier.isStatic(method.getModifiers());
-            iface = java.lang.reflect.Modifier.isInterface(clazz.getModifiers());
-        }
-
         @Override
         void write() {
             if (statik) {
@@ -580,32 +569,13 @@ class External {
     }
 
     public void brace(final ExtbraceContext ctx) {
-        final ExpressionContext exprctx0 = ctx.expression(0);
-        final ExpressionContext exprctx1 = ctx.expression(1);
-        final boolean colon = ctx.COLON() != null;
-
-        if (!colon && exprctx1 != null) {
-            throw new IllegalArgumentException(error(ctx) + "Missing ':' to separate substring arguments.");
-        } else if (colon && exprctx0 == null && exprctx1 == null) {
-            throw new IllegalArgumentException(error(ctx) + "Must specify at least one argument for substring.");
-        }
-
+        final ExpressionContext exprctx = ctx.expression();
         final ExtdotContext dotctx = ctx.extdot();
         final ExtbraceContext bracectx = ctx.extbrace();
 
         final boolean last = prec == 0 && dotctx == null && bracectx == null;
 
-        if (colon) {
-            if (ctx.getChild(1) instanceof ExpressionContext) {
-                substring(ctx, exprctx0, exprctx1, last);
-            } else {
-                substring(ctx, null, exprctx0, last);
-            }
-        } else if (current.dimensions > 0) {
-            array(ctx, exprctx0, last);
-        } else {
-            shortcut(ctx, exprctx0, last);
-        }
+        array(ctx, exprctx, last);
 
         if (dotctx != null) {
             dot(dotctx);
@@ -994,59 +964,12 @@ class External {
         }
     }
 
-    private void substring(final ParserRuleContext source, final ExpressionContext exprctx0,
-                           final ExpressionContext exprctx1, final boolean last) {
-        if (last && write != null) {
-            throw new IllegalArgumentException(error(source) + "A substring may not be assigned to.");
-        } else if (!read) {
-            throw new IllegalArgumentException(error(source) + "A substring must be assigned.");
-        }
-
-        final Cast cast0 = caster.getLegalCast(source, current, standard.stringType, false);
-
-        segments.add(new CastSegment(source, cast0));
-
-        java.lang.reflect.Method method;
-
-        try {
-            method = Integer.class.getMethod("valueOf", int.class);
-        } catch (NoSuchMethodException exception) {
-            throw new IllegalStateException(error(source) + "Unexpected parser state.");
-        }
-
-        Segment box = new MethodSegment(source, "java/lang/Integer", Integer.class, method);
-
-        if (exprctx0 != null) {
-            final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
-            expremd0.to = standard.intType;
-            analyzer.visit(exprctx0);
-            segments.add(new NodeSegment(exprctx0));
-            segments.add(box);
-        } else {
-            segments.add(new InstructionSegment(source, Opcodes.ACONST_NULL));
-        }
-
-        if (exprctx1 != null) {
-            final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
-            expremd1.to = standard.intType;
-            analyzer.visit(exprctx1);
-            segments.add(new NodeSegment(exprctx1));
-            segments.add(box);
-        } else {
-            segments.add(new InstructionSegment(source, Opcodes.ACONST_NULL));
-        }
-
-        try {
-            method = Utility.class.getMethod("substring", String.class, Integer.class, Integer.class);
-        } catch (NoSuchMethodException exception) {
-            throw new IllegalStateException(error(source) + "Unexpected parser state.");
-        }
-
-        segments.add(new MethodSegment(source, "org/elasticsearch/plan/a/Utility", Utility.class, method));
-        current = standard.stringType;
-    }
-
     private void array(final ParserRuleContext source, final ExpressionContext exprctx, final boolean last) {
+        if (current.dimensions == 0) {
+            throw new IllegalArgumentException(
+                    error(source) + "Attempting to address a non-array type [" + current.name + "] as an array.");
+        }
+
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = standard.intType;
         analyzer.visit(exprctx);
@@ -1142,111 +1065,6 @@ class External {
         } else {
             segments.add(new ArraySegment(source, current, false));
             current = type;
-        }
-    }
-
-    private void shortcut(final ParserRuleContext source, final ExpressionContext exprctx, final boolean last) {
-        final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
-        expremd.promotion = caster.shortcut;
-        analyzer.visit(exprctx);
-
-        final Type promote = caster.getTypePromotion(source, expremd.from, null, expremd.promotion);
-        final boolean list = promote.metadata == TypeMetadata.INT;
-        expremd.to = promote;
-        caster.markCast(expremd);
-
-        final Cast cast = caster.getLegalCast(source, current, list ? standard.listType : standard.mapType, true);
-        segments.add(new CastSegment(source, cast));
-        current = cast.to;
-        final Struct struct = current.struct;
-        segments.add(new NodeSegment(exprctx));
-
-        if (list) {
-            if (last && write != null) {
-                if (token > 0) {
-                    throw new IllegalArgumentException(
-                            error(source) + "Only basic assignment allowed using shortcuts.");
-                }
-
-                java.lang.reflect.Method method;
-
-                try {
-                    method = current.clazz.getMethod("add", int.class, Object.class);
-                } catch (NoSuchMethodException exception) {
-                    throw new IllegalStateException(error(source) + "Unexpected parser state.");
-                }
-
-                final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
-                writeemd.to = standard.objectType;
-                analyzer.visit(write);
-                segments.add(new NodeSegment(write));
-
-                if (read) {
-                    segments.add(new InstructionSegment(source, Opcodes.DUP_X1));
-                    current = standard.objectType;
-                } else {
-                    current = standard.voidType;
-                }
-
-                segments.add(new MethodSegment(source, struct.internal, struct.clazz, method));
-            } else {
-                java.lang.reflect.Method method;
-
-                try {
-                    method = current.clazz.getMethod("get", int.class);
-                } catch (NoSuchMethodException exception) {
-                    throw new IllegalStateException(error(source) + "Unexpected parser state.");
-                }
-
-                segments.add(new MethodSegment(source, struct.internal, struct.clazz, method));
-
-                if (!read) {
-                    segments.add(new InstructionSegment(source, Opcodes.POP));
-                    current = standard.voidType;
-                } else {
-                    current = standard.objectType;
-                }
-            }
-        } else {
-            if (last && write != null) {
-                if (token > 0) {
-                    throw new IllegalArgumentException(
-                            error(source) + "Only basic assignment allowed using shortcuts.");
-                }
-
-                java.lang.reflect.Method method;
-
-                try {
-                    method = current.clazz.getMethod("put", Object.class, Object.class);
-                } catch (NoSuchMethodException exception) {
-                    throw new IllegalStateException(error(source) + "Unexpected parser state.");
-                }
-
-                final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
-                writeemd.to = standard.objectType;
-                analyzer.visit(write);
-                segments.add(new NodeSegment(write));
-
-                segments.add(new MethodSegment(source, struct.internal, struct.clazz, method));
-
-                if (!read) {
-                    segments.add(new InstructionSegment(source, Opcodes.POP));
-                    current = standard.voidType;
-                } else {
-                    current = standard.objectType;
-                }
-            } else {
-                java.lang.reflect.Method method;
-
-                try {
-                    method = current.clazz.getMethod("get", Object.class);
-                } catch (NoSuchMethodException exception) {
-                    throw new IllegalStateException(error(source) + "Unexpected parser state.");
-                }
-
-                segments.add(new MethodSegment(source, struct.internal, struct.clazz, method));
-                current = standard.objectType;
-            }
         }
     }
 
