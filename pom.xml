@@ -69,8 +69,25 @@
                         </goals>
                         <configuration>
                             <target if="${regenerate}">
-                                <ant antfile="dev-tools/regenerate.xml" target="regenerate">
+                                <ant antfile="dev-tools/ant.xml" target="regenerate">
                                     <reference refid="maven.plugin.classpath"/>
+                                </ant>
+                            </target>
+                        </configuration>
+                    </execution>
+                    <!-- start up elasticsearch in foreground. -->
+                    <execution>
+                        <id>execute</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target if="${run}">
+                                <!-- use conventional port numbers -->
+                                <ant antfile="dev-tools/ant.xml" target="start-foreground">
+                                    <property name="integ.http.port" value="9200"/>
+                                    <property name="integ.transport.port" value="9300"/>
                                 </ant>
                             </target>
                         </configuration>

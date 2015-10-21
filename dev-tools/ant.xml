@@ -1,5 +1,16 @@
 <?xml version="1.0"?>
-<!-- we do this with ant for several reasons:
+<project name="ant-stuff">
+
+<import file="${elasticsearch.integ.antfile.default}"/>
+
+<!-- startup with plugin in foreground (for experimentation) -->
+<target name="start-foreground" depends="stop-external-cluster">
+      <startup-elasticsearch spawn="false"/>
+</target>
+
+<!-- 
+ grammar regeneration logic
+ we do this with ant for several reasons:
  * remove generated tabs for forbidden-apis
  * remove generated timestamps/filenames for reproducible build
  * fix CRLF line endings for windows consistency
@@ -8,7 +19,6 @@
  * regeneration should be rare, no reason to be religious about generated files 
  * all logic already written and battle tested in lucene build
 -->
-<project name="regenerate-grammar">
   <target name="regenerate" depends="run-antlr"/>
 
   <target name="run-antlr">
