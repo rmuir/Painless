@@ -89,7 +89,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         adapter.incrementScope();
 
-        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = standard.boolType;
         visit(exprctx);
@@ -131,7 +131,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         adapter.incrementScope();
 
-        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = standard.boolType;
         visit(exprctx);
@@ -201,7 +201,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             throw new IllegalArgumentException(error(ctx) + "The loop will never exit.");
         }
 
-        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = standard.boolType;
         visit(exprctx);
@@ -242,7 +242,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             visit(declctx);
         }
 
-        final ExpressionContext exprctx0 = ctx.expression(0);
+        final ExpressionContext exprctx0 = adapter.getExpressionContext(ctx.expression(0));
 
         if (exprctx0 != null) {
             final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
@@ -262,7 +262,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             exitrequired = true;
         }
 
-        final ExpressionContext exprctx1 = ctx.expression(1);
+        final ExpressionContext exprctx1 = adapter.getExpressionContext(ctx.expression(1));
 
         if (exprctx1 != null) {
             final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
@@ -341,7 +341,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitReturn(final ReturnContext ctx) {
         final StatementMetadata returnsmd = adapter.getStatementMetadata(ctx);
 
-        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = standard.objectType;
         visit(exprctx);
@@ -355,7 +355,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
     @Override
     public Void visitExpr(final ExprContext ctx) {
-        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = standard.voidType;
         visit(exprctx);
@@ -448,7 +448,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final String name = ctx.ID().getText();
         declvaremd.postConst = adapter.addVariable(ctx, name, declvaremd.to);
 
-        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
 
         if (exprctx != null) {
             final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
@@ -461,24 +461,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
     @Override
     public Void visitPrecedence(final PrecedenceContext ctx) {
-        final ExpressionMetadata precemd = adapter.getExpressionMetadata(ctx);
-
-        final ExpressionContext exprctx = ctx.expression();
-        final ParserRuleContext parent = (ParserRuleContext)ctx.parent;
-        int index = 0;
-
-        for (ParseTree child : parent.children) {
-            if (child == ctx) {
-                parent.children.set(index, exprctx);
-            }
-
-            ++index;
-        }
-
-        adapter.updateExpressionMetadata(exprctx, precemd);
-        visit(exprctx);
-
-        return null;
+        throw new UnsupportedOperationException(error(ctx) + "Unexpected parser state.");
     }
 
     @Override
@@ -643,14 +626,14 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitCat(CatContext ctx) {
         ExpressionMetadata catemd = adapter.getExpressionMetadata(ctx);
 
-        final ExpressionContext exprctx0 = ctx.expression(0);
+        final ExpressionContext exprctx0 = adapter.getExpressionContext(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
         expremd0.promotion = caster.equality;
         visit(exprctx0);
         expremd0.to = expremd0.from;
         caster.markCast(expremd0);
 
-        final ExpressionContext exprctx1 = ctx.expression(1);
+        final ExpressionContext exprctx1 = adapter.getExpressionContext(ctx.expression(1));
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
         expremd1.promotion = caster.equality;
         visit(exprctx1);
@@ -698,7 +681,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitUnary(final UnaryContext ctx) {
         final ExpressionMetadata unaryemd = adapter.getExpressionMetadata(ctx);
 
-        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
 
         if (ctx.BOOLNOT() != null) {
@@ -781,7 +764,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final Type type = decltypemd.from;
         castemd.from = type;
 
-        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = type;
         expremd.explicit = true;
@@ -808,12 +791,12 @@ class Analyzer extends PlanABaseVisitor<Void> {
             promotion = caster.numeric;
         }
 
-        final ExpressionContext exprctx0 = ctx.expression(0);
+        final ExpressionContext exprctx0 = adapter.getExpressionContext(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
         expremd0.promotion = promotion;
         visit(exprctx0);
 
-        final ExpressionContext exprctx1 = ctx.expression(1);
+        final ExpressionContext exprctx1 = adapter.getExpressionContext(ctx.expression(1));
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
         expremd1.promotion = promotion;
         visit(exprctx1);
@@ -952,12 +935,12 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExpressionMetadata compemd = adapter.getExpressionMetadata(ctx);
         final Promotion promotion = ctx.EQ() != null || ctx.NE() != null ? caster.equality : caster.decimal;
 
-        final ExpressionContext exprctx0 = ctx.expression(0);
+        final ExpressionContext exprctx0 = adapter.getExpressionContext(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
         expremd0.promotion = promotion;
         visit(exprctx0);
 
-        final ExpressionContext exprctx1 = ctx.expression(1);
+        final ExpressionContext exprctx1 = adapter.getExpressionContext(ctx.expression(1));
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
         expremd1.promotion = promotion;
         visit(exprctx1);
@@ -1063,12 +1046,12 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitBool(final BoolContext ctx) {
         final ExpressionMetadata boolemd = adapter.getExpressionMetadata(ctx);
 
-        final ExpressionContext exprctx0 = ctx.expression(0);
+        final ExpressionContext exprctx0 = adapter.getExpressionContext(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
         expremd0.to = standard.boolType;
         visit(exprctx0);
 
-        final ExpressionContext exprctx1 = ctx.expression(1);
+        final ExpressionContext exprctx1 = adapter.getExpressionContext(ctx.expression(1));
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
         expremd1.to = standard.boolType;
         visit(exprctx1);
@@ -1093,7 +1076,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitConditional(final ConditionalContext ctx) {
         final ExpressionMetadata condemd = adapter.getExpressionMetadata(ctx);
 
-        final ExpressionContext exprctx0 = ctx.expression(0);
+        final ExpressionContext exprctx0 = adapter.getExpressionContext(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
         expremd0.to = standard.boolType;
         visit(exprctx0);
@@ -1102,13 +1085,13 @@ class Analyzer extends PlanABaseVisitor<Void> {
             throw new IllegalArgumentException(error(ctx) + "Unnecessary conditional statement.");
         }
 
-        final ExpressionContext exprctx1 = ctx.expression(1);
+        final ExpressionContext exprctx1 = adapter.getExpressionContext(ctx.expression(1));
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
         expremd1.to = condemd.to;
         expremd1.promotion = condemd.promotion;
         visit(exprctx1);
 
-        final ExpressionContext exprctx2 = ctx.expression(2);
+        final ExpressionContext exprctx2 = adapter.getExpressionContext(ctx.expression(2));
         final ExpressionMetadata expremd2 = adapter.createExpressionMetadata(exprctx2);
         expremd2.to = condemd.to;
         expremd2.promotion = condemd.promotion;

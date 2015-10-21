@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -35,6 +36,7 @@ import org.objectweb.asm.Opcodes;
 import static org.elasticsearch.plan.a.Caster.*;
 import static org.elasticsearch.plan.a.Default.*;
 import static org.elasticsearch.plan.a.Definition.*;
+import static org.elasticsearch.plan.a.PlanAParser.*;
 import static org.elasticsearch.plan.a.Utility.*;
 
 class Adapter {
@@ -75,7 +77,7 @@ class Adapter {
     }
 
     static class ExpressionMetadata {
-        ParserRuleContext source;
+        final ParserRuleContext source;
 
         boolean statement;
 
@@ -90,8 +92,8 @@ class Adapter {
 
         Cast cast;
 
-        private ExpressionMetadata() {
-            source = null;
+        private ExpressionMetadata(final ParserRuleContext source) {
+            this.source = source;
 
             statement = false;
 
@@ -234,18 +236,34 @@ class Adapter {
         return sourcesmd;
     }
 
-    ExpressionMetadata createExpressionMetadata(final ParserRuleContext source) {
-        final ExpressionMetadata sourceemd = new ExpressionMetadata();
-        sourceemd.source = source;
+    ExpressionContext getExpressionContext(ExpressionContext source) {
+        if (source instanceof PrecedenceContext) {
+            final ParserRuleContext parent = source.getParent();
+            int index = 0;
+
+            for (final ParseTree child : parent.children) {
+                if (child == source) {
+                    break;
+                }
+
+                ++index;
+            }
+
+            while (source instanceof PrecedenceContext) {
+                source = ((PrecedenceContext)source).expression();
+            }
+
+            parent.children.set(index, source);
+        }
+
+        return source;
+    }
+
+    ExpressionMetadata createExpressionMetadata(ParserRuleContext source) {
+        final ExpressionMetadata sourceemd = new ExpressionMetadata(source);
         expressionMetadata.put(source, sourceemd);
 
         return sourceemd;
-    }
-
-    void updateExpressionMetadata(final ParserRuleContext source, final ExpressionMetadata expremd) {
-        expressionMetadata.remove(expremd.source);
-        expremd.source = source;
-        expressionMetadata.put(source, expremd);
     }
     
     ExpressionMetadata getExpressionMetadata(final ParserRuleContext source) {

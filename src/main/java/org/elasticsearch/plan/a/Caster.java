@@ -432,7 +432,8 @@ class Caster {
             }
         }
 
-        throw new ClassCastException();
+        throw new ClassCastException(error(source) + "Cannot find valid promotion for types [" +
+                from0.name + "] and [" + from1.name + "].");
     }
 
     Type getNumericPromotion(final ParserRuleContext source, final Type from0, final Type from1, boolean decimal) {

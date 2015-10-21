@@ -8,8 +8,8 @@ import org.junit.Before;
 
 import java.util.Map;
 
-public class PlanABasicExpressionsTests extends ESTestCase {
-     private PlanAScriptEngineService se;
+public class PlanABasicExpressionTests extends ESTestCase {
+    private PlanAScriptEngineService se;
 
     @Before
     public void setup() {

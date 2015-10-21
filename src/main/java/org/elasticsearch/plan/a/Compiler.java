@@ -26,7 +26,6 @@ import java.util.Properties;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.tree.ParseTree;
 import org.elasticsearch.common.SuppressForbidden;
 
 import static org.elasticsearch.plan.a.Default.*;
@@ -52,14 +51,14 @@ final class Compiler {
         final Standard standard = properties == null ? DEFAULT_STANDARD : new Standard(definition);
         final Caster caster = properties == null ? DEFAULT_CASTER : new Caster(definition, standard);
 
-        long end = System.currentTimeMillis() - start;
-        System.out.println("definition: " + end);
-        start = System.currentTimeMillis();
+        //long end = System.currentTimeMillis() - start;
+        //System.out.println("definition: " + end);
+        //start = System.currentTimeMillis();
 
         final ParserRuleContext root = createParseTree(source, definition);
 
-        end = System.currentTimeMillis() - start;
-        System.out.println("tree: " + end);
+        //end = System.currentTimeMillis() - start;
+        //System.out.println("tree: " + end);
 
         final Adapter adapter = new Adapter(definition, standard, caster, source, root);
         adapter.incrementScope();
@@ -71,20 +70,20 @@ final class Compiler {
         Analyzer.analyze(adapter);
         adapter.decrementScope();
 
-        end = System.currentTimeMillis() - start;
-        System.out.println("analyze: " + end);
-        start = System.currentTimeMillis();
+        //end = System.currentTimeMillis() - start;
+        //System.out.println("analyze: " + end);
+        //start = System.currentTimeMillis();
 
         final byte[] bytes = Writer.write(adapter);
 
-        end = System.currentTimeMillis() - start;
-        System.out.println("write: " + end);
-        start = System.currentTimeMillis();
+        //end = System.currentTimeMillis() - start;
+        //System.out.println("write: " + end);
+        //start = System.currentTimeMillis();
 
         final Executable executable = createExecutable(name, source, parent, bytes);
 
-        end = System.currentTimeMillis() - start;
-        System.out.println("create: " + end);
+        //end = System.currentTimeMillis() - start;
+        //System.out.println("create: " + end);
 
         return executable;
     }
@@ -102,7 +101,7 @@ final class Compiler {
         parser.setErrorHandler(strategy);
 
         ParserRuleContext root = parser.source();
-        System.out.println(root.toStringTree(parser));
+        //System.out.println(root.toStringTree(parser));
         return root;
     }
 

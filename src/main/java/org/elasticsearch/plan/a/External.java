@@ -429,7 +429,7 @@ class External {
         final ExpressionMetadata assignemd = adapter.getExpressionMetadata(ctx);
 
         read = assignemd.promotion != null || assignemd.to.metadata != TypeMetadata.VOID;
-        write = ctx.expression();
+        write = adapter.getExpressionContext(ctx.expression());
         
         if      (ctx.AMUL() != null) token = MUL;
         else if (ctx.ADIV() != null) token = DIV;
@@ -567,7 +567,7 @@ class External {
     }
 
     public void brace(final ExtbraceContext ctx) {
-        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
         final ExtdotContext dotctx = ctx.extdot();
         final ExtbraceContext bracectx = ctx.extbrace();
 
@@ -947,7 +947,7 @@ class External {
         }
 
         for (int argument = 0; argument < arguments.size(); ++argument) {
-            final ExpressionContext exprctx = arguments.get(argument);
+            final ExpressionContext exprctx = adapter.getExpressionContext(arguments.get(argument));
             final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
             expremd.to = types[argument];
             analyzer.visit(exprctx);

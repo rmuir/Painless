@@ -28,7 +28,7 @@ import static org.elasticsearch.plan.a.Definition.*;
 import static org.elasticsearch.plan.a.PlanAParser.*;
 import static org.elasticsearch.plan.a.Utility.*;
 
-class Writer extends PlanABaseVisitor<Void>{
+class Writer extends PlanABaseVisitor<Void> {
     final static String BASE_CLASS_NAME = Executable.class.getName();
     final static String CLASS_NAME = BASE_CLASS_NAME + "$CompiledPlanAExecutable";
     final static String BASE_CLASS_INTERNAL = Executable.class.getName().replace('.', '/');
