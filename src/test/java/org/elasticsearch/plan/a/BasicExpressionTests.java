@@ -33,6 +33,7 @@ public class BasicExpressionTests extends ScriptTestCase {
         assertEquals(7L, exec("return 7L;"));
         assertEquals(7.0, exec("return 7.0;"));
         assertEquals(32.0F, exec("return 32.0F;"));
+        assertEquals((byte)255, exec("return (byte)255;"));
         assertEquals("string", exec("return \"string\";"));
         assertEquals(true, exec("return true;"));
         assertEquals(false, exec("return false;"));
