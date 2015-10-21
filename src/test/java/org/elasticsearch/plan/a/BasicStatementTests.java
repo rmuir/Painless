@@ -26,7 +26,7 @@ import org.elasticsearch.script.ScriptService;
 import org.elasticsearch.test.ESTestCase;
 import org.junit.Before;
 
-public class PlanABasicStatementTests extends ESTestCase {
+public class BasicStatementTests extends ESTestCase {
     private PlanAScriptEngineService se;
 
     @Before

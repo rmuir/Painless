@@ -37,7 +37,7 @@ import java.util.Map;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 
-public class PlanAScriptEngineTests extends ESTestCase {
+public class ScriptEngineTests extends ESTestCase {
 
     private PlanAScriptEngineService se;
 

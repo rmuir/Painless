@@ -27,7 +27,7 @@ import org.junit.Before;
 
 import java.util.Map;
 
-public class PlanABasicExpressionTests extends ESTestCase {
+public class BasicExpressionTests extends ESTestCase {
     private PlanAScriptEngineService se;
 
     @Before
