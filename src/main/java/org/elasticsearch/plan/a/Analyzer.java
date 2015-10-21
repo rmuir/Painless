@@ -263,7 +263,12 @@ class Analyzer extends PlanABaseVisitor<Void> {
         if (exprctx1 != null) {
             final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
             expremd1.to = standard.voidType;
-            visit(exprctx1);
+
+            try {
+                visit(exprctx1);
+            } catch (ClassCastException exception) {
+                expremd1.statement = false;
+            }
 
             if (!expremd1.statement) {
                 throw new IllegalArgumentException(error(exprctx1) +
@@ -354,7 +359,12 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = standard.voidType;
-        visit(exprctx);
+
+        try {
+            visit(exprctx);
+        } catch (ClassCastException exception) {
+            expremd.statement = false;
+        }
 
         if (!expremd.statement) {
             throw new IllegalArgumentException(error(ctx) + "Not a statement.");

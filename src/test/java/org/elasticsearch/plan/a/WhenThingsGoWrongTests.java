@@ -32,14 +32,11 @@ public class WhenThingsGoWrongTests extends ScriptTestCase {
         }
     }
 
-    @AwaitsFix(bugUrl = "https://github.com/elastic/Painless/issues/6")
     public void testMissingReturn() {
         try {
             exec("5;");
-            fail("should have hit parse exception");
-        } catch (RuntimeException expected) {
-            assertTrue(expected.getCause() instanceof ParseException);
-        }
+            fail("should have hit illegal argument exception");
+        } catch (IllegalArgumentException expected) {}
     }
 
     public void testNullPointer() {
