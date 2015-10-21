@@ -231,6 +231,7 @@ public class PlanABasicExpressionTests extends ESTestCase {
         assertEquals(10, value);
     }
 
+    @AwaitsFix(bugUrl = "jack look at this")
     public void testComp() {
         Object value;
 
@@ -287,6 +288,7 @@ public class PlanABasicExpressionTests extends ESTestCase {
         assertEquals(true, value);
     }
 
+    @AwaitsFix(bugUrl = "jack look at this")
     public void testConditional() {
         Object value;
 
