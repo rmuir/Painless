@@ -39,6 +39,11 @@ public class BasicExpressionTests extends ScriptTestCase {
         assertNull(exec("return null;"));
     }
 
+    @AwaitsFix(bugUrl = "https://github.com/elastic/Painless/issues/4")
+    public void testConstantChar() {
+        assertEquals('x', exec("return 'x';"));
+    }
+
     public void testIncrement() {
         assertEquals(0, exec("int x = 0; return x++;"));
         assertEquals(0, exec("int x = 0; return x--;"));
