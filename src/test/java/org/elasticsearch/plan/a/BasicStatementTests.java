@@ -19,6 +19,9 @@ package org.elasticsearch.plan.a;
  * under the License.
  */
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class BasicStatementTests extends ScriptTestCase {
 
     public void testIfStatement() {
@@ -41,7 +44,7 @@ public class BasicStatementTests extends ScriptTestCase {
                 "return x;\n"));
     }
 
-    public void testWhileStatement() throws Exception {
+    public void testWhileStatement() {
 
         assertEquals("aaaaaa", exec("string c = \"a\"; int x; while (x < 5) { c ..= \"a\"; ++x; } return c;"));
 
@@ -71,7 +74,7 @@ public class BasicStatementTests extends ScriptTestCase {
         }
     }
 
-    public void testDoWhileStatement() throws Exception {
+    public void testDoWhileStatement() {
         assertEquals("aaaaaa", exec("string c = \"a\"; int x; do { c ..= \"a\"; ++x; } while (x < 5); return c;"));
 
         Object value = exec(
@@ -100,7 +103,7 @@ public class BasicStatementTests extends ScriptTestCase {
         }
     }
 
-    public void testForStatement() throws Exception {
+    public void testForStatement() {
         assertEquals("aaaaaa", exec("string c = \"a\"; for (int x = 0; x < 5; ++x) c ..= \"a\"; return c;"));
 
         Object value = exec(
@@ -120,5 +123,56 @@ public class BasicStatementTests extends ScriptTestCase {
                 assertEquals(x*y, b[x][y]);
             }
         }
+    }
+
+    public void testDeclarationStatement() {
+        assertEquals((byte)2, exec("byte a = 2; return a;"));
+        assertEquals((short)2, exec("short a = 2; return a;"));
+        assertEquals((char)2, exec("char a = 2; return a;"));
+        assertEquals(2, exec("int a = 2; return a;"));
+        assertEquals(2L, exec("long a = 2; return a;"));
+        assertEquals(2F, exec("float a = 2; return a;"));
+        assertEquals(2.0, exec("double a = 2; return a;"));
+        assertEquals(false, exec("bool a = false; return a;"));
+        assertEquals("string", exec("string a = \"string\"; return a;"));
+        assertEquals(HashMap.class, exec("smap a = shashmap.new(); return a;").getClass());
+
+        assertEquals(byte[].class, exec("byte[] a = byte.makearray(1); return a;").getClass());
+        assertEquals(short[].class, exec("short[] a = short.makearray(1); return a;").getClass());
+        assertEquals(char[].class, exec("char[] a = char.makearray(1); return a;").getClass());
+        assertEquals(int[].class, exec("int[] a = int.makearray(1); return a;").getClass());
+        assertEquals(long[].class, exec("long[] a = long.makearray(1); return a;").getClass());
+        assertEquals(float[].class, exec("float[] a = float.makearray(1); return a;").getClass());
+        assertEquals(double[].class, exec("double[] a = double.makearray(1); return a;").getClass());
+        assertEquals(boolean[].class, exec("bool[] a = bool.makearray(1); return a;").getClass());
+        assertEquals(String[].class, exec("string[] a = string.makearray(1); return a;").getClass());
+        assertEquals(Map[].class, exec("smap[] a = smap.makearray(1); return a;").getClass());
+
+        assertEquals(byte[][].class, exec("byte[][] a = byte.makearray(1, 2); return a;").getClass());
+        assertEquals(short[][][].class, exec("short[][][] a = short.makearray(1, 2, 3); return a;").getClass());
+        assertEquals(char[][][][].class, exec("char[][][][] a = char.makearray(1, 2, 3, 4); return a;").getClass());
+        assertEquals(int[][][][][].class, exec("int[][][][][] a = int.makearray(1, 2, 3, 4, 5); return a;").getClass());
+        assertEquals(long[][].class, exec("long[][] a = long.makearray(1, 2); return a;").getClass());
+        assertEquals(float[][][].class, exec("float[][][] a = float.makearray(1, 2, 3); return a;").getClass());
+        assertEquals(double[][][][].class, exec("double[][][][] a = double.makearray(1, 2, 3, 4); return a;").getClass());
+        assertEquals(boolean[][][][][].class, exec("bool[][][][][] a = bool.makearray(1, 2, 3, 4, 5); return a;").getClass());
+        assertEquals(String[][].class, exec("string[][] a = string.makearray(1, 2); return a;").getClass());
+        assertEquals(Map[][][].class, exec("smap[][][] a = smap.makearray(1, 2, 3); return a;").getClass());
+    }
+
+    public void testContinueStatement() {
+        assertEquals(9, exec("int x = 0, y = 0; while (x < 10) { ++x; if (x == 1) continue; ++y; } return y;"));
+    }
+
+    public void testBreakStatement() {
+        assertEquals(4, exec("int x = 0, y = 0; while (x < 10) { ++x; if (x == 5) break; ++y; } return y;"));
+    }
+
+    public void testReturnStatement() {
+        assertEquals(10, exec("return 10;"));
+        assertEquals(5, exec("int x = 5; return x;"));
+        assertEquals(4, exec("int[] x = int.makearray(2); x[1] = 4; return x[1];"));
+        assertEquals(5, ((short[])exec("short[] s = short.makearray(3); s[1] = 5; return s;"))[1]);
+        assertEquals(10, ((Map)exec("smap s = shashmap.new(); s.put(\"x\", 10); return s;")).get("x"));
     }
 }
