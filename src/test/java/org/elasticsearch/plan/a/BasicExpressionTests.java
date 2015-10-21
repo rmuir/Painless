@@ -23,17 +23,14 @@ import java.util.Collections;
 
 public class BasicExpressionTests extends ScriptTestCase {
 
-    public void testPrecedence() {
-        assertEquals(2, exec("int x = 5; return (x+x)/x;"));
-        assertEquals(true, exec("bool t = true, f = false; return t && (f || t);"));
-    }
-
-    public void testConstant() {
+    /** simple tests returning a constant value */
+    public void testReturnConstant() {
         assertEquals(5, exec("return 5;"));
         assertEquals(7L, exec("return 7L;"));
         assertEquals(7.0, exec("return 7.0;"));
         assertEquals(32.0F, exec("return 32.0F;"));
         assertEquals((byte)255, exec("return (byte)255;"));
+        assertEquals((short)5, exec("return (short)5;"));
         assertEquals("string", exec("return \"string\";"));
         assertEquals(true, exec("return true;"));
         assertEquals(false, exec("return false;"));
@@ -41,15 +38,69 @@ public class BasicExpressionTests extends ScriptTestCase {
     }
 
     @AwaitsFix(bugUrl = "https://github.com/elastic/Painless/issues/4")
-    public void testConstantChar() {
+    public void testReturnConstantChar() {
         assertEquals('x', exec("return 'x';"));
     }
+    
+    /** declaring variables for primitive types */
+    public void testDeclareVariable() {
+        assertEquals(5, exec("int i = 5; return i;"));
+        assertEquals(7L, exec("long l = 7; return l;"));
+        assertEquals(7.0, exec("double d = 7; return d;"));
+        assertEquals(32.0F, exec("float f = 32F; return f;"));
+        assertEquals((byte)255, exec("byte b = (byte)255; return b;"));
+        assertEquals((short)5, exec("short s = (short)5; return s;"));
+        assertEquals("string", exec("string s = \"string\"; return s;"));
+        assertEquals(true, exec("bool v = true; return v;"));
+        assertEquals(false, exec("bool v = false; return v;"));
+    }
 
-    public void testIncrement() {
+    /** incrementing byte values */
+    public void testIncrementByte() {
+        assertEquals((byte)0, exec("byte x = (byte)0; return x++;"));
+        assertEquals((byte)0, exec("byte x = (byte)0; return x--;"));
+        assertEquals((byte)1, exec("byte x = (byte)0; return ++x;"));
+        assertEquals((byte)-1, exec("byte x = (byte)0; return --x;"));
+    }
+    
+    /** incrementing short values */
+    public void testIncrementShort() {
+        assertEquals((short)0, exec("short x = (short)0; return x++;"));
+        assertEquals((short)0, exec("short x = (short)0; return x--;"));
+        assertEquals((short)1, exec("short x = (short)0; return ++x;"));
+        assertEquals((short)-1, exec("short x = (short)0; return --x;"));
+    }
+
+    /** incrementing integer values */
+    public void testIncrementInt() {
         assertEquals(0, exec("int x = 0; return x++;"));
         assertEquals(0, exec("int x = 0; return x--;"));
         assertEquals(1, exec("int x = 0; return ++x;"));
         assertEquals(-1, exec("int x = 0; return --x;"));
+    }
+    
+    /** incrementing long values */
+    public void testIncrementLong() {
+        assertEquals(0L, exec("long x = 0; return x++;"));
+        assertEquals(0L, exec("long x = 0; return x--;"));
+        assertEquals(1L, exec("long x = 0; return ++x;"));
+        assertEquals(-1L, exec("long x = 0; return --x;"));
+    }
+    
+    /** incrementing float values */
+    public void testIncrementFloat() {
+        assertEquals(0F, exec("float x = 0F; return x++;"));
+        assertEquals(0F, exec("float x = 0F; return x--;"));
+        assertEquals(1F, exec("float x = 0F; return ++x;"));
+        assertEquals(-1F, exec("float x = 0F; return --x;"));
+    }
+    
+    /** incrementing double values */
+    public void testIncrementDouble() {
+        assertEquals(0D, exec("double x = 0.0; return x++;"));
+        assertEquals(0D, exec("double x = 0.0; return x--;"));
+        assertEquals(1D, exec("double x = 0.0; return ++x;"));
+        assertEquals(-1D, exec("double x = 0.0; return --x;"));
     }
 
     public void testUnary() {
@@ -147,5 +198,10 @@ public class BasicExpressionTests extends ScriptTestCase {
     public void testConditional() {
         assertEquals(1, exec("int x = 5; return x > 3 ? 1 : 0;"));
         assertEquals(0, exec("string a = null; return a != null ? 1 : 0;"));
+    }
+
+    public void testPrecedence() {
+        assertEquals(2, exec("int x = 5; return (x+x)/x;"));
+        assertEquals(true, exec("bool t = true, f = false; return t && (f || t);"));
     }
 }
