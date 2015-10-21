@@ -4,6 +4,7 @@ An easy, safe and fast scripting language for Elasticsearch
 # Get started
 ```
 git clone git@github.com:elastic/Painless.git
+cd Painless
 ./run.sh # unix
 run.bat # windows
 ```
