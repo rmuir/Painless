@@ -26,7 +26,6 @@ import org.objectweb.asm.*;
 import static org.elasticsearch.plan.a.Adapter.*;
 import static org.elasticsearch.plan.a.Definition.*;
 import static org.elasticsearch.plan.a.PlanAParser.*;
-import static org.elasticsearch.plan.a.Utility.*;
 
 class Writer extends PlanABaseVisitor<Void> {
     final static String BASE_CLASS_NAME = Executable.class.getName();

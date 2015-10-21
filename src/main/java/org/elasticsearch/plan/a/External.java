@@ -33,7 +33,6 @@ import static org.elasticsearch.plan.a.Caster.*;
 import static org.elasticsearch.plan.a.Default.*;
 import static org.elasticsearch.plan.a.Definition.*;
 import static org.elasticsearch.plan.a.PlanAParser.*;
-import static org.elasticsearch.plan.a.Utility.*;
 
 class External {
     private abstract class Segment {

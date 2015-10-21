@@ -19,7 +19,6 @@ package org.elasticsearch.plan.a;
  * under the License.
  */
 
-import org.apache.lucene.util.LuceneTestCase.AwaitsFix;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.script.CompiledScript;
 import org.elasticsearch.script.ScriptService;

@@ -19,9 +19,6 @@
 
 package org.elasticsearch.plan.a;
 
-import com.sun.org.apache.xalan.internal.xsltc.cmdline.Compile;
-import org.apache.tools.ant.taskdefs.Exec;
-import org.elasticsearch.common.collect.MapBuilder;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.script.CompiledScript;
 import org.elasticsearch.script.ExecutableScript;
@@ -31,7 +28,6 @@ import org.junit.Before;
 
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.equalTo;

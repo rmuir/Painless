@@ -32,7 +32,6 @@ import java.util.List;
 import static org.elasticsearch.plan.a.Adapter.*;
 import static org.elasticsearch.plan.a.Default.*;
 import static org.elasticsearch.plan.a.Definition.*;
-import static org.elasticsearch.plan.a.Utility.*;
 
 class Caster {
     private abstract static class Segment {

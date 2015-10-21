@@ -19,8 +19,6 @@ package org.elasticsearch.plan.a;
  * under the License.
  */
 
-import org.antlr.v4.runtime.ParserRuleContext;
-
 public class Utility {
     public static boolean numberToBoolean(final Number value) {
         return value.longValue() != 0;
