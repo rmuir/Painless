@@ -399,7 +399,7 @@ class Writer extends PlanABaseVisitor<Void> {
         final Object postConst = charemd.postConst;
 
         if (postConst == null) {
-            writeString(ctx, charemd.preConst);
+            writeNumeric(ctx, (int)(char)charemd.preConst);
             caster.checkWriteCast(execute, charemd);
         } else {
             writeConstant(ctx, postConst);
