@@ -1,11 +1,5 @@
 # Plan A
-If people don't like it, Jack will just make Plan B
+An easy, safe and fast scripting language for Elasticsearch
 
-# Configure IDE
-'mvn eclipse:eclipse'
-
-# Regenerate the grammar
-'mvn validate -Dregenerate'
-
-# Run tests and create plugin zip
-'mvn verify'
+# Get started
+Use `run.sh` (unix) or `run.bat` (windows) to start a node on `localhost:9200` with `plan-a` scripting language installed.
