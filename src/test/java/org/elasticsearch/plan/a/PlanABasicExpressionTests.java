@@ -231,7 +231,6 @@ public class PlanABasicExpressionTests extends ESTestCase {
         assertEquals(10, value);
     }
 
-    @AwaitsFix(bugUrl = "jack look at this")
     public void testComp() {
         Object value;
 
@@ -239,7 +238,7 @@ public class PlanABasicExpressionTests extends ESTestCase {
         assertEquals(true, value);
 
         value = testScript("testComp", "int x = 4; char y = 2; return x < y;", null);
-        assertEquals(true, value);
+        assertEquals(false, value);
 
         value = testScript("testComp", "return 3 <= 3;", null);
         assertEquals(true, value);
@@ -248,10 +247,10 @@ public class PlanABasicExpressionTests extends ESTestCase {
         assertEquals(true, value);
 
         value = testScript("testComp", "return 2 > 3;", null);
-        assertEquals(true, value);
+        assertEquals(false, value);
 
         value = testScript("testComp", "int x = 4; long y = 2; return x > y;", null);
-        assertEquals(false, value);
+        assertEquals(true, value);
 
         value = testScript("testComp", "return 3 >= 4;", null);
         assertEquals(false, value);
@@ -288,7 +287,6 @@ public class PlanABasicExpressionTests extends ESTestCase {
         assertEquals(true, value);
     }
 
-    @AwaitsFix(bugUrl = "jack look at this")
     public void testConditional() {
         Object value;
 

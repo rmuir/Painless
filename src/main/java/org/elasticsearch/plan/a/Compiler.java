@@ -55,7 +55,19 @@ final class Compiler {
         //System.out.println("definition: " + end);
         //start = System.currentTimeMillis();
 
-        final ParserRuleContext root = createParseTree(source, definition);
+        //final ParserRuleContext root = createParseTree(source, definition);
+        final ANTLRInputStream stream = new ANTLRInputStream(source);
+        final ErrorHandlingLexer lexer = new ErrorHandlingLexer(stream);
+        final PlanAParser parser = new PlanAParser(new CommonTokenStream(lexer));
+        final ParserErrorStrategy strategy = new ParserErrorStrategy();
+
+        lexer.removeErrorListeners();
+
+        parser.setTypes(definition.structs.keySet());
+        parser.removeErrorListeners();
+        parser.setErrorHandler(strategy);
+
+        ParserRuleContext root = parser.source();
 
         //end = System.currentTimeMillis() - start;
         //System.out.println("tree: " + end);
@@ -69,6 +81,7 @@ final class Compiler {
 
         Analyzer.analyze(adapter);
         adapter.decrementScope();
+        System.out.println(root.toStringTree(parser));
 
         //end = System.currentTimeMillis() - start;
         //System.out.println("analyze: " + end);
@@ -101,7 +114,7 @@ final class Compiler {
         parser.setErrorHandler(strategy);
 
         ParserRuleContext root = parser.source();
-        //System.out.println(root.toStringTree(parser));
+        System.out.println(root.toStringTree(parser));
         return root;
     }
 

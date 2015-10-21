@@ -128,6 +128,10 @@ class Adapter {
         }
     }
 
+    static String error(final ParserRuleContext ctx) {
+        return "Error [" + ctx.getStart().getLine() + ":" + ctx.getStart().getCharPositionInLine() + "]: ";
+    }
+
     final Definition definition;
     final Standard standard;
     final Caster caster;

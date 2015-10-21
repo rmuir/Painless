@@ -198,30 +198,5 @@ public class Utility {
         return (char)value.doubleValue();
     }
 
-    public static String substring(final String string, final Integer begin, final Integer end) {
-        final int length = string.length();
-        final int localBegin = begin == null ? 0 : begin;
-
-        if (localBegin < 0 || localBegin > length) {
-            throw new IllegalArgumentException("Start of substring [" + localBegin + "] is out of bounds.");
-        }
-
-        int localEnd = end == null ? string.length() : end;
-
-        if (localEnd < 0) {
-            localEnd = length + end;
-        }
-
-        if (localEnd < 0 || localEnd > length) {
-            throw new IllegalArgumentException("End of substring [" + localEnd + "] is out of bounds.");
-        }
-
-        return string.substring(localBegin, localEnd);
-    }
-
-    static String error(final ParserRuleContext ctx) {
-        return "Error [" + ctx.getStart().getLine() + ":" + ctx.getStart().getCharPositionInLine() + "]: ";
-    }
-
     private Utility() {}
 }

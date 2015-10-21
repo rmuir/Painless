@@ -19,15 +19,11 @@ package org.elasticsearch.plan.a;
  * under the License.
  */
 
-import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.tree.ParseTree;
-
 import static org.elasticsearch.plan.a.Adapter.*;
 import static org.elasticsearch.plan.a.Caster.*;
 import static org.elasticsearch.plan.a.Default.*;
 import static org.elasticsearch.plan.a.Definition.*;
 import static org.elasticsearch.plan.a.PlanAParser.*;
-import static org.elasticsearch.plan.a.Utility.*;
 
 class Analyzer extends PlanABaseVisitor<Void> {
     static void analyze(final Adapter adapter) {
@@ -615,7 +611,12 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
 
         nullemd.isNull = true;
-        nullemd.from = standard.objectType;
+
+        if (nullemd.to != null && nullemd.to.metadata.object) {
+            nullemd.from = nullemd.to;
+        } else {
+            nullemd.from = standard.objectType;
+        }
 
         caster.markCast(nullemd);
 
@@ -987,11 +988,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 } else {
                     compemd.preConst = expremd0.postConst != expremd1.postConst;
                 }
-            } else {
-                throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
-            }
-
-            if (ctx.GTE() != null) {
+            } else if (ctx.GTE() != null) {
                 if (metadata == TypeMetadata.INT) {
                     compemd.preConst = (int)expremd0.postConst >= (int)expremd1.postConst;
                 } else if (metadata == TypeMetadata.LONG) {
