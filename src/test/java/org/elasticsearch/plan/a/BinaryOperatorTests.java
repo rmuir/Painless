@@ -44,14 +44,14 @@ public class BinaryOperatorTests extends ScriptTestCase {
         assertEquals(9 ^ 3L, exec("return 9 ^ 3L;"));
     }
     
-    @AwaitsFix(bugUrl = "https://github.com/elastic/Painless/issues/7")
     public void testLongShifts() {
+        // note: we always promote the results of shifts too (unlike java)
         assertEquals(1L << 2, exec("return 1L << 2;"));
-        assertEquals(1 << 2L, exec("return 1 << 2L;"));
-        assertEquals(4 >> 2L, exec("return 4 >> 2L;"));
+        assertEquals(1L << 2L, exec("return 1 << 2L;"));
+        assertEquals(4L >> 2L, exec("return 4 >> 2L;"));
         assertEquals(4L >> 2, exec("return 4L >> 2;"));
         assertEquals(-1L >>> 29, exec("return -1L >>> 29;"));
-        assertEquals(-1 >>> 29L, exec("return -1 >>> 29L;"));
+        assertEquals(-1L >>> 29L, exec("return -1 >>> 29L;"));
     }
     
     public void testMixedTypes() {

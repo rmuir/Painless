@@ -641,6 +641,18 @@ class Writer extends PlanABaseVisitor<Void> {
 
             final TypeMetadata metadata = binaryemd.from.metadata;
 
+            // if its a 64-bit shift, fixup the last argument to truncate to 32-bits
+            // note unlike java, this means we still do binary promotion of shifts,
+            // but it keeps things simple
+
+            if (ctx.LSH() != null || ctx.USH() != null || ctx.RSH() != null) {
+                // if expr1 is 64 bits
+                ExpressionMetadata arg = adapter.getExpressionMetadata(expr1);
+                if (arg.cast.to.metadata == TypeMetadata.LONG) {
+                   execute.visitInsn(Opcodes.L2I);
+                }
+            }
+
             if      (ctx.MUL()   != null) writeBinaryInstruction(ctx, metadata, MUL);
             else if (ctx.DIV()   != null) writeBinaryInstruction(ctx, metadata, DIV);
             else if (ctx.REM()   != null) writeBinaryInstruction(ctx, metadata, REM);
