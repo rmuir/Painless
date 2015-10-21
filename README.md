@@ -2,4 +2,11 @@
 An easy, safe and fast scripting language for Elasticsearch
 
 # Get started
-Use `run.sh` (unix) or `run.bat` (windows) to start a node on `localhost:9200` with `plan-a` scripting language installed.
+```
+git clone git@github.com:elastic/Painless.git
+./run.sh # unix
+run.bat # windows
+```
+
+This starts a node on `localhost:9200` with `plan-a` language.
+It takes a minute, it needs to build and test first.
