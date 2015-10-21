@@ -1061,7 +1061,7 @@ class External {
 
             current = read ? type : standard.voidType;
         } else {
-            segments.add(new ArraySegment(source, current, false));
+            segments.add(new ArraySegment(source, type, false));
             current = type;
         }
     }

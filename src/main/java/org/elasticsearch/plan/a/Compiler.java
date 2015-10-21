@@ -135,13 +135,13 @@ final class Compiler {
     private static Executable createExecutable(String name, String source, ClassLoader parent, byte[] bytes) {
         try {
             // for debugging:
-            // try {
-            //    FileOutputStream f = new FileOutputStream(new File("/Users/jdconrad/lang/generated/out.class"), false);
-            //    f.write(bytes);
-            //    f.close();
-            // } catch (Exception e) {
-            //    throw new RuntimeException(e);
-            // }
+             try {
+                FileOutputStream f = new FileOutputStream(new File("/Users/jdconrad/lang/generated/out.class"), false);
+                f.write(bytes);
+                f.close();
+             } catch (Exception e) {
+                throw new RuntimeException(e);
+             }
 
             final Loader loader = new Loader(parent);
             final Class<? extends Executable> clazz = loader.define(Writer.CLASS_NAME, bytes);

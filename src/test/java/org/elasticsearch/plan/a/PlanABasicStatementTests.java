@@ -72,7 +72,6 @@ public class PlanABasicStatementTests extends ESTestCase {
         assertEquals(3, value);
     }
 
-    @AwaitsFix(bugUrl = "jack look at this")
     public void testWhileStatement() throws Exception {
         Object value;
 
@@ -80,25 +79,26 @@ public class PlanABasicStatementTests extends ESTestCase {
         assertEquals("aaaaaa", value);
 
         value = testScript("testWhile",
-                "int[][] b = int.makearray(5, 5);\n" +
-                "byte x = 0, y = 0;\n" +
-                "\n" +
-                "while (x < 5) {\n" +
-                "    while (y < 5) {\n" +
-                "        b[x][y] = (x*y);\n" +
-                "        ++y;\n" +
-                "    }\n" +
-                "    \n" +
-                "    ++x;\n" +
-                "}\n" +
-                "\n" +
-                "return b;");
+                " int[][] b = int.makearray(5, 5); \n" +
+                " int x = 0, y;                    \n" +
+                "                                  \n" +
+                " while (x < 5) {                  \n" +
+                "     y = 0;                       \n" +
+                "                                  \n" +
+                "     while (y < 5) {              \n" +
+                "         b[x][y] = x*y;           \n" +
+                "         ++y;                     \n" +
+                "     }                            \n" +
+                "                                  \n" +
+                "     ++x;                         \n" +
+                " }                                \n" +
+                "                                  \n" +
+                " return b;                        \n");
 
         int[][] b = (int[][])value;
 
         for (byte x = 0; x < 5; ++x) {
             for (byte y = 0; y < 5; ++y) {
-                System.out.println(x + " " + y + " : " + b[x][y]);
                 assertEquals(x*y, b[x][y]);
             }
         }
