@@ -19,44 +19,15 @@ package org.elasticsearch.plan.a;
  * under the License.
  */
 
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.script.CompiledScript;
-import org.elasticsearch.script.ScriptService;
-import org.elasticsearch.test.ESTestCase;
-import org.junit.Before;
-
-public class BasicStatementTests extends ESTestCase {
-    private PlanAScriptEngineService se;
-
-    @Before
-    public void setup() {
-        se = new PlanAScriptEngineService(Settings.Builder.EMPTY_SETTINGS);
-    }
-
-    public Object testScript(final String test, final String script) {
-        final Object object = se.compile(script);
-        final CompiledScript compiled = new CompiledScript(ScriptService.ScriptType.INLINE, test, "plan-a", object);
-        final Object value = se.executable(compiled, null).run();
-
-        return value;
-    }
+public class BasicStatementTests extends ScriptTestCase {
 
     public void testIfStatement() {
-        Object value;
+        assertEquals(1, exec("int x = 5; if (x == 5) return 1; return 0;"));
+        assertEquals(0, exec("int x = 4; if (x == 5) return 1; else return 0;"));
+        assertEquals(2, exec("int x = 4; if (x == 5) return 1; else if (x == 4) return 2; else return 0;"));
+        assertEquals(1, exec("int x = 4; if (x == 5) return 1; else if (x == 4) return 1; else return 0;"));
 
-        value = testScript("testIfStatement", "int x = 5; if (x == 5) return 1; return 0;");
-        assertEquals(1, value);
-
-        value = testScript("testIfStatement", "int x = 4; if (x == 5) return 1; else return 0;");
-        assertEquals(0, value);
-
-        value = testScript("testIfStatement", "int x = 4; if (x == 5) return 1; else if (x == 4) return 2; else return 0;");
-        assertEquals(2, value);
-
-        value = testScript("testIfStatement", "int x = 4; if (x == 5) return 1; else if (x == 4) return 1; else return 0;");
-        assertEquals(1, value);
-
-        value = testScript("testIfStatement",
+        assertEquals(3, exec(
                 "int x = 5;\n" +
                 "if (x == 5) {\n" +
                 "    int y = 2;\n" +
@@ -67,17 +38,14 @@ public class BasicStatementTests extends ESTestCase {
                 "    \n" +
                 "}\n" +
                 "\n" +
-                "return x;\n");
-        assertEquals(3, value);
+                "return x;\n"));
     }
 
     public void testWhileStatement() throws Exception {
-        Object value;
 
-        value = testScript("testWhile", "string c = \"a\"; int x; while (x < 5) { c ..= \"a\"; ++x; } return c;");
-        assertEquals("aaaaaa", value);
+        assertEquals("aaaaaa", exec("string c = \"a\"; int x; while (x < 5) { c ..= \"a\"; ++x; } return c;"));
 
-        value = testScript("testWhile",
+        Object value = exec(
                 " int[][] b = int.makearray(5, 5); \n" +
                 " int x = 0, y;                    \n" +
                 "                                  \n" +
