@@ -1,5 +1,11 @@
 package org.elasticsearch.plan.a;
 
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.security.CodeSource;
+import java.security.SecureClassLoader;
+import java.security.cert.Certificate;
+
 /*
  * Licensed to Elasticsearch under one or more contributor
  * license agreements. See the NOTICE file distributed with
@@ -19,27 +25,35 @@ package org.elasticsearch.plan.a;
  * under the License.
  */
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.util.Properties;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.elasticsearch.common.SuppressForbidden;
+import org.elasticsearch.bootstrap.BootstrapInfo;
 
 import static org.elasticsearch.plan.a.Default.*;
 import static org.elasticsearch.plan.a.Definition.*;
 
-@SuppressForbidden(reason = "some of this is for debugging")
 final class Compiler {
-    private static class Loader extends ClassLoader {
+    /** we define the class with lowest privileges */
+    private static final CodeSource CODESOURCE;
+
+    static {
+        try {
+            CODESOURCE = new CodeSource(new URL("file:" + BootstrapInfo.UNTRUSTED_CODEBASE), (Certificate[]) null);
+        } catch (MalformedURLException impossible) {
+            throw new RuntimeException(impossible);
+        }
+    }
+
+    private static class Loader extends SecureClassLoader {
         Loader(ClassLoader parent) {
             super(parent);
         }
 
-        public Class<? extends Executable> define(String name, byte[] bytes) {
-            return defineClass(name, bytes, 0, bytes.length).asSubclass(Executable.class);
+        Class<? extends Executable> define(String name, byte[] bytes) {
+            return defineClass(name, bytes, 0, bytes.length, CODESOURCE).asSubclass(Executable.class);
         }
     }
 
@@ -81,7 +95,7 @@ final class Compiler {
 
         Analyzer.analyze(adapter);
         adapter.decrementScope();
-        System.out.println(root.toStringTree(parser));
+        // System.out.println(root.toStringTree(parser));
 
         //end = System.currentTimeMillis() - start;
         //System.out.println("analyze: " + end);
@@ -114,7 +128,7 @@ final class Compiler {
         parser.setErrorHandler(strategy);
 
         ParserRuleContext root = parser.source();
-        System.out.println(root.toStringTree(parser));
+        // System.out.println(root.toStringTree(parser));
         return root;
     }
 
