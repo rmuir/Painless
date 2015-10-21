@@ -19,281 +19,113 @@ package org.elasticsearch.plan.a;
  * under the License.
  */
 
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.script.CompiledScript;
-import org.elasticsearch.script.ScriptService;
-import org.elasticsearch.test.ESTestCase;
-import org.junit.Before;
-
-import java.util.Map;
-
-public class BasicExpressionTests extends ESTestCase {
-    private PlanAScriptEngineService se;
-
-    @Before
-    public void setup() {
-        se = new PlanAScriptEngineService(Settings.Builder.EMPTY_SETTINGS);
-    }
-
-    public Object testScript(final String test, final String script, final Map<String, Object> vars) {
-        final Object object = se.compile(script);
-        final CompiledScript compiled = new CompiledScript(ScriptService.ScriptType.INLINE, test, "plan-a", object);
-        final Object value = se.executable(compiled, vars).run();
-
-        return value;
-    }
+public class BasicExpressionTests extends ScriptTestCase {
 
     public void testPrecedence() {
-        Object value;
-
-        value = testScript("testPrecedence", "int x = 5; return (x+x)/x;", null);
-        assertEquals(2, value);
-
-        value = testScript("testPrecedence", "bool t = true, f = false; return t && (f || t);", null);
-        assertEquals(true, value);
+        assertEquals(2, exec("int x = 5; return (x+x)/x;"));
+        assertEquals(true, exec("bool t = true, f = false; return t && (f || t);"));
     }
 
     public void testConstant() {
-        Object value;
-
-        value = testScript("testConstant", "return 5;", null);
-        assertEquals(5, value);
-
-        value = testScript("testConstant", "return 7L;", null);
-        assertEquals(7L, value);
-
-        value = testScript("testConstant", "return 7.0;", null);
-        assertEquals(7.0, value);
-
-        value = testScript("testConstant", "return 32.0F;", null);
-        assertEquals(32.0F, value);
-
-        value = testScript("testConstant", "return \"string\";", null);
-        assertEquals("string", value);
-
-        value = testScript("testConstant", "return true;", null);
-        assertEquals(true, value);
-
-        value = testScript("testConstant", "return false;", null);
-        assertEquals(false, value);
-
-        value = testScript("testConstant", "return null;", null);
-        assertNull(value);
+        assertEquals(5, exec("return 5;"));
+        assertEquals(7L, exec("return 7L;"));
+        assertEquals(7.0, exec("return 7.0;"));
+        assertEquals(32.0F, exec("return 32.0F;"));
+        assertEquals("string", exec("return \"string\";"));
+        assertEquals(true, exec("return true;"));
+        assertEquals(false, exec("return false;"));
+        assertNull(exec("return null;"));
     }
 
     public void testIncrement() {
-        Object value;
-
-        value = testScript("testIncrement", "int x = 0; return x++;", null);
-        assertEquals(0, value);
-
-        value = testScript("testIncrement", "int x = 0; return x--;", null);
-        assertEquals(0, value);
-
-        value = testScript("testIncrement", "int x = 0; return ++x;", null);
-        assertEquals(1, value);
-
-        value = testScript("testIncrement", "int x = 0; return --x;", null);
-        assertEquals(-1, value);
+        assertEquals(0, exec("int x = 0; return x++;"));
+        assertEquals(0, exec("int x = 0; return x--;"));
+        assertEquals(1, exec("int x = 0; return ++x;"));
+        assertEquals(-1, exec("int x = 0; return --x;"));
     }
 
     public void testUnary() {
-        Object value;
-
-        value = testScript("testUnary", "return !true;", null);
-        assertEquals(false, value);
-
-        value = testScript("testUnary", "bool x = false; return !x;", null);
-        assertEquals(true, value);
-
-        value = testScript("testUnary", "return ~1;", null);
-        assertEquals(-2, value);
-
-        value = testScript("testUnary", "byte x = 1; return ~x;", null);
-        assertEquals(-2, value);
-
-        value = testScript("testUnary", "return +1;", null);
-        assertEquals(1, value);
-
-        value = testScript("testUnary", "double x = 1; return +x;", null);
-        assertEquals(1.0, value);
-
-        value = testScript("testUnary", "return -1;", null);
-        assertEquals(-1, value);
-
-        value = testScript("testUnary", "short x = 2; return -x;", null);
-        assertEquals(-2, value);
+        assertEquals(false, exec("return !true;"));
+        assertEquals(true, exec("bool x = false; return !x;"));
+        assertEquals(-2, exec("return ~1;"));
+        assertEquals(-2, exec("byte x = 1; return ~x;"));
+        assertEquals(1, exec("return +1;"));
+        assertEquals(1.0, exec("double x = 1; return +x;"));
+        assertEquals(-1, exec("return -1;"));
+        assertEquals(-2, exec("short x = 2; return -x;"));
     }
 
     public void testCast() {
-        Object value;
+        assertEquals(1, exec("return (int)true;"));
+        assertEquals((byte)100, exec("double x = 100; return (byte)x;"));
 
-        value = testScript("testCast", "return (int)true;", null);
-        assertEquals(1, value);
-
-        value = testScript("testCast", "double x = 100; return (byte)x;", null);
-        assertEquals((byte)100, value);
-
-        value = testScript("testCast",
+        assertEquals(3, exec(
                 "map x = hashmap.new();\n" +
                 "object y = x;\n" +
                 "((map)y).put(2, 3);\n" +
-                "return x.get(2);\n",
-                null);
-        assertEquals(3, value);
+                "return x.get(2);\n"));
     }
 
     public void testCat() {
-        Object value;
+        assertEquals("aaabbb", exec("return \"aaa\" .. \"bbb\";"));
+        assertEquals("aaabbb", exec("string aaa = \"aaa\", bbb = \"bbb\"; return aaa .. bbb;"));
 
-        value = testScript("testCast", "return \"aaa\" .. \"bbb\";", null);
-        assertEquals("aaabbb", value);
-
-        value = testScript("testCast", "string aaa = \"aaa\", bbb = \"bbb\"; return aaa .. bbb;", null);
-        assertEquals("aaabbb", value);
-
-        value = testScript("testCast",
+        assertEquals("aaabbbbbbbbb", exec(
                 "string aaa = \"aaa\", bbb = \"bbb\"; int x;\n" +
                 "for (; x < 3; ++x) \n" +
                 "    aaa ..= bbb;\n" +
-                "return aaa;",
-                null);
-        assertEquals("aaabbbbbbbbb", value);
+                "return aaa;"));
     }
 
     public void testBinary() {
-        Object value;
-
-        value = testScript("testBinary", "return 2 * 3;", null);
-        assertEquals(6, value);
-
-        value = testScript("testBinary", "int x = 4; char y = 2; return x*y;", null);
-        assertEquals(8, value);
-
-        value = testScript("testBinary", "return 2.25F / 1.5F;", null);
-        assertEquals(1.5F, value);
-
-        value = testScript("testBinary", "double x = 1; float y = 2; return x / y;", null);
-        assertEquals(0.5, value);
-
-        value = testScript("testBinary", "return 2.25F % 1.5F;", null);
-        assertEquals(0.75F, value);
-
-        value = testScript("testBinary", "int x = 3; int y = 2; return x % y;", null);
-        assertEquals(1, value);
-
-        value = testScript("testBinary", "return 1 + 2;", null);
-        assertEquals(3, value);
-
-        value = testScript("testBinary", "double x = 1; byte y = 2; return x + y;", null);
-        assertEquals(3.0, value);
-
-        value = testScript("testBinary", "return 2 - 1;", null);
-        assertEquals(1, value);
-
-        value = testScript("testBinary", "int x = 1; char y = 2; return x - y;", null);
-        assertEquals(-1, value);
-
-        value = testScript("testBinary", "return 1 << 2;", null);
-        assertEquals(4, value);
-
-        value = testScript("testBinary", "int x = 1; char y = 2; return x << y;", null);
-        assertEquals(4, value);
-
-        value = testScript("testBinary", "return 4 >> 2;", null);
-        assertEquals(1, value);
-
-        value = testScript("testBinary", "int x = -1; char y = 29; return x >> y;", null);
-        assertEquals(-1, value);
-
-        value = testScript("testBinary", "return -1 >>> 29;", null);
-        assertEquals(7, value);
-
-        value = testScript("testBinary", "int x = -1; char y = 30; return x >>> y;", null);
-        assertEquals(3, value);
-
-        value = testScript("testBinary", "return 5L & 3;", null);
-        assertEquals(1L, value);
-
-        value = testScript("testBinary", "int x = 5; long y = 3; return x & y;", null);
-        assertEquals(1L, value);
-
-        value = testScript("testBinary", "return 5 | 3;", null);
-        assertEquals(7, value);
-
-        value = testScript("testBinary", "short x = 5; byte y = 3; return x | y;", null);
-        assertEquals(7, value);
-
-        value = testScript("testBinary", "return 9 ^ 3;", null);
-        assertEquals(10, value);
-
-        value = testScript("testBinary", "short x = 9; char y = 3; return x ^ y;", null);
-        assertEquals(10, value);
+        assertEquals(6, exec("return 2 * 3;"));
+        assertEquals(8, exec("int x = 4; char y = 2; return x*y;"));
+        assertEquals(1.5F, exec("return 2.25F / 1.5F;"));
+        assertEquals(0.5, exec("double x = 1; float y = 2; return x / y;"));
+        assertEquals(0.75F, exec("return 2.25F % 1.5F;"));
+        assertEquals(1, exec("int x = 3; int y = 2; return x % y;"));
+        assertEquals(3, exec("return 1 + 2;"));
+        assertEquals(3.0, exec("double x = 1; byte y = 2; return x + y;"));
+        assertEquals(1, exec("return 2 - 1;"));
+        assertEquals(-1, exec("int x = 1; char y = 2; return x - y;"));
+        assertEquals(4, exec("return 1 << 2;"));
+        assertEquals(4, exec("int x = 1; char y = 2; return x << y;"));
+        assertEquals(1, exec("return 4 >> 2;"));
+        assertEquals(-1, exec("int x = -1; char y = 29; return x >> y;"));
+        assertEquals(7, exec("return -1 >>> 29;"));
+        assertEquals(3, exec("int x = -1; char y = 30; return x >>> y;"));
+        assertEquals(1L, exec("return 5L & 3;"));
+        assertEquals(1L, exec("int x = 5; long y = 3; return x & y;"));
+        assertEquals(7, exec("return 5 | 3;"));
+        assertEquals(7, exec("short x = 5; byte y = 3; return x | y;"));
+        assertEquals(10, exec("return 9 ^ 3;"));
+        assertEquals(10, exec("short x = 9; char y = 3; return x ^ y;"));
     }
 
     public void testComp() {
-        Object value;
-
-        value = testScript("testComp", "return 2 < 3;", null);
-        assertEquals(true, value);
-
-        value = testScript("testComp", "int x = 4; char y = 2; return x < y;", null);
-        assertEquals(false, value);
-
-        value = testScript("testComp", "return 3 <= 3;", null);
-        assertEquals(true, value);
-
-        value = testScript("testComp", "int x = 3; char y = 3; return x <= y;", null);
-        assertEquals(true, value);
-
-        value = testScript("testComp", "return 2 > 3;", null);
-        assertEquals(false, value);
-
-        value = testScript("testComp", "int x = 4; long y = 2; return x > y;", null);
-        assertEquals(true, value);
-
-        value = testScript("testComp", "return 3 >= 4;", null);
-        assertEquals(false, value);
-
-        value = testScript("testComp", "double x = 3; float y = 3; return x >= y;", null);
-        assertEquals(true, value);
-
-        value = testScript("testComp", "return 3 == 4;", null);
-        assertEquals(false, value);
-
-        value = testScript("testComp", "double x = 3; float y = 3; return x == y;", null);
-        assertEquals(true, value);
-
-        value = testScript("testComp", "return 3 != 4;", null);
-        assertEquals(true, value);
-
-        value = testScript("testComp", "double x = 3; float y = 3; return x != y;", null);
-        assertEquals(false, value);
+        assertEquals(true, exec("return 2 < 3;"));
+        assertEquals(false, exec("int x = 4; char y = 2; return x < y;"));
+        assertEquals(true, exec("return 3 <= 3;"));
+        assertEquals(true, exec("int x = 3; char y = 3; return x <= y;"));
+        assertEquals(false, exec("return 2 > 3;"));
+        assertEquals(true, exec("int x = 4; long y = 2; return x > y;"));
+        assertEquals(false, exec("return 3 >= 4;"));
+        assertEquals(true, exec("double x = 3; float y = 3; return x >= y;"));
+        assertEquals(false, exec("return 3 == 4;"));
+        assertEquals(true, exec("double x = 3; float y = 3; return x == y;"));
+        assertEquals(true, exec("return 3 != 4;"));
+        assertEquals(false, exec("double x = 3; float y = 3; return x != y;"));
     }
 
     public void testBool() {
-        Object value;
-
-        value = testScript("testBool", "return true && true;", null);
-        assertEquals(true, value);
-
-        value = testScript("testBool", "bool a = true, b = false; return a && b;", null);
-        assertEquals(false, value);
-
-        value = testScript("testBool", "return true || true;", null);
-        assertEquals(true, value);
-
-        value = testScript("testBool", "bool a = true, b = false; return a || b;", null);
-        assertEquals(true, value);
+        assertEquals(true, exec("return true && true;"));
+        assertEquals(false, exec("bool a = true, b = false; return a && b;"));
+        assertEquals(true, exec("return true || true;"));
+        assertEquals(true, exec("bool a = true, b = false; return a || b;"));
     }
 
     public void testConditional() {
-        Object value;
-
-        value = testScript("testConditional", "int x = 5; return x > 3 ? 1 : 0;", null);
-        assertEquals(1, value);
-
-        value = testScript("testConditional", "string a = null; return a != null ? 1 : 0;", null);
-        assertEquals(0, value);
+        assertEquals(1, exec("int x = 5; return x > 3 ? 1 : 0;"));
+        assertEquals(0, exec("string a = null; return a != null ? 1 : 0;"));
     }
 }
