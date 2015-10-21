@@ -43,7 +43,7 @@ public class BasicStatementTests extends ScriptTestCase {
 
     public void testWhileStatement() throws Exception {
 
-        assertEquals("aaaaaa", exec("string c = \"a\"; int x; while (x < 5) { c ..= \"a\"; ++x; } return c;"));
+        //assertEquals("aaaaaa", exec("string c = \"a\"; int x; while (x < 5) { c ..= \"a\"; ++x; } return c;"));
 
         Object value = exec(
                 " byte[][] b = byte.makearray(5, 5); \n" +

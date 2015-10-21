@@ -193,10 +193,10 @@ class External {
         void write() {
             switch (type.metadata) {
                 case VOID:   throw new IllegalStateException(error(source) + "Unexpected state during write.");
+                case BYTE:   visitor.visitInsn(store ? Opcodes.BASTORE : Opcodes.BALOAD); break;
+                case SHORT:  visitor.visitInsn(store ? Opcodes.SASTORE : Opcodes.SALOAD); break;
+                case CHAR:   visitor.visitInsn(store ? Opcodes.CASTORE : Opcodes.CALOAD); break;
                 case BOOL:
-                case BYTE:
-                case SHORT:
-                case CHAR:
                 case INT:    visitor.visitInsn(store ? Opcodes.IASTORE : Opcodes.IALOAD); break;
                 case LONG:   visitor.visitInsn(store ? Opcodes.LASTORE : Opcodes.LALOAD); break;
                 case FLOAT:  visitor.visitInsn(store ? Opcodes.FASTORE : Opcodes.FALOAD); break;
