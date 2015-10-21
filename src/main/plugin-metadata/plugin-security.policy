@@ -20,7 +20,4 @@
 grant {
   // needed to generate runtime classes
   permission java.lang.RuntimePermission "createClassLoader";
-
-  // needed for debugging
-  permission java.io.FilePermission "*", "write";
 };
