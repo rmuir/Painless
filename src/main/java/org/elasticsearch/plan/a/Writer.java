@@ -539,9 +539,32 @@ class Writer extends PlanABaseVisitor<Void> {
     public Void visitUnary(final UnaryContext ctx) {
         final ExpressionMetadata unaryemd = adapter.getExpressionMetadata(ctx);
         final Object postConst = unaryemd.postConst;
+        final Object preConst = unaryemd.preConst;
         final Branch branch = adapter.getBranch(ctx);
 
-        if (postConst == null) {
+        if (postConst != null) {
+            if (ctx.BOOLNOT() != null) {
+                if (branch == null) {
+                    writeConstant(ctx, postConst);
+                } else {
+                    if ((boolean)postConst && branch.tru != null) {
+                        execute.visitJumpInsn(Opcodes.GOTO, branch.tru);
+                    } else if (!(boolean)postConst && branch.fals != null) {
+                        execute.visitJumpInsn(Opcodes.GOTO, branch.fals);
+                    }
+                }
+            } else {
+                writeConstant(ctx, postConst);
+                adapter.checkWriteBranch(execute, ctx);
+            }
+        } else if (preConst != null) {
+            if (branch == null) {
+                writeConstant(ctx, preConst);
+                caster.checkWriteCast(execute, unaryemd);
+            } else {
+                throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+            }
+        } else {
             final ExpressionContext exprctx = ctx.expression();
 
             if (ctx.BOOLNOT() != null) {
@@ -590,21 +613,6 @@ class Writer extends PlanABaseVisitor<Void> {
                 caster.checkWriteCast(execute, unaryemd);
                 adapter.checkWriteBranch(execute, ctx);
             }
-        } else {
-            if (ctx.BOOLNOT() != null) {
-                if (branch == null) {
-                    writeConstant(ctx, postConst);
-                } else {
-                    if ((boolean)postConst && branch.tru != null) {
-                        execute.visitJumpInsn(Opcodes.GOTO, branch.tru);
-                    } else if (!(boolean)postConst && branch.fals != null) {
-                        execute.visitJumpInsn(Opcodes.GOTO, branch.fals);
-                    }
-                }
-            } else {
-                writeConstant(ctx, postConst);
-                adapter.checkWriteBranch(execute, ctx);
-            }
         }
 
         return null;
@@ -631,8 +639,20 @@ class Writer extends PlanABaseVisitor<Void> {
     public Void visitBinary(final BinaryContext ctx) {
         final ExpressionMetadata binaryemd = adapter.getExpressionMetadata(ctx);
         final Object postConst = binaryemd.postConst;
+        final Object preConst = binaryemd.preConst;
+        final Branch branch = adapter.getBranch(ctx);
 
-        if (postConst == null) {
+        if (postConst != null) {
+            writeConstant(ctx, postConst);
+        } else if (preConst != null) {
+            if (branch == null) {
+                writeConstant(ctx, preConst);
+                caster.checkWriteCast(execute, binaryemd);
+            } else {
+                throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+            }
+        } else {
+            writeConstant(ctx, postConst);
             final ExpressionContext expr0 = ctx.expression(0);
             final ExpressionContext expr1 = ctx.expression(1);
 
@@ -649,7 +669,7 @@ class Writer extends PlanABaseVisitor<Void> {
                 // if expr1 is 64 bits
                 ExpressionMetadata arg = adapter.getExpressionMetadata(expr1);
                 if (arg.cast.to.metadata == TypeMetadata.LONG) {
-                   execute.visitInsn(Opcodes.L2I);
+                    execute.visitInsn(Opcodes.L2I);
                 }
             }
 
@@ -669,8 +689,6 @@ class Writer extends PlanABaseVisitor<Void> {
             }
 
             caster.checkWriteCast(execute, binaryemd);
-        } else {
-            writeConstant(ctx, postConst);
         }
 
         adapter.checkWriteBranch(execute, ctx);
@@ -682,9 +700,27 @@ class Writer extends PlanABaseVisitor<Void> {
     public Void visitComp(final CompContext ctx) {
         final ExpressionMetadata compemd = adapter.getExpressionMetadata(ctx);
         final Object postConst = compemd.postConst;
+        final Object preConst = compemd.preConst;
         final Branch branch = adapter.getBranch(ctx);
 
-        if (postConst == null) {
+        if (postConst != null) {
+            if (branch == null) {
+                writeConstant(ctx, postConst);
+            } else {
+                if ((boolean)postConst && branch.tru != null) {
+                    execute.visitLabel(branch.tru);
+                } else if (!(boolean)postConst && branch.fals != null) {
+                    execute.visitLabel(branch.fals);
+                }
+            }
+        } else if (preConst != null) {
+            if (branch == null) {
+                writeConstant(ctx, preConst);
+                caster.checkWriteCast(execute, compemd);
+            } else {
+                throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+            }
+        } else {
             final ExpressionContext exprctx0 = ctx.expression(0);
             final ExpressionContext exprctx1 = ctx.expression(1);
             final ExpressionMetadata expremd1 = adapter.getExpressionMetadata(exprctx1);
@@ -800,16 +836,6 @@ class Writer extends PlanABaseVisitor<Void> {
 
                 caster.checkWriteCast(execute, compemd);
             }
-        } else {
-            if (branch == null) {
-                writeConstant(ctx, postConst);
-            } else {
-                if ((boolean)postConst && branch.tru != null) {
-                    execute.visitLabel(branch.tru);
-                } else if (!(boolean)postConst && branch.fals != null) {
-                    execute.visitLabel(branch.fals);
-                }
-            }
         }
 
         return null;
@@ -819,9 +845,27 @@ class Writer extends PlanABaseVisitor<Void> {
     public Void visitBool(final BoolContext ctx) {
         final ExpressionMetadata boolemd = adapter.getExpressionMetadata(ctx);
         final Object postConst = boolemd.postConst;
+        final Object preConst = boolemd.preConst;
         final Branch branch = adapter.getBranch(ctx);
 
-        if (postConst == null) {
+        if (postConst != null) {
+            if (branch == null) {
+                writeConstant(ctx, postConst);
+            } else {
+                if ((boolean)postConst && branch.tru != null) {
+                    execute.visitLabel(branch.tru);
+                } else if (!(boolean)postConst && branch.fals != null) {
+                    execute.visitLabel(branch.fals);
+                }
+            }
+        } else if (preConst != null) {
+            if (branch == null) {
+                writeConstant(ctx, preConst);
+                caster.checkWriteCast(execute, boolemd);
+            } else {
+                throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+            }
+        } else {
             final ExpressionContext exprctx0 = ctx.expression(0);
             final ExpressionContext exprctx1 = ctx.expression(1);
 
@@ -889,16 +933,6 @@ class Writer extends PlanABaseVisitor<Void> {
                     }
                 } else {
                     throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
-                }
-            }
-        } else {
-            if (branch == null) {
-                writeConstant(ctx, postConst);
-            } else {
-                if ((boolean)postConst && branch.tru != null) {
-                    execute.visitLabel(branch.tru);
-                } else if (!(boolean)postConst && branch.fals != null) {
-                    execute.visitLabel(branch.fals);
                 }
             }
         }
