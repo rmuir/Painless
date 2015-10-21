@@ -298,16 +298,21 @@ class External {
 
     private class AppendStringsSegment extends Segment {
         private final Type type;
+        private final boolean force;
 
-        AppendStringsSegment(final ParserRuleContext source, final Type type) {
+        AppendStringsSegment(final ParserRuleContext source, final Type type, final boolean force) {
             super(source);
 
             this.type = type;
+            this.force = force;
         }
 
         @Override
         void write() {
-            writer.writeAppendStrings(source, type.metadata);
+            if (force || adapter.getStrings(source)) {
+                writer.writeAppendStrings(source, type.metadata);
+                adapter.unmarkStrings(source);
+            }
         }
     }
 
@@ -665,9 +670,9 @@ class External {
                 final Cast cast = caster.getLegalCast(source, standard.stringType, type, false);
 
                 segments.add(new VariableSegment(source, variable, false));
-                segments.add(new AppendStringsSegment(source, type));
+                segments.add(new AppendStringsSegment(source, type, true));
                 segments.add(new NodeSegment(write));
-                segments.add(new AppendStringsSegment(write, writeemd.to));
+                segments.add(new AppendStringsSegment(write, writeemd.to, false));
                 segments.add(new ToStringsSegment(source));
                 segments.add(new CastSegment(source, cast));
 
@@ -796,9 +801,9 @@ class External {
 
                     segments.add(new InstructionSegment(source, Opcodes.DUP_X1));
                     segments.add(new FieldSegment(source, field, false));
-                    segments.add(new AppendStringsSegment(source, type));
+                    segments.add(new AppendStringsSegment(source, type, true));
                     segments.add(new NodeSegment(write));
-                    segments.add(new AppendStringsSegment(write, writeemd.to));
+                    segments.add(new AppendStringsSegment(write, writeemd.to, false));
                     segments.add(new ToStringsSegment(source));
                     segments.add(new CastSegment(source, cast));
 
@@ -988,9 +993,9 @@ class External {
 
                 segments.add(new InstructionSegment(source, Opcodes.DUP2_X1));
                 segments.add(new ArraySegment(source, type, false));
-                segments.add(new AppendStringsSegment(source, type));
+                segments.add(new AppendStringsSegment(source, type, true));
                 segments.add(new NodeSegment(write));
-                segments.add(new AppendStringsSegment(write, writeemd.to));
+                segments.add(new AppendStringsSegment(write, writeemd.to, false));
                 segments.add(new ToStringsSegment(source));
                 segments.add(new CastSegment(source, cast));
 
