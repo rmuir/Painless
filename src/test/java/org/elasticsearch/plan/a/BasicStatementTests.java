@@ -46,21 +46,72 @@ public class BasicStatementTests extends ScriptTestCase {
         assertEquals("aaaaaa", exec("string c = \"a\"; int x; while (x < 5) { c ..= \"a\"; ++x; } return c;"));
 
         Object value = exec(
+                " byte[][] b = byte.makearray(5, 5); \n" +
+                " byte x = 0, y;                     \n" +
+                "                                    \n" +
+                " while (x < 5) {                    \n" +
+                "     y = 0;                         \n" +
+                "                                    \n" +
+                "     while (y < 5) {                \n" +
+                "         b[x][y] = (byte)(x*y);     \n" +
+                "         ++y;                       \n" +
+                "     }                              \n" +
+                "                                    \n" +
+                "     ++x;                           \n" +
+                " }                                  \n" +
+                "                                    \n" +
+                " return b;                          \n");
+
+        byte[][] b = (byte[][])value;
+
+        for (byte x = 0; x < 5; ++x) {
+            for (byte y = 0; y < 5; ++y) {
+                assertEquals(x*y, b[x][y]);
+            }
+        }
+    }
+
+    public void testDoWhileStatement() throws Exception {
+        assertEquals("aaaaaa", exec("string c = \"a\"; int x; do { c ..= \"a\"; ++x; } while (x < 5); return c;"));
+
+        Object value = exec(
                 " int[][] b = int.makearray(5, 5); \n" +
                 " int x = 0, y;                    \n" +
                 "                                  \n" +
-                " while (x < 5) {                  \n" +
+                " do {                             \n" +
                 "     y = 0;                       \n" +
                 "                                  \n" +
-                "     while (y < 5) {              \n" +
+                "     do {                         \n" +
                 "         b[x][y] = x*y;           \n" +
                 "         ++y;                     \n" +
-                "     }                            \n" +
+                "     } while (y < 5);             \n" +
                 "                                  \n" +
                 "     ++x;                         \n" +
-                " }                                \n" +
+                " } while (x < 5);                 \n" +
                 "                                  \n" +
                 " return b;                        \n");
+
+        int[][] b = (int[][])value;
+
+        for (byte x = 0; x < 5; ++x) {
+            for (byte y = 0; y < 5; ++y) {
+                assertEquals(x*y, b[x][y]);
+            }
+        }
+    }
+
+    public void testForStatement() throws Exception {
+        assertEquals("aaaaaa", exec("string c = \"a\"; for (int x = 0; x < 5; ++x) c ..= \"a\"; return c;"));
+
+        Object value = exec(
+                " int[][] b = int.makearray(5, 5);  \n" +
+                " for (int x = 0; x < 5; ++x) {     \n" +
+                "     for (int y = 0; y < 5; ++y) { \n" +
+                "         b[x][y] = x*y;            \n" +
+                "     }                             \n" +
+                " }                                 \n" +
+                "                                   \n" +
+                " return b;                         \n");
 
         int[][] b = (int[][])value;
 

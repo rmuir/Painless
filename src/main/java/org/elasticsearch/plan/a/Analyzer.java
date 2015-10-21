@@ -381,7 +381,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             multiplesmd.anyReturn |= statesmd.anyReturn;
             multiplesmd.allBreak = !statesmd.anyReturn && statesmd.allBreak && !statesmd.anyContinue;
             multiplesmd.anyBreak |= statesmd.anyBreak;
-            multiplesmd.allContinue = !statesmd.anyReturn && !statesmd.anyBreak && !statesmd.allContinue;
+            multiplesmd.allContinue = !statesmd.anyReturn && !statesmd.anyBreak && statesmd.allContinue;
             multiplesmd.anyContinue |= statesmd.anyContinue;
         }
 
