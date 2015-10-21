@@ -1,5 +1,7 @@
 package org.elasticsearch.plan.a;
 
+import java.util.Collections;
+
 /*
  * Licensed to Elasticsearch under one or more contributor
  * license agreements. See the NOTICE file distributed with
@@ -115,6 +117,18 @@ public class BasicExpressionTests extends ScriptTestCase {
         assertEquals(true, exec("double x = 3; float y = 3; return x == y;"));
         assertEquals(true, exec("return 3 != 4;"));
         assertEquals(false, exec("double x = 3; float y = 3; return x != y;"));
+    }
+    
+    /** 
+     * Test boxed objects in various places
+     */
+    public void testBoxing() {
+        // return
+        assertEquals(4, exec("return input.get(\"x\");", Collections.singletonMap("x", 4)));
+        // assignment
+        assertEquals(4, exec("int y = (intobj)input.get(\"x\"); return y;", Collections.singletonMap("x", 4)));
+        // comparison
+        assertEquals(true, exec("return 5 > (intobj)input.get(\"x\");", Collections.singletonMap("x", 4)));
     }
 
     public void testBool() {
