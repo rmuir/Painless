@@ -19,39 +19,18 @@
 
 package org.elasticsearch.plan.a;
 
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.script.CompiledScript;
 import org.elasticsearch.script.ExecutableScript;
 import org.elasticsearch.script.ScriptService;
-import org.elasticsearch.test.ESTestCase;
-import org.junit.Before;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.instanceOf;
-
-public class ScriptEngineTests extends ESTestCase {
-
-    private PlanAScriptEngineService se;
-
-    @Before
-    public void setup() {
-        se = new PlanAScriptEngineService(Settings.Builder.EMPTY_SETTINGS);
-    }
-
-    public Object testScript(final String test, final String script, final Map<String, Object> vars) {
-        final Object object = se.compile(script);
-        final CompiledScript compiled = new CompiledScript(ScriptService.ScriptType.INLINE, test, "plan-a", object);
-        final Object value = se.executable(compiled, vars).run();
-
-        return value;
-    }
+public class ScriptEngineTests extends ScriptTestCase {
 
     public void testSimpleEquation() {
-        final Object value = testScript("testSimpleEquation", "return 1 + 2;", null);
+        final Object value = exec("return 1 + 2;");
         assertEquals(3, ((Number)value).intValue());
     }
 
@@ -65,13 +44,12 @@ public class ScriptEngineTests extends ESTestCase {
         obj1.put("l", Arrays.asList("2", "1"));
         vars.put("obj1", obj1);
 
-        Object value = testScript("testMapAccess", "return input.get(\"obj1\");", vars);
-        assertThat(value, instanceOf(Map.class));
+        Object value = exec("return input.get(\"obj1\");", vars);
         obj1 = (Map<String, Object>)value;
         assertEquals("value1", obj1.get("prop1"));
         assertEquals("value2", ((Map<String, Object>) obj1.get("obj2")).get("prop2"));
 
-        value = testScript("testMapAccess", "return ((list)((smap)input.get(\"obj1\")).get(\"l\")).get(0);", vars);
+        value = exec("return ((list)((smap)input.get(\"obj1\")).get(\"l\")).get(0);", vars);
         assertEquals("2", value);
     }
 
@@ -84,19 +62,15 @@ public class ScriptEngineTests extends ESTestCase {
         obj1.put("obj2", obj2);
         vars.put("l", Arrays.asList("1", "2", "3", obj1));
 
-        Object value = testScript("testAccessInScript", "return ((list)input.get(\"l\")).size();", vars);
-        assertThat(((Number)value).intValue(), equalTo(4));
+        assertEquals(4, exec("return ((list)input.get(\"l\")).size();", vars));
+        assertEquals("1", exec("return ((list)input.get(\"l\")).get(0);", vars));
 
-        value = testScript("testAccessInScript", "return ((list)input.get(\"l\")).get(0);", vars);
-        assertThat(value, equalTo("1"));
-
-        value = testScript("testAccessInScript", "return ((list)input.get(\"l\")).get(3);", vars);
+        Object value = exec("return ((list)input.get(\"l\")).get(3);", vars);
         obj1 = (Map<String, Object>)value;
-        assertThat(obj1.get("prop1"), equalTo("value1"));
-        assertThat(((Map<String, Object>)obj1.get("obj2")).get("prop2"), equalTo("value2"));
+        assertEquals("value1", obj1.get("prop1"));
+        assertEquals("value2", ((Map<String, Object>)obj1.get("obj2")).get("prop2"));
 
-        value = testScript("testAccessInScript", "return ((smap)((list)input.get(\"l\")).get(3)).get(\"prop1\");", vars);
-        assertThat(value, equalTo("value1"));
+        assertEquals("value1", exec("return ((smap)((list)input.get(\"l\")).get(3)).get(\"prop1\");", vars));
     }
 
     public void testChangingVarsCrossExecution1() {
@@ -104,8 +78,8 @@ public class ScriptEngineTests extends ESTestCase {
         Map<String, Object> ctx = new HashMap<>();
         vars.put("ctx", ctx);
 
-        Object compiledScript = se.compile("return ((smap)input.get(\"ctx\")).get(\"value\");");
-        ExecutableScript script = se.executable(new CompiledScript(ScriptService.ScriptType.INLINE,
+        Object compiledScript = scriptEngine.compile("return ((smap)input.get(\"ctx\")).get(\"value\");");
+        ExecutableScript script = scriptEngine.executable(new CompiledScript(ScriptService.ScriptType.INLINE,
                 "testChangingVarsCrossExecution1", "plan-a", compiledScript), vars);
 
         ctx.put("value", 1);
@@ -119,9 +93,9 @@ public class ScriptEngineTests extends ESTestCase {
 
     public void testChangingVarsCrossExecution2() {
         Map<String, Object> vars = new HashMap<>();
-        Object compiledScript = se.compile("return input.get(\"value\");");
+        Object compiledScript = scriptEngine.compile("return input.get(\"value\");");
 
-        ExecutableScript script = se.executable(new CompiledScript(ScriptService.ScriptType.INLINE,
+        ExecutableScript script = scriptEngine.executable(new CompiledScript(ScriptService.ScriptType.INLINE,
                 "testChangingVarsCrossExecution2", "plan-a", compiledScript), vars);
 
         script.setNextVar("value", 1);

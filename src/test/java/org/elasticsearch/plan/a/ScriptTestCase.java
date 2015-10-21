@@ -33,11 +33,11 @@ import java.util.Map;
  * Typically just asserts the output of {@code exec()}
  */
 public abstract class ScriptTestCase extends ESTestCase {
-    private PlanAScriptEngineService se;
+    protected PlanAScriptEngineService scriptEngine;
 
     @Before
     public void setup() {
-        se = new PlanAScriptEngineService(Settings.Builder.EMPTY_SETTINGS);
+        scriptEngine = new PlanAScriptEngineService(Settings.Builder.EMPTY_SETTINGS);
     }
 
     /** Compiles and returns the result of {@code script} */
@@ -47,8 +47,8 @@ public abstract class ScriptTestCase extends ESTestCase {
 
     /** Compiles and returns the result of {@code script} with access to {@code vars} */
     public Object exec(String script, Map<String, Object> vars) {
-        Object object = se.compile(script);
+        Object object = scriptEngine.compile(script);
         CompiledScript compiled = new CompiledScript(ScriptService.ScriptType.INLINE, getTestName(), "plan-a", object);
-        return se.executable(compiled, vars).run();
+        return scriptEngine.executable(compiled, vars).run();
     }
 }
