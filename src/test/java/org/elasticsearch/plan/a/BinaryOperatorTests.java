@@ -67,51 +67,6 @@ public class BinaryOperatorTests extends ScriptTestCase {
         assertEquals(7, exec("short x = 5; byte y = 3; return x | y;"));
         assertEquals(10, exec("short x = 9; char y = 3; return x ^ y;"));
     }
-
-    
-    public void testMultiplyInt() throws Exception {
-        assertEquals(1*1, exec("return 1*1;"));
-        assertEquals(2*3, exec("return 2*3;"));
-        assertEquals(5*10, exec("return 5*10;"));
-        assertEquals(1*1*2, exec("return 1*1*2;"));
-        assertEquals((1*1)*2, exec("return (1*1)*2;"));
-        assertEquals(1*(1*2), exec("return 1*(1*2);"));
-        assertEquals(10*0, exec("return 10*0;"));
-        assertEquals(0*0, exec("return 0*0;"));
-    }
-    
-    public void testMultiplyLong() throws Exception {
-        assertEquals(1L*1L, exec("return 1L*1L;"));
-        assertEquals(2L*3L, exec("return 2L*3L;"));
-        assertEquals(5L*10L, exec("return 5L*10L;"));
-        assertEquals(1L*1L*2L, exec("return 1L*1L*2L;"));
-        assertEquals((1L*1L)*2L, exec("return (1L*1L)*2L;"));
-        assertEquals(1L*(1L*2L), exec("return 1L*(1L*2L);"));
-        assertEquals(10L*0L, exec("return 10L*0L;"));
-        assertEquals(0L*0L, exec("return 0L*0L;"));
-    }
-    
-    public void testMultiplyFloat() throws Exception {
-        assertEquals(1F*1F, exec("return 1F*1F;"));
-        assertEquals(2F*3F, exec("return 2F*3F;"));
-        assertEquals(5F*10F, exec("return 5F*10F;"));
-        assertEquals(1F*1F*2F, exec("return 1F*1F*2F;"));
-        assertEquals((1F*1F)*2F, exec("return (1F*1F)*2F;"));
-        assertEquals(1F*(1F*2F), exec("return 1F*(1F*2F);"));
-        assertEquals(10F*0F, exec("return 10F*0F;"));
-        assertEquals(0F*0F, exec("return 0F*0F;"));
-    }
-    
-    public void testMultiplyDouble() throws Exception {
-        assertEquals(1.0*1.0, exec("return 1.0*1.0;"));
-        assertEquals(2.0*3.0, exec("return 2.0*3.0;"));
-        assertEquals(5.0*10.0, exec("return 5.0*10.0;"));
-        assertEquals(1.0*1.0*2.0, exec("return 1.0*1.0*2.0;"));
-        assertEquals((1.0*1.0)*2.0, exec("return (1.0*1.0)*2.0;"));
-        assertEquals(1.0*(1.0*2.0), exec("return 1.0*(1.0*2.0);"));
-        assertEquals(10.0*0.0, exec("return 10.0*0.0;"));
-        assertEquals(0.0*0.0, exec("return 0.0*0.0;"));
-    }
     
     public void testBinaryPromotion() throws Exception {
         // byte/byte
