@@ -44,7 +44,7 @@ public class Default {
 
         Standard(final Definition definition) {
             validateExact(definition, "void", void.class);
-            validateExact(definition, "bool", boolean.class);
+            validateExact(definition, "boolean", boolean.class);
             validateExact(definition, "byte", byte.class);
             validateExact(definition, "short", short.class);
             validateExact(definition, "char", char.class);
@@ -52,15 +52,15 @@ public class Default {
             validateExact(definition, "long", long.class);
             validateExact(definition, "float", float.class);
             validateExact(definition, "double", double.class);
-            validateExact(definition, "object", Object.class);
-            validateExact(definition, "string", String.class);
-            validateSubclass(definition, "exec", Executable.class);
-            validateSubclass(definition, "list", List.class);
-            validateSubclass(definition, "map", Map.class);
-            validateSubclass(definition, "smap", Map.class);
+            validateExact(definition, "Object", Object.class);
+            validateExact(definition, "String", String.class);
+            validateSubclass(definition, "Exectuable", Executable.class);
+            validateSubclass(definition, "List", List.class);
+            validateSubclass(definition, "Map", Map.class);
+            validateSubclass(definition, "StringMap", Map.class);
 
             voidType = getTypeFromCanonicalName(definition, "void");
-            boolType = getTypeFromCanonicalName(definition, "bool");
+            boolType = getTypeFromCanonicalName(definition, "boolean");
             byteType = getTypeFromCanonicalName(definition, "byte");
             shortType = getTypeFromCanonicalName(definition, "short");
             charType = getTypeFromCanonicalName(definition, "char");

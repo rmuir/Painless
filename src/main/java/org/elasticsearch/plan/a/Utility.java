@@ -20,39 +20,39 @@ package org.elasticsearch.plan.a;
  */
 
 public class Utility {
-    public static boolean numberToBoolean(final Number value) {
+    public static boolean NumberToboolean(final Number value) {
         return value.longValue() != 0;
     }
 
-    public static char numberToChar(final Number value) {
+    public static char NumberTochar(final Number value) {
         return (char)value.longValue();
     }
 
-    public static byte booleanToByte(final boolean value) {
+    public static byte booleanTobyte(final boolean value) {
         return (byte)(value ? 1 : 0);
     }
 
-    public static short booleanToShort(final boolean value) {
+    public static short booleanToshort(final boolean value) {
         return (short)(value ? 1 : 0);
     }
 
-    public static char booleanToChar(final boolean value) {
+    public static char booleanTochar(final boolean value) {
         return (char)(value ? 1 : 0);
     }
 
-    public static int booleanToInt(final boolean value) {
+    public static int booleanToint(final boolean value) {
         return value ? 1 : 0;
     }
 
-    public static long booleanToLong(final boolean value) {
+    public static long booleanTolong(final boolean value) {
         return value ? 1 : 0;
     }
 
-    public static float booleanToFloat(final boolean value) {
+    public static float booleanTofloat(final boolean value) {
         return value ? 1 : 0;
     }
 
-    public static double booleanToDouble(final boolean value) {
+    public static double booleanTodouble(final boolean value) {
         return value ? 1 : 0;
     }
 
@@ -60,51 +60,51 @@ public class Utility {
         return value ? 1 : 0;
     }
 
-    public static byte booleanToByte(final Boolean value) {
+    public static byte BooleanTobyte(final Boolean value) {
         return (byte)(value ? 1 : 0);
     }
 
-    public static short booleanToShort(final Boolean value) {
+    public static short BooleanToshort(final Boolean value) {
         return (short)(value ? 1 : 0);
     }
 
-    public static char booleanToCharacter(final Boolean value) {
+    public static char BooleanTochar(final Boolean value) {
         return (char)(value ? 1 : 0);
     }
 
-    public static int booleanToInteger(final Boolean value) {
+    public static int BooleanToint(final Boolean value) {
         return value ? 1 : 0;
     }
 
-    public static long booleanToLong(final Boolean value) {
+    public static long BooleanTolong(final Boolean value) {
         return value ? 1 : 0;
     }
 
-    public static float booleanToFloat(final Boolean value) {
+    public static float BooleanTofloat(final Boolean value) {
         return value ? 1 : 0;
     }
 
-    public static double booleanToDouble(final Boolean value) {
+    public static double BooleanTodouble(final Boolean value) {
         return value ? 1 : 0;
     }
 
-    public static boolean byteToBoolean(final byte value) {
+    public static boolean byteToboolean(final byte value) {
         return value != 0;
     }
 
-    public static boolean byteToBoolean(final Byte value) {
+    public static boolean ByteToboolean(final Byte value) {
         return value != 0;
     }
 
-    public static char byteToChar(final Byte value) {
+    public static char ByteTochar(final Byte value) {
         return (char)value.byteValue();
     }
 
-    public static boolean shortToBoolean(final short value) {
+    public static boolean shortToboolean(final short value) {
         return value != 0;
     }
 
-    public static boolean shortToBoolean(final Short value) {
+    public static boolean ShortToBoolean(final Short value) {
         return value != 0;
     }
 
