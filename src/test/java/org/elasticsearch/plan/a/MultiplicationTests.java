@@ -47,6 +47,17 @@ public class MultiplicationTests extends ScriptTestCase {
         assertEquals(0*0, exec("return 0*0;"));
     }
     
+    public void testByte() throws Exception {
+        assertEquals((byte)1*(byte)1, exec("byte x = 1; byte y = 1; return x*y;"));
+        assertEquals((byte)2*(byte)3, exec("byte x = 2; byte y = 3; return x*y;"));
+        assertEquals((byte)5*(byte)10, exec("byte x = 5; byte y = 10; return x*y;"));
+        assertEquals((byte)1*(byte)1*(byte)2, exec("byte x = 1; byte y = 1; byte z = 2; return x*y*z;"));
+        assertEquals(((byte)1*(byte)1)*(byte)2, exec("byte x = 1; byte y = 1; byte z = 2; return (x*y)*z;"));
+        assertEquals((byte)1*((byte)1*(byte)2), exec("byte x = 1; byte y = 1; byte z = 2; return x*(y*z);"));
+        assertEquals((byte)10*(byte)0, exec("byte x = 10; byte y = 0; return x*y;"));
+        assertEquals((byte)0*(byte)0, exec("byte x = 0; byte y = 0; return x*x;"));
+    }
+    
     public void testLong() throws Exception {
         assertEquals(1L*1L, exec("long x = 1; long y = 1; return x*y;"));
         assertEquals(2L*3L, exec("long x = 2; long y = 3; return x*y;"));
