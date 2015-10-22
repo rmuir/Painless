@@ -40,7 +40,11 @@ public class BasicExpressionTests extends ScriptTestCase {
     public void testReturnConstantChar() {
         assertEquals('x', exec("return 'x';"));
     }
-    
+
+    public void testConstantCharTruncation() {
+        assertEquals('蚠', exec("return (char)100000;"));
+    }
+
     /** declaring variables for primitive types */
     public void testDeclareVariable() {
         assertEquals(5, exec("int i = 5; return i;"));
