@@ -722,9 +722,11 @@ class Writer extends PlanABaseVisitor<Void> {
             }
         } else {
             final ExpressionContext exprctx0 = ctx.expression(0);
+            final ExpressionMetadata expremd0 = adapter.getExpressionMetadata(exprctx0);
+
             final ExpressionContext exprctx1 = ctx.expression(1);
             final ExpressionMetadata expremd1 = adapter.getExpressionMetadata(exprctx1);
-            final TypeMetadata metadata = expremd1.to.metadata;
+            final TypeMetadata tmd1 = expremd1.to.metadata;
 
             visit(exprctx0);
 
@@ -744,7 +746,7 @@ class Writer extends PlanABaseVisitor<Void> {
             final boolean gt  = ctx.GT()  != null && (tru || !fals) || ctx.LTE() != null && fals;
             final boolean gte = ctx.GTE() != null && (tru || !fals) || ctx.LT()  != null && fals;
 
-            switch (metadata) {
+            switch (tmd1) {
                 case VOID:
                     throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                 case BOOL:
@@ -813,12 +815,23 @@ class Writer extends PlanABaseVisitor<Void> {
                     if (eq) {
                         if (expremd1.isNull) {
                             execute.visitJumpInsn(Opcodes.IFNULL, jump);
+                        } else if (!expremd0.isNull) {
+                            execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                                    "java/lang/Object", "equals", "(Ljava/lang/Object;)Z", false);
+
+                            if (branch != null) {
+                                execute.visitJumpInsn(Opcodes.IFNE, jump);
+                            }
                         } else {
                             execute.visitJumpInsn(Opcodes.IF_ACMPEQ, jump);
                         }
                     } else if (ne) {
                         if (expremd1.isNull) {
                             execute.visitJumpInsn(Opcodes.IFNONNULL, jump);
+                        } else if (!expremd0.isNull) {
+                            execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                                    "java/lang/Object", "equals", "(Ljava/lang/Object;)Z", false);
+                            execute.visitJumpInsn(Opcodes.IFEQ, jump);
                         } else {
                             execute.visitJumpInsn(Opcodes.IF_ACMPNE, jump);
                         }

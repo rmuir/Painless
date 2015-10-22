@@ -973,7 +973,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         if (expremd0.postConst != null && expremd1.postConst != null) {
             final TypeMetadata metadata = promote.metadata;
 
-            if (ctx.EQ() != null) {
+            if (ctx.EQ() != null || ctx.EQR() != null) {
                 if (metadata == TypeMetadata.BOOL) {
                     compemd.preConst = (boolean)expremd0.postConst == (boolean)expremd1.postConst;
                 } else if (metadata == TypeMetadata.INT) {
@@ -985,6 +985,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 } else if (metadata == TypeMetadata.DOUBLE) {
                     compemd.preConst = (double)expremd0.postConst == (double)expremd1.postConst;
                 } else {
+                    if (ctx.EQ() != null)
                     compemd.preConst = expremd0.postConst == expremd1.postConst;
                 }
             } else if (ctx.NE() != null) {

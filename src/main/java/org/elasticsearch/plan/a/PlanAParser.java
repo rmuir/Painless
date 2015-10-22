@@ -23,12 +23,12 @@ class PlanAParser extends Parser {
     WS=1, LBRACK=2, RBRACK=3, LBRACE=4, RBRACE=5, LP=6, RP=7, DOT=8, COMMA=9, 
     SEMICOLON=10, IF=11, ELSE=12, WHILE=13, DO=14, FOR=15, CONTINUE=16, BREAK=17, 
     RETURN=18, BOOLNOT=19, BWNOT=20, MUL=21, DIV=22, REM=23, ADD=24, SUB=25, 
-    LSH=26, RSH=27, USH=28, CAT=29, LT=30, LTE=31, GT=32, GTE=33, EQ=34, NE=35, 
-    BWAND=36, BWXOR=37, BWOR=38, BOOLAND=39, BOOLOR=40, COND=41, COLON=42, 
-    INCR=43, DECR=44, ASSIGN=45, AADD=46, ASUB=47, AMUL=48, ADIV=49, AREM=50, 
-    AAND=51, AXOR=52, AOR=53, ALSH=54, ARSH=55, AUSH=56, ACAT=57, OCTAL=58, 
-    HEX=59, INTEGER=60, DECIMAL=61, STRING=62, CHAR=63, TRUE=64, FALSE=65, 
-    NULL=66, VOID=67, ID=68;
+    LSH=26, RSH=27, USH=28, CAT=29, LT=30, LTE=31, GT=32, GTE=33, EQ=34, EQR=35, 
+    NE=36, NER=37, BWAND=38, BWXOR=39, BWOR=40, BOOLAND=41, BOOLOR=42, COND=43, 
+    COLON=44, INCR=45, DECR=46, ASSIGN=47, AADD=48, ASUB=49, AMUL=50, ADIV=51, 
+    AREM=52, AAND=53, AXOR=54, AOR=55, ALSH=56, ARSH=57, AUSH=58, ACAT=59, 
+    OCTAL=60, HEX=61, INTEGER=62, DECIMAL=63, STRING=64, CHAR=65, TRUE=66, 
+    FALSE=67, NULL=68, VOID=69, ID=70;
   public static final int
     RULE_source = 0, RULE_statement = 1, RULE_block = 2, RULE_empty = 3, RULE_declaration = 4, 
     RULE_decltype = 5, RULE_declvar = 6, RULE_expression = 7, RULE_extstart = 8, 
@@ -45,21 +45,21 @@ class PlanAParser extends Parser {
     null, null, "'{'", "'}'", "'['", "']'", "'('", "')'", "'.'", "','", "';'", 
     "'if'", "'else'", "'while'", "'do'", "'for'", "'continue'", "'break'", 
     "'return'", "'!'", "'~'", "'*'", "'/'", "'%'", "'+'", "'-'", "'<<'", "'>>'", 
-    "'>>>'", "'..'", "'<'", "'<='", "'>'", "'>='", "'=='", "'!='", "'&'", 
-    "'^'", "'|'", "'&&'", "'||'", "'?'", "':'", "'++'", "'--'", "'='", "'+='", 
-    "'-='", "'*='", "'/='", "'%='", "'&='", "'^='", "'|='", "'<<='", "'>>='", 
-    "'>>>='", "'..='", null, null, null, null, null, null, "'true'", "'false'", 
-    "'null'", "'void'"
+    "'>>>'", "'..'", "'<'", "'<='", "'>'", "'>='", "'=='", "'==='", "'!='", 
+    "'!=='", "'&'", "'^'", "'|'", "'&&'", "'||'", "'?'", "':'", "'++'", "'--'", 
+    "'='", "'+='", "'-='", "'*='", "'/='", "'%='", "'&='", "'^='", "'|='", 
+    "'<<='", "'>>='", "'>>>='", "'..='", null, null, null, null, null, null, 
+    "'true'", "'false'", "'null'", "'void'"
   };
   private static final String[] _SYMBOLIC_NAMES = {
     null, "WS", "LBRACK", "RBRACK", "LBRACE", "RBRACE", "LP", "RP", "DOT", 
     "COMMA", "SEMICOLON", "IF", "ELSE", "WHILE", "DO", "FOR", "CONTINUE", 
     "BREAK", "RETURN", "BOOLNOT", "BWNOT", "MUL", "DIV", "REM", "ADD", "SUB", 
-    "LSH", "RSH", "USH", "CAT", "LT", "LTE", "GT", "GTE", "EQ", "NE", "BWAND", 
-    "BWXOR", "BWOR", "BOOLAND", "BOOLOR", "COND", "COLON", "INCR", "DECR", 
-    "ASSIGN", "AADD", "ASUB", "AMUL", "ADIV", "AREM", "AAND", "AXOR", "AOR", 
-    "ALSH", "ARSH", "AUSH", "ACAT", "OCTAL", "HEX", "INTEGER", "DECIMAL", 
-    "STRING", "CHAR", "TRUE", "FALSE", "NULL", "VOID", "ID"
+    "LSH", "RSH", "USH", "CAT", "LT", "LTE", "GT", "GTE", "EQ", "EQR", "NE", 
+    "NER", "BWAND", "BWXOR", "BWOR", "BOOLAND", "BOOLOR", "COND", "COLON", 
+    "INCR", "DECR", "ASSIGN", "AADD", "ASUB", "AMUL", "ADIV", "AREM", "AAND", 
+    "AXOR", "AOR", "ALSH", "ARSH", "AUSH", "ACAT", "OCTAL", "HEX", "INTEGER", 
+    "DECIMAL", "STRING", "CHAR", "TRUE", "FALSE", "NULL", "VOID", "ID"
   };
   public static final Vocabulary VOCABULARY = new VocabularyImpl(_LITERAL_NAMES, _SYMBOLIC_NAMES);
 
@@ -891,7 +891,9 @@ class PlanAParser extends Parser {
     public TerminalNode GT() { return getToken(PlanAParser.GT, 0); }
     public TerminalNode GTE() { return getToken(PlanAParser.GTE, 0); }
     public TerminalNode EQ() { return getToken(PlanAParser.EQ, 0); }
+    public TerminalNode EQR() { return getToken(PlanAParser.EQR, 0); }
     public TerminalNode NE() { return getToken(PlanAParser.NE, 0); }
+    public TerminalNode NER() { return getToken(PlanAParser.NER, 0); }
     public CompContext(ExpressionContext ctx) { copyFrom(ctx); }
     @Override
     public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
@@ -1399,7 +1401,7 @@ class PlanAParser extends Parser {
             if (!(precpred(_ctx, 8))) throw new FailedPredicateException(this, "precpred(_ctx, 8)");
             setState(186);
             _la = _input.LA(1);
-            if ( !(_la==EQ || _la==NE) ) {
+            if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << EQ) | (1L << EQR) | (1L << NE) | (1L << NER))) != 0)) ) {
             _errHandler.recoverInline(this);
             } else {
               consume();
@@ -2219,7 +2221,7 @@ class PlanAParser extends Parser {
   }
 
   public static final String _serializedATN =
-    "\3\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd\3F\u011f\4\2\t\2\4"+
+    "\3\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd\3H\u011f\4\2\t\2\4"+
     "\3\t\3\4\4\t\4\4\5\t\5\4\6\t\6\4\7\t\7\4\b\t\b\4\t\t\t\4\n\t\n\4\13\t"+
     "\13\4\f\t\f\4\r\t\r\4\16\t\16\4\17\t\17\4\20\t\20\4\21\t\21\4\22\t\22"+
     "\4\23\t\23\3\2\6\2(\n\2\r\2\16\2)\3\2\3\2\3\3\3\3\3\3\3\3\3\3\3\3\3\3"+
@@ -2240,7 +2242,7 @@ class PlanAParser extends Parser {
     "\20\3\21\3\21\3\21\3\21\5\21\u010e\n\21\3\22\3\22\3\22\3\22\7\22\u0114"+
     "\n\22\f\22\16\22\u0117\13\22\5\22\u0119\n\22\3\22\3\22\3\23\3\23\3\23"+
     "\2\3\20\24\2\4\6\b\n\f\16\20\22\24\26\30\32\34\36 \"$\2\13\4\2\25\26\32"+
-    "\33\3\2/;\3\2<?\3\2\27\31\3\2\32\33\3\2\34\36\3\2 #\3\2$%\3\2-.\u014c"+
+    "\33\3\2\61=\3\2>A\3\2\27\31\3\2\32\33\3\2\34\36\3\2 #\3\2$\'\3\2/\60\u014c"+
     "\2\'\3\2\2\2\4f\3\2\2\2\6q\3\2\2\2\bs\3\2\2\2\nu\3\2\2\2\f~\3\2\2\2\16"+
     "\u0087\3\2\2\2\20\u00aa\3\2\2\2\22\u00dc\3\2\2\2\24\u00de\3\2\2\2\26\u00ea"+
     "\3\2\2\2\30\u00f3\3\2\2\2\32\u00fa\3\2\2\2\34\u00ff\3\2\2\2\36\u0103\3"+
@@ -2261,17 +2263,17 @@ class PlanAParser extends Parser {
     "\3\2\2\2mo\3\2\2\2nl\3\2\2\2or\7\5\2\2pr\5\4\3\2qh\3\2\2\2qp\3\2\2\2r"+
     "\7\3\2\2\2st\7\f\2\2t\t\3\2\2\2uv\5\f\7\2v{\5\16\b\2wx\7\13\2\2xz\5\16"+
     "\b\2yw\3\2\2\2z}\3\2\2\2{y\3\2\2\2{|\3\2\2\2|\13\3\2\2\2}{\3\2\2\2~\177"+
-    "\6\7\2\2\177\u0084\7F\2\2\u0080\u0081\7\6\2\2\u0081\u0083\7\7\2\2\u0082"+
+    "\6\7\2\2\177\u0084\7H\2\2\u0080\u0081\7\6\2\2\u0081\u0083\7\7\2\2\u0082"+
     "\u0080\3\2\2\2\u0083\u0086\3\2\2\2\u0084\u0082\3\2\2\2\u0084\u0085\3\2"+
     "\2\2\u0085\r\3\2\2\2\u0086\u0084\3\2\2\2\u0087\u0088\6\b\3\2\u0088\u008b"+
-    "\7F\2\2\u0089\u008a\7/\2\2\u008a\u008c\5\20\t\2\u008b\u0089\3\2\2\2\u008b"+
-    "\u008c\3\2\2\2\u008c\17\3\2\2\2\u008d\u008e\b\t\1\2\u008e\u008f\t\2\2"+
-    "\2\u008f\u00ab\5\20\t\21\u0090\u0091\7\b\2\2\u0091\u0092\5\f\7\2\u0092"+
-    "\u0093\7\t\2\2\u0093\u0094\5\20\t\20\u0094\u00ab\3\2\2\2\u0095\u0096\5"+
-    "\22\n\2\u0096\u0097\t\3\2\2\u0097\u0098\5\20\t\3\u0098\u00ab\3\2\2\2\u0099"+
-    "\u009a\7\b\2\2\u009a\u009b\5\20\t\2\u009b\u009c\7\t\2\2\u009c\u00ab\3"+
-    "\2\2\2\u009d\u00ab\t\4\2\2\u009e\u00ab\7@\2\2\u009f\u00ab\7A\2\2\u00a0"+
-    "\u00ab\7B\2\2\u00a1\u00ab\7C\2\2\u00a2\u00ab\7D\2\2\u00a3\u00ab\5\22\n"+
+    "\7H\2\2\u0089\u008a\7\61\2\2\u008a\u008c\5\20\t\2\u008b\u0089\3\2\2\2"+
+    "\u008b\u008c\3\2\2\2\u008c\17\3\2\2\2\u008d\u008e\b\t\1\2\u008e\u008f"+
+    "\t\2\2\2\u008f\u00ab\5\20\t\21\u0090\u0091\7\b\2\2\u0091\u0092\5\f\7\2"+
+    "\u0092\u0093\7\t\2\2\u0093\u0094\5\20\t\20\u0094\u00ab\3\2\2\2\u0095\u0096"+
+    "\5\22\n\2\u0096\u0097\t\3\2\2\u0097\u0098\5\20\t\3\u0098\u00ab\3\2\2\2"+
+    "\u0099\u009a\7\b\2\2\u009a\u009b\5\20\t\2\u009b\u009c\7\t\2\2\u009c\u00ab"+
+    "\3\2\2\2\u009d\u00ab\t\4\2\2\u009e\u00ab\7B\2\2\u009f\u00ab\7C\2\2\u00a0"+
+    "\u00ab\7D\2\2\u00a1\u00ab\7E\2\2\u00a2\u00ab\7F\2\2\u00a3\u00ab\5\22\n"+
     "\2\u00a4\u00a5\5\22\n\2\u00a5\u00a6\5$\23\2\u00a6\u00ab\3\2\2\2\u00a7"+
     "\u00a8\5$\23\2\u00a8\u00a9\5\22\n\2\u00a9\u00ab\3\2\2\2\u00aa\u008d\3"+
     "\2\2\2\u00aa\u0090\3\2\2\2\u00aa\u0095\3\2\2\2\u00aa\u0099\3\2\2\2\u00aa"+
@@ -2283,12 +2285,12 @@ class PlanAParser extends Parser {
     "\6\2\2\u00b4\u00d4\5\20\t\16\u00b5\u00b6\f\f\2\2\u00b6\u00b7\t\7\2\2\u00b7"+
     "\u00d4\5\20\t\r\u00b8\u00b9\f\13\2\2\u00b9\u00ba\t\b\2\2\u00ba\u00d4\5"+
     "\20\t\f\u00bb\u00bc\f\n\2\2\u00bc\u00bd\t\t\2\2\u00bd\u00d4\5\20\t\13"+
-    "\u00be\u00bf\f\t\2\2\u00bf\u00c0\7&\2\2\u00c0\u00d4\5\20\t\n\u00c1\u00c2"+
-    "\f\b\2\2\u00c2\u00c3\7\'\2\2\u00c3\u00d4\5\20\t\t\u00c4\u00c5\f\7\2\2"+
-    "\u00c5\u00c6\7(\2\2\u00c6\u00d4\5\20\t\b\u00c7\u00c8\f\6\2\2\u00c8\u00c9"+
-    "\7)\2\2\u00c9\u00d4\5\20\t\7\u00ca\u00cb\f\5\2\2\u00cb\u00cc\7*\2\2\u00cc"+
-    "\u00d4\5\20\t\6\u00cd\u00ce\f\4\2\2\u00ce\u00cf\7+\2\2\u00cf\u00d0\5\20"+
-    "\t\2\u00d0\u00d1\7,\2\2\u00d1\u00d2\5\20\t\4\u00d2\u00d4\3\2\2\2\u00d3"+
+    "\u00be\u00bf\f\t\2\2\u00bf\u00c0\7(\2\2\u00c0\u00d4\5\20\t\n\u00c1\u00c2"+
+    "\f\b\2\2\u00c2\u00c3\7)\2\2\u00c3\u00d4\5\20\t\t\u00c4\u00c5\f\7\2\2\u00c5"+
+    "\u00c6\7*\2\2\u00c6\u00d4\5\20\t\b\u00c7\u00c8\f\6\2\2\u00c8\u00c9\7+"+
+    "\2\2\u00c9\u00d4\5\20\t\7\u00ca\u00cb\f\5\2\2\u00cb\u00cc\7,\2\2\u00cc"+
+    "\u00d4\5\20\t\6\u00cd\u00ce\f\4\2\2\u00ce\u00cf\7-\2\2\u00cf\u00d0\5\20"+
+    "\t\2\u00d0\u00d1\7.\2\2\u00d1\u00d2\5\20\t\4\u00d2\u00d4\3\2\2\2\u00d3"+
     "\u00ac\3\2\2\2\u00d3\u00af\3\2\2\2\u00d3\u00b2\3\2\2\2\u00d3\u00b5\3\2"+
     "\2\2\u00d3\u00b8\3\2\2\2\u00d3\u00bb\3\2\2\2\u00d3\u00be\3\2\2\2\u00d3"+
     "\u00c1\3\2\2\2\u00d3\u00c4\3\2\2\2\u00d3\u00c7\3\2\2\2\u00d3\u00ca\3\2"+
@@ -2309,10 +2311,10 @@ class PlanAParser extends Parser {
     "\2\u00f8\u00f6\3\2\2\2\u00f8\u00f7\3\2\2\2\u00f8\u00f9\3\2\2\2\u00f9\31"+
     "\3\2\2\2\u00fa\u00fd\7\n\2\2\u00fb\u00fe\5\36\20\2\u00fc\u00fe\5 \21\2"+
     "\u00fd\u00fb\3\2\2\2\u00fd\u00fc\3\2\2\2\u00fe\33\3\2\2\2\u00ff\u0100"+
-    "\6\17\20\2\u0100\u0101\7F\2\2\u0101\u0102\5\32\16\2\u0102\35\3\2\2\2\u0103"+
-    "\u0104\7F\2\2\u0104\u0107\5\"\22\2\u0105\u0108\5\32\16\2\u0106\u0108\5"+
+    "\6\17\20\2\u0100\u0101\7H\2\2\u0101\u0102\5\32\16\2\u0102\35\3\2\2\2\u0103"+
+    "\u0104\7H\2\2\u0104\u0107\5\"\22\2\u0105\u0108\5\32\16\2\u0106\u0108\5"+
     "\30\r\2\u0107\u0105\3\2\2\2\u0107\u0106\3\2\2\2\u0107\u0108\3\2\2\2\u0108"+
-    "\37\3\2\2\2\u0109\u010a\6\21\21\2\u010a\u010d\7F\2\2\u010b\u010e\5\32"+
+    "\37\3\2\2\2\u0109\u010a\6\21\21\2\u010a\u010d\7H\2\2\u010b\u010e\5\32"+
     "\16\2\u010c\u010e\5\30\r\2\u010d\u010b\3\2\2\2\u010d\u010c\3\2\2\2\u010d"+
     "\u010e\3\2\2\2\u010e!\3\2\2\2\u010f\u0118\7\b\2\2\u0110\u0115\5\20\t\2"+
     "\u0111\u0112\7\13\2\2\u0112\u0114\5\20\t\2\u0113\u0111\3\2\2\2\u0114\u0117"+

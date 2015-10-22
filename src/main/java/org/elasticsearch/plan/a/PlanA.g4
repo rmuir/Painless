@@ -75,7 +75,7 @@ expression
     |               expression ( ADD | SUB ) expression                            # binary
     |               expression ( LSH | RSH | USH ) expression                      # binary
     |               expression ( LT | LTE | GT | GTE ) expression                  # comp
-    |               expression ( EQ | NE ) expression                              # comp
+    |               expression ( EQ | EQR | NE | NER ) expression                  # comp
     |               expression BWAND expression                                    # binary
     |               expression BWXOR expression                                    # binary
     |               expression BWOR expression                                     # binary
@@ -147,7 +147,9 @@ LTE:     '<=';
 GT:      '>';
 GTE:     '>=';
 EQ:      '==';
+EQR:     '===';
 NE:      '!=';
+NER:     '!==';
 BWAND:   '&';
 BWXOR:   '^';
 BWOR:    '|';
