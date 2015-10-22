@@ -642,14 +642,14 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         final ExpressionContext exprctx0 = adapter.getExpressionContext(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
-        expremd0.promotion = caster.equality;
+        expremd0.promotion = caster.concat;
         visit(exprctx0);
         expremd0.to = expremd0.from;
         caster.markCast(expremd0);
 
         final ExpressionContext exprctx1 = adapter.getExpressionContext(ctx.expression(1));
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
-        expremd1.promotion = caster.equality;
+        expremd1.promotion = caster.concat;
         visit(exprctx1);
         expremd1.to = expremd1.from;
         caster.markCast(expremd1);
@@ -947,7 +947,9 @@ class Analyzer extends PlanABaseVisitor<Void> {
     @Override
     public Void visitComp(final CompContext ctx) {
         final ExpressionMetadata compemd = adapter.getExpressionMetadata(ctx);
-        final Promotion promotion = ctx.EQ() != null || ctx.NE() != null ? caster.equality : caster.decimal;
+        final Promotion promotion =
+                ctx.EQ() != null || ctx.EQR() != null || ctx.NE() != null || ctx.NER() != null ?
+                caster.equality : caster.decimal;
 
         final ExpressionContext exprctx0 = adapter.getExpressionContext(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
@@ -985,10 +987,13 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 } else if (metadata == TypeMetadata.DOUBLE) {
                     compemd.preConst = (double)expremd0.postConst == (double)expremd1.postConst;
                 } else {
-                    if (ctx.EQ() != null)
-                    compemd.preConst = expremd0.postConst == expremd1.postConst;
+                    if (ctx.EQ() != null && !expremd0.isNull && !expremd1.isNull) {
+                        compemd.preConst = expremd0.postConst.equals(expremd1.postConst);
+                    } else if (ctx.EQR() != null) {
+                        compemd.preConst = expremd0.postConst == expremd1.postConst;
+                    }
                 }
-            } else if (ctx.NE() != null) {
+            } else if (ctx.NE() != null || ctx.NER() != null) {
                 if (metadata == TypeMetadata.BOOL) {
                     compemd.preConst = (boolean)expremd0.postConst != (boolean)expremd1.postConst;
                 } else if (metadata == TypeMetadata.INT) {
@@ -1000,7 +1005,11 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 } else if (metadata == TypeMetadata.DOUBLE) {
                     compemd.preConst = (double)expremd0.postConst != (double)expremd1.postConst;
                 } else {
-                    compemd.preConst = expremd0.postConst != expremd1.postConst;
+                    if (ctx.NE() != null && !expremd0.isNull && !expremd1.isNull) {
+                        compemd.preConst = expremd0.postConst.equals(expremd1.postConst);
+                    } else if (ctx.NER() != null) {
+                        compemd.preConst = expremd0.postConst == expremd1.postConst;
+                    }
                 }
             } else if (ctx.GTE() != null) {
                 if (metadata == TypeMetadata.INT) {

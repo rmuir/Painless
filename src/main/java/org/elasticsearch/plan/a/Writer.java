@@ -739,12 +739,16 @@ class Writer extends PlanABaseVisitor<Void> {
             final Label jump = tru ? branch.tru : fals ? branch.fals : new Label();
             final Label end = new Label();
 
-            final boolean eq  = ctx.EQ()  != null && (tru || !fals) || ctx.NE()  != null && fals;
-            final boolean ne  = ctx.NE()  != null && (tru || !fals) || ctx.EQ()  != null && fals;
+            final boolean eq = (ctx.EQ() != null || ctx.EQR() != null) && (tru || !fals) ||
+                    (ctx.NE() != null || ctx.NER() != null) && fals;
+            final boolean ne = (ctx.NE() != null || ctx.NER() != null) && (tru || !fals) ||
+                    (ctx.EQ() != null || ctx.EQR() != null) && fals;
             final boolean lt  = ctx.LT()  != null && (tru || !fals) || ctx.GTE() != null && fals;
             final boolean lte = ctx.LTE() != null && (tru || !fals) || ctx.GT()  != null && fals;
             final boolean gt  = ctx.GT()  != null && (tru || !fals) || ctx.LTE() != null && fals;
             final boolean gte = ctx.GTE() != null && (tru || !fals) || ctx.LT()  != null && fals;
+
+            boolean eqobj = false;
 
             switch (tmd1) {
                 case VOID:
@@ -815,20 +819,22 @@ class Writer extends PlanABaseVisitor<Void> {
                     if (eq) {
                         if (expremd1.isNull) {
                             execute.visitJumpInsn(Opcodes.IFNULL, jump);
-                        } else if (!expremd0.isNull) {
+                        } else if (!expremd0.isNull && ctx.EQ() != null) {
                             execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                                     "java/lang/Object", "equals", "(Ljava/lang/Object;)Z", false);
 
                             if (branch != null) {
                                 execute.visitJumpInsn(Opcodes.IFNE, jump);
                             }
+
+                            eqobj = true;
                         } else {
                             execute.visitJumpInsn(Opcodes.IF_ACMPEQ, jump);
                         }
                     } else if (ne) {
                         if (expremd1.isNull) {
                             execute.visitJumpInsn(Opcodes.IFNONNULL, jump);
-                        } else if (!expremd0.isNull) {
+                        } else if (!expremd0.isNull && ctx.NE() != null) {
                             execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                                     "java/lang/Object", "equals", "(Ljava/lang/Object;)Z", false);
                             execute.visitJumpInsn(Opcodes.IFEQ, jump);
@@ -841,11 +847,13 @@ class Writer extends PlanABaseVisitor<Void> {
             }
 
             if (branch == null) {
-                execute.visitInsn(Opcodes.ICONST_0);
-                execute.visitJumpInsn(Opcodes.GOTO, end);
-                execute.visitLabel(jump);
-                execute.visitInsn(Opcodes.ICONST_1);
-                execute.visitLabel(end);
+                if (!eqobj) {
+                    execute.visitInsn(Opcodes.ICONST_0);
+                    execute.visitJumpInsn(Opcodes.GOTO, end);
+                    execute.visitLabel(jump);
+                    execute.visitInsn(Opcodes.ICONST_1);
+                    execute.visitLabel(end);
+                }
 
                 caster.checkWriteCast(execute, compemd);
             }
