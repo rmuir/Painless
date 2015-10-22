@@ -155,11 +155,7 @@ public class AdditionTests extends ScriptTestCase {
         assertEquals(1.0+0.0, exec("return 1.0+0.0;"));
         assertEquals(0.0+0.0, exec("return 0.0+0.0;"));
     }
-    
-    public void testAddPromotion() throws Exception {
-        assertEquals(1+0.5+0.5, exec("return 1+0.5+0.5;"));
-    }
-    
+  
     public void testOverflow() throws Exception {
         assertEquals(Integer.MAX_VALUE + Integer.MAX_VALUE, exec("int x = 2147483647; int y = 2147483647; return x + y;"));
         assertEquals(Long.MAX_VALUE + Long.MAX_VALUE, exec("long x = 9223372036854775807L; long y = 9223372036854775807L; return x + y;"));

@@ -378,8 +378,9 @@ class Caster {
             } else if (fromTMD.numeric && toTMD.numeric) {
                 Number number;
 
-                if (fromTMD == TypeMetadata.CHAR) {
-                    number = (int)(char)constant;
+                // Character is not a Number...
+                if (constant instanceof Character) {
+                    number = (int)((Character)constant).charValue();
                 } else {
                     number = (Number)constant;
                 }
