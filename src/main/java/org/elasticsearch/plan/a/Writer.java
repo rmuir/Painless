@@ -1150,8 +1150,8 @@ class Writer extends PlanABaseVisitor<Void> {
 
         switch (metadata) {
             case BOOL:   execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(Z)" + builder, false); break;
-            case BYTE:   execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(B)" + builder, false); break;
-            case SHORT:  execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(S)" + builder, false); break;
+            case BYTE:   execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(I)" + builder, false); break;
+            case SHORT:  execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(I)" + builder, false); break;
             case CHAR:   execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(C)" + builder, false); break;
             case INT:    execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(I)" + builder, false); break;
             case LONG:   execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(J)" + builder, false); break;
