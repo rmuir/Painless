@@ -521,16 +521,19 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     final Type type = numericemd.to;
                     final TypeMetadata tmd = type == null ? TypeMetadata.INT : type.metadata;
                     final int value = Integer.parseInt(svalue, radix);
-                    numericemd.preConst = value;
 
                     if (tmd == TypeMetadata.BYTE && value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
                         numericemd.from = standard.byteType;
+                        numericemd.preConst = (byte)value;
                     } else if (tmd == TypeMetadata.CHAR && value >= Character.MIN_VALUE && value <= Character.MAX_VALUE) {
                         numericemd.from = standard.charType;
+                        numericemd.preConst = (char)value;
                     } else if (tmd == TypeMetadata.SHORT && value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
                         numericemd.from = standard.shortType;
+                        numericemd.preConst = (short)value;
                     } else {
                         numericemd.from = standard.intType;
+                        numericemd.preConst = value;
                     }
                 } catch (NumberFormatException exception) {
                     throw new IllegalArgumentException(error(ctx) + "Invalid int constant.");
