@@ -827,9 +827,9 @@ class Analyzer extends PlanABaseVisitor<Void> {
             
             if (ctx.MUL() != null) {
                 if (tmd == TypeMetadata.INT) {
-                    binaryemd.preConst = (int)expremd0.postConst * (int)expremd1.postConst;
+                    binaryemd.preConst = Math.multiplyExact((int)expremd0.postConst, (int)expremd1.postConst);
                 } else if (tmd == TypeMetadata.LONG) {
-                    binaryemd.preConst = (long)expremd0.postConst * (long)expremd1.postConst;
+                    binaryemd.preConst = Math.multiplyExact((long)expremd0.postConst, (long)expremd1.postConst);
                 } else if (tmd == TypeMetadata.FLOAT) {
                     binaryemd.preConst = (float)expremd0.postConst * (float)expremd1.postConst;
                 } else if (tmd == TypeMetadata.DOUBLE) {
@@ -839,9 +839,9 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 }
             } else if (ctx.DIV() != null) {
                 if (tmd == TypeMetadata.INT) {
-                    binaryemd.preConst = (int)expremd0.postConst / (int)expremd1.postConst;
+                    binaryemd.preConst = Utility.divideWithoutOverflow((int)expremd0.postConst, (int)expremd1.postConst);
                 } else if (tmd == TypeMetadata.LONG) {
-                    binaryemd.preConst = (long)expremd0.postConst / (long)expremd1.postConst;
+                    binaryemd.preConst = Utility.divideWithoutOverflow((long)expremd0.postConst, (long)expremd1.postConst);
                 } else if (tmd == TypeMetadata.FLOAT) {
                     binaryemd.preConst = (float)expremd0.postConst / (float)expremd1.postConst;
                 } else if (tmd == TypeMetadata.DOUBLE) {
@@ -863,9 +863,9 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 }
             } else if (ctx.ADD() != null) {
                 if (tmd == TypeMetadata.INT) {
-                    binaryemd.preConst = (int)expremd0.postConst + (int)expremd1.postConst;
+                    binaryemd.preConst = Math.addExact((int)expremd0.postConst, (int)expremd1.postConst);
                 } else if (tmd == TypeMetadata.LONG) {
-                    binaryemd.preConst = (long)expremd0.postConst + (long)expremd1.postConst;
+                    binaryemd.preConst = Math.addExact((long)expremd0.postConst, (long)expremd1.postConst);
                 } else if (tmd == TypeMetadata.FLOAT) {
                     binaryemd.preConst = (float)expremd0.postConst + (float)expremd1.postConst;
                 } else if (tmd == TypeMetadata.DOUBLE) {
@@ -875,9 +875,9 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 }
             } else if (ctx.SUB() != null) {
                 if (tmd == TypeMetadata.INT) {
-                    binaryemd.preConst = (int)expremd0.postConst - (int)expremd1.postConst;
+                    binaryemd.preConst = Math.subtractExact((int)expremd0.postConst, (int)expremd1.postConst);
                 } else if (tmd == TypeMetadata.LONG) {
-                    binaryemd.preConst = (long)expremd0.postConst - (long)expremd1.postConst;
+                    binaryemd.preConst = Math.subtractExact((long)expremd0.postConst, (long)expremd1.postConst);
                 } else if (tmd == TypeMetadata.FLOAT) {
                     binaryemd.preConst = (float)expremd0.postConst - (float)expremd1.postConst;
                 } else if (tmd == TypeMetadata.DOUBLE) {
