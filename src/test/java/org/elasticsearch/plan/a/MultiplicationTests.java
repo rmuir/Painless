@@ -25,7 +25,7 @@ public class MultiplicationTests extends ScriptTestCase {
     
     // TODO: short,byte,char
     
-    public void testMultiplyInt() throws Exception {
+    public void testInt() throws Exception {
         assertEquals(1*1, exec("int x = 1; int y = 1; return x*y;"));
         assertEquals(2*3, exec("int x = 2; int y = 3; return x*y;"));
         assertEquals(5*10, exec("int x = 5; int y = 10; return x*y;"));
@@ -36,7 +36,7 @@ public class MultiplicationTests extends ScriptTestCase {
         assertEquals(0*0, exec("int x = 0; int y = 0; return x*x;"));
     }
     
-    public void testMultiplyIntConst() throws Exception {
+    public void testIntConst() throws Exception {
         assertEquals(1*1, exec("return 1*1;"));
         assertEquals(2*3, exec("return 2*3;"));
         assertEquals(5*10, exec("return 5*10;"));
@@ -47,7 +47,7 @@ public class MultiplicationTests extends ScriptTestCase {
         assertEquals(0*0, exec("return 0*0;"));
     }
     
-    public void testMultiplyLong() throws Exception {
+    public void testLong() throws Exception {
         assertEquals(1L*1L, exec("long x = 1; long y = 1; return x*y;"));
         assertEquals(2L*3L, exec("long x = 2; long y = 3; return x*y;"));
         assertEquals(5L*10L, exec("long x = 5; long y = 10; return x*y;"));
@@ -58,7 +58,7 @@ public class MultiplicationTests extends ScriptTestCase {
         assertEquals(0L*0L, exec("long x = 0; long y = 0; return x*x;"));
     }
     
-    public void testMultiplyLongConst() throws Exception {
+    public void testLongConst() throws Exception {
         assertEquals(1L*1L, exec("return 1L*1L;"));
         assertEquals(2L*3L, exec("return 2L*3L;"));
         assertEquals(5L*10L, exec("return 5L*10L;"));
@@ -69,7 +69,7 @@ public class MultiplicationTests extends ScriptTestCase {
         assertEquals(0L*0L, exec("return 0L*0L;"));
     }
     
-    public void testMultiplyFloat() throws Exception {
+    public void testFloat() throws Exception {
         assertEquals(1F*1F, exec("float x = 1; float y = 1; return x*y;"));
         assertEquals(2F*3F, exec("float x = 2; float y = 3; return x*y;"));
         assertEquals(5F*10F, exec("float x = 5; float y = 10; return x*y;"));
@@ -80,7 +80,7 @@ public class MultiplicationTests extends ScriptTestCase {
         assertEquals(0F*0F, exec("float x = 0; float y = 0; return x*x;"));
     }
     
-    public void testMultiplyFloatConst() throws Exception {
+    public void testFloatConst() throws Exception {
         assertEquals(1F*1F, exec("return 1F*1F;"));
         assertEquals(2F*3F, exec("return 2F*3F;"));
         assertEquals(5F*10F, exec("return 5F*10F;"));
@@ -91,7 +91,7 @@ public class MultiplicationTests extends ScriptTestCase {
         assertEquals(0F*0F, exec("return 0F*0F;"));
     }
     
-    public void testMultiplyDouble() throws Exception {
+    public void testDouble() throws Exception {
         assertEquals(1D*1D, exec("double x = 1; double y = 1; return x*y;"));
         assertEquals(2D*3D, exec("double x = 2; double y = 3; return x*y;"));
         assertEquals(5D*10D, exec("double x = 5; double y = 10; return x*y;"));
@@ -102,7 +102,7 @@ public class MultiplicationTests extends ScriptTestCase {
         assertEquals(0D*0D, exec("double x = 0; float y = 0; return x*x;"));
     }
     
-    public void testMultiplyDoubleConst() throws Exception {
+    public void testDoubleConst() throws Exception {
         assertEquals(1.0*1.0, exec("return 1.0*1.0;"));
         assertEquals(2.0*3.0, exec("return 2.0*3.0;"));
         assertEquals(5.0*10.0, exec("return 5.0*10.0;"));
