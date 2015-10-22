@@ -621,6 +621,8 @@ class External {
 
         method(ctx, name, arguments, last);
 
+        statik = false;
+
         if (dotctx != null) {
             dot(dotctx);
         } else if (bracectx != null) {
@@ -641,6 +643,8 @@ class External {
         } else {
             field(ctx, name, last);
         }
+
+        statik = false;
 
         if (dotctx != null) {
             dot(dotctx);
@@ -948,7 +952,9 @@ class External {
         }
 
         if (arguments.size() != types.length) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException(error(source) + "When calling [" + name + "] on type " +
+                    "[" + struct.name + "] expected [" + types.length + "] arguments," +
+                    " but found [" + arguments.size() + "].");
         }
 
         for (int argument = 0; argument < arguments.size(); ++argument) {

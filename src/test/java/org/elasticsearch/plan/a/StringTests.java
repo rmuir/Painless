@@ -42,4 +42,31 @@ public class StringTests extends ScriptTestCase {
         // string
         assertEquals("cat" + "cat", exec("string s = \"cat\"; return s .. s;"));
     }
+
+    public void testStringAPI() {
+        assertEquals("", exec("return string.new();"));
+        assertEquals("test", exec("return string.snew(\"test\");"));
+        assertEquals(new String(new char[] {'a', 'b'}), exec("char[] c = char.makearray(2); c[0] = 'a'; c[1] = 'b'; return string.canew(c);"));
+        assertEquals('x', exec("return string.snew(\"x\").char(0);"));
+        assertEquals(120, exec("return string.snew(\"x\").code(0);"));
+        assertEquals(0, exec("return string.snew(\"x\").compare(\"x\");"));
+        assertEquals("xx", exec("return string.snew(\"x\").concat(\"x\");"));
+        assertEquals(true, exec("return string.snew(\"xy\").ends(\"y\");"));
+        assertEquals(97, ((byte[])exec("return string.snew(\"a\").bytes();"))[0]);
+        assertEquals(98, ((char[])exec("string t = \"abcde\"; char[] c = char.makearray(2); t.array(1, 2, c, 0); return c;"))[0]);
+        assertEquals(2, exec("string t = \"abcde\"; return t.index('c', 0);"));
+        assertEquals(2, exec("string t = \"abcde\"; return t.sindex(\"cd\", 1);"));
+        assertEquals(false, exec("string t = \"abcde\"; return t.empty();"));
+        assertEquals(5, exec("string t = \"abcde\"; return t.length();"));
+        assertEquals(true, exec("string t = \"abcde\"; return t.matches(\"^[_a-zA-Z][_a-zA-Z0-9]*$\");"));
+        assertEquals("bbcde", exec("string t = \"abcde\"; return t.creplace('a', 'b');"));
+        assertEquals("cdcde", exec("string t = \"abcde\"; return t.replace(\"ab\", \"cd\");"));
+        assertEquals(2, exec("string t = \"abcde\"; string[] s = t.split(\"c\"); return s.length;"));
+        assertEquals(false, exec("return string.snew(\"xy\").starts(\"y\");"));
+        assertEquals("e", exec("string t = \"abcde\"; return t.sub(4, 5);"));
+        assertEquals(97, ((char[])exec("return string.snew(\"a\").chars();"))[0]);
+        assertEquals("a", exec("return string.snew(\"A\").lower();"));
+        assertEquals("A", exec("return string.snew(\"a\").upper();"));
+        assertEquals("a", exec("return string.snew(\" a \").trim();"));
+    }
 }
