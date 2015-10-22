@@ -22,6 +22,8 @@ package org.elasticsearch.plan.a;
 public class StringTests extends ScriptTestCase {
     
     public void testAppend() {
+        // boolean
+        assertEquals("cat" + true, exec("string s = \"cat\"; return s .. true;"));
         // byte
         assertEquals("cat" + (byte)3, exec("string s = \"cat\"; return s .. (byte)3;"));
         // short
