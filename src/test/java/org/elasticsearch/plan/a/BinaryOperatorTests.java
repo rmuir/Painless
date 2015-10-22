@@ -67,58 +67,7 @@ public class BinaryOperatorTests extends ScriptTestCase {
         assertEquals(7, exec("short x = 5; byte y = 3; return x | y;"));
         assertEquals(10, exec("short x = 9; char y = 3; return x ^ y;"));
     }
-    
-    public void testAddInt() throws Exception {
-        assertEquals(1+1, exec("return 1+1;"));
-        assertEquals(1+2, exec("return 1+2;"));
-        assertEquals(5+10, exec("return 5+10;"));
-        assertEquals(1+1+2, exec("return 1+1+2;"));
-        assertEquals((1+1)+2, exec("return (1+1)+2;"));
-        assertEquals(1+(1+2), exec("return 1+(1+2);"));
-        assertEquals(0+1, exec("return 0+1;"));
-        assertEquals(1+0, exec("return 1+0;"));
-        assertEquals(0+0, exec("return 0+0;"));
-    }
-    
-    public void testAddLong() throws Exception {
-        assertEquals(1L+1L, exec("return 1L+1L;"));
-        assertEquals(1L+2L, exec("return 1L+2L;"));
-        assertEquals(5L+10L, exec("return 5L+10L;"));
-        assertEquals(1L+1L+2L, exec("return 1L+1L+2L;"));
-        assertEquals((1L+1L)+2L, exec("return (1L+1L)+2L;"));
-        assertEquals(1L+(1L+2L), exec("return 1L+(1L+2L);"));
-        assertEquals(0L+1L, exec("return 0L+1L;"));
-        assertEquals(1L+0L, exec("return 1L+0L;"));
-        assertEquals(0L+0L, exec("return 0L+0L;"));
-    }
-    
-    public void testAddFloat() throws Exception {
-        assertEquals(1F+1F, exec("return 1F+1F;"));
-        assertEquals(1F+2F, exec("return 1F+2F;"));
-        assertEquals(5F+10F, exec("return 5F+10F;"));
-        assertEquals(1F+1F+2F, exec("return 1F+1F+2F;"));
-        assertEquals((1F+1F)+2F, exec("return (1F+1F)+2F;"));
-        assertEquals(1F+(1F+2F), exec("return 1F+(1F+2F);"));
-        assertEquals(0F+1F, exec("return 0F+1F;"));
-        assertEquals(1F+0F, exec("return 1F+0F;"));
-        assertEquals(0F+0F, exec("return 0F+0F;"));
-    }
-    
-    public void testAddDouble() throws Exception {
-        assertEquals(1.0+1.0, exec("return 1.0+1.0;"));
-        assertEquals(1.0+2.0, exec("return 1.0+2.0;"));
-        assertEquals(5.0+10.0, exec("return 5.0+10.0;"));
-        assertEquals(1.0+1.0+2.0, exec("return 1.0+1.0+2.0;"));
-        assertEquals((1.0+1.0)+2.0, exec("return (1.0+1.0)+2.0;"));
-        assertEquals(1.0+(1.0+2.0), exec("return 1.0+(1.0+2.0);"));
-        assertEquals(0.0+1.0, exec("return 0.0+1.0;"));
-        assertEquals(1.0+0.0, exec("return 1.0+0.0;"));
-        assertEquals(0.0+0.0, exec("return 0.0+0.0;"));
-    }
-    
-    public void testAddPromotion() throws Exception {
-        assertEquals(1+0.5+0.5, exec("return 1+0.5+0.5;"));
-    }
+
     
     public void testMultiplyInt() throws Exception {
         assertEquals(1*1, exec("return 1*1;"));
