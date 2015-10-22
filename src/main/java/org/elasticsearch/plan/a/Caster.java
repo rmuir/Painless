@@ -211,47 +211,32 @@ class Caster {
             }
 
             if (from0.clazz.equals(from1.clazz)) {
-                Cast cast0 = null;
-                Cast cast1 = null;
-
                 if (from0.struct.generic && !from1.struct.generic) {
-                    cast0 = new Cast(from0, from1);
-                    cast1 = new Cast(from1, from0);
+                    return from1;
                 } else if (!from0.struct.generic && from1.struct.generic) {
-                    cast0 = new Cast(from1, from0);
-                    cast1 = new Cast(from0, from1);
-                }
-
-                if (cast0 != null && cast1 != null) {
-                    if (definition.implicits.containsKey(cast0)) {
-                        return cast0.to;
-                    }
-
-                    if (definition.implicits.containsKey(cast1)) {
-                        return cast1.to;
-                    }
+                    return from0;
                 }
 
                 return standard.objectType;
             }
 
-            try {
-                from0.clazz.asSubclass(from1.clazz);
-
-                return from1;
-            } catch (ClassCastException cce0) {
-                // Do nothing.
-            }
-
-            try {
-                from1.clazz.asSubclass(from1.clazz);
-
-                return from0;
-            } catch (ClassCastException cce0) {
-                // Do nothing.
-            }
-
             if (from0.metadata.object && from1.metadata.object) {
+                try {
+                    from0.clazz.asSubclass(from1.clazz);
+
+                    return from1;
+                } catch (ClassCastException cce0) {
+                    // Do nothing.
+                }
+
+                try {
+                    from1.clazz.asSubclass(from0.clazz);
+
+                    return from0;
+                } catch (ClassCastException cce0) {
+                    // Do nothing.
+                }
+
                 return standard.objectType;
             }
 
@@ -270,6 +255,7 @@ class Caster {
     private final Definition definition;
     private final Standard standard;
 
+    final Promotion concat;
     final Promotion equality;
     final Promotion decimal;
     final Promotion numeric;
@@ -281,6 +267,13 @@ class Caster {
 
         List<Segment> segments = new ArrayList<>();
         segments.add(new SameTypeSegment());
+        segments.add(new AnyTypeSegment(this, standard.boolType));
+        segments.add(new AnyNumericSegment(this, true));
+        segments.add(new ToSuperClassSegment(definition));
+        segments.add(new ToSubClassSegment(definition, standard));
+        concat = new Promotion(segments);
+
+        segments = new ArrayList<>();
         segments.add(new AnyTypeSegment(this, standard.boolType));
         segments.add(new AnyNumericSegment(this, true));
         segments.add(new ToSuperClassSegment(definition));

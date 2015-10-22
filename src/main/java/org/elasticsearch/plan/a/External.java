@@ -662,7 +662,7 @@ class External {
             final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
 
             if (token == CAT) {
-                writeemd.promotion = caster.equality;
+                writeemd.promotion = caster.concat;
                 analyzer.visit(write);
                 writeemd.to = writeemd.from;
                 caster.markCast(writeemd);
@@ -792,7 +792,7 @@ class External {
                 final Type type = field.type;
 
                 if (token == CAT) {
-                    writeemd.promotion = caster.equality;
+                    writeemd.promotion = caster.concat;
                     analyzer.visit(write);
                     writeemd.to = writeemd.from;
                     caster.markCast(writeemd);
@@ -984,7 +984,7 @@ class External {
             final ExpressionMetadata writeemd = adapter.createExpressionMetadata(write);
 
             if (token == CAT) {
-                writeemd.promotion = caster.equality;
+                writeemd.promotion = caster.concat;
                 analyzer.visit(write);
                 writeemd.to = writeemd.from;
                 caster.markCast(writeemd);
