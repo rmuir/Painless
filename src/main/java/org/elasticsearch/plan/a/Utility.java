@@ -195,6 +195,32 @@ public class Utility {
     public static char doubleToChar(final Double value) {
         return (char)value.doubleValue();
     }
+    
+    // although divide by zero is guaranteed, the special overflow case is not caught.
+    // its not needed for remainder because it is not possible there.
+    // see https://docs.oracle.com/javase/specs/jls/se8/html/jls-15.html#jls-15.17.2
+    
+    /**
+     * Integer divide without overflow
+     * @throws ArithmeticException on overflow or divide-by-zero
+     */
+    public static int divideWithoutOverflow(int x, int y) {
+       if (x == Integer.MIN_VALUE && y == -1) {
+           throw new ArithmeticException("integer overflow");
+       }
+       return x / y;
+    }
+    
+    /**
+     * Long divide without overflow
+     * @throws ArithmeticException on overflow or divide-by-zero
+     */
+    public static long divideWithoutOverflow(long x, long y) {
+        if (x == Long.MIN_VALUE && y == -1L) {
+            throw new ArithmeticException("integer overflow");
+        }
+        return x / y;
+     }
 
     private Utility() {}
 }

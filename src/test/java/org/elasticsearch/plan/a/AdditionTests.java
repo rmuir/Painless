@@ -193,12 +193,26 @@ public class AdditionTests extends ScriptTestCase {
     }
   
     public void testOverflow() throws Exception {
-        assertEquals(Integer.MAX_VALUE + Integer.MAX_VALUE, exec("int x = 2147483647; int y = 2147483647; return x + y;"));
-        assertEquals(Long.MAX_VALUE + Long.MAX_VALUE, exec("long x = 9223372036854775807L; long y = 9223372036854775807L; return x + y;"));
+        try {
+            exec("int x = 2147483647; int y = 2147483647; return x + y;");
+            fail("should have hit exception");
+        } catch (ArithmeticException expected) {}
+        
+        try {
+            exec("long x = 9223372036854775807L; long y = 9223372036854775807L; return x + y;");
+            fail("should have hit exception");
+        } catch (ArithmeticException expected) {}
     }
     
     public void testOverflowConst() throws Exception {
-        assertEquals(Integer.MAX_VALUE + Integer.MAX_VALUE, exec("return 2147483647 + 2147483647;"));
-        assertEquals(Long.MAX_VALUE + Long.MAX_VALUE, exec("return 9223372036854775807L + 9223372036854775807L;"));
+        try {
+            exec("return 2147483647 + 2147483647;");
+            fail("should have hit exception");
+        } catch (ArithmeticException expected) {}
+        
+        try {
+            exec("return 9223372036854775807L + 9223372036854775807L;");
+            fail("should have hit exception");
+        } catch (ArithmeticException expected) {}
     }
 }

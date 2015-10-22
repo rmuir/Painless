@@ -58,65 +58,6 @@ public class BasicExpressionTests extends ScriptTestCase {
         assertEquals(false, exec("bool v = false; return v;"));
     }
 
-    /** incrementing byte values */
-    public void testIncrementByte() {
-        assertEquals((byte)0, exec("byte x = (byte)0; return x++;"));
-        assertEquals((byte)0, exec("byte x = (byte)0; return x--;"));
-        assertEquals((byte)1, exec("byte x = (byte)0; return ++x;"));
-        assertEquals((byte)-1, exec("byte x = (byte)0; return --x;"));
-    }
-    
-    /** incrementing short values */
-    public void testIncrementShort() {
-        assertEquals((short)0, exec("short x = (short)0; return x++;"));
-        assertEquals((short)0, exec("short x = (short)0; return x--;"));
-        assertEquals((short)1, exec("short x = (short)0; return ++x;"));
-        assertEquals((short)-1, exec("short x = (short)0; return --x;"));
-    }
-
-    /** incrementing integer values */
-    public void testIncrementInt() {
-        assertEquals(0, exec("int x = 0; return x++;"));
-        assertEquals(0, exec("int x = 0; return x--;"));
-        assertEquals(1, exec("int x = 0; return ++x;"));
-        assertEquals(-1, exec("int x = 0; return --x;"));
-    }
-    
-    /** incrementing long values */
-    public void testIncrementLong() {
-        assertEquals(0L, exec("long x = 0; return x++;"));
-        assertEquals(0L, exec("long x = 0; return x--;"));
-        assertEquals(1L, exec("long x = 0; return ++x;"));
-        assertEquals(-1L, exec("long x = 0; return --x;"));
-    }
-    
-    /** incrementing float values */
-    public void testIncrementFloat() {
-        assertEquals(0F, exec("float x = 0F; return x++;"));
-        assertEquals(0F, exec("float x = 0F; return x--;"));
-        assertEquals(1F, exec("float x = 0F; return ++x;"));
-        assertEquals(-1F, exec("float x = 0F; return --x;"));
-    }
-    
-    /** incrementing double values */
-    public void testIncrementDouble() {
-        assertEquals(0D, exec("double x = 0.0; return x++;"));
-        assertEquals(0D, exec("double x = 0.0; return x--;"));
-        assertEquals(1D, exec("double x = 0.0; return ++x;"));
-        assertEquals(-1D, exec("double x = 0.0; return --x;"));
-    }
-
-    public void testUnary() {
-        assertEquals(false, exec("return !true;"));
-        assertEquals(true, exec("bool x = false; return !x;"));
-        assertEquals(-2, exec("return ~1;"));
-        assertEquals(-2, exec("byte x = 1; return ~x;"));
-        assertEquals(1, exec("return +1;"));
-        assertEquals(1.0, exec("double x = 1; return +x;"));
-        assertEquals(-1, exec("return -1;"));
-        assertEquals(-2, exec("short x = 2; return -x;"));
-    }
-
     public void testCast() {
         assertEquals(1, exec("return (int)true;"));
         assertEquals((byte)100, exec("double x = 100; return (byte)x;"));
@@ -181,11 +122,5 @@ public class BasicExpressionTests extends ScriptTestCase {
     public void testPrecedence() {
         assertEquals(2, exec("int x = 5; return (x+x)/x;"));
         assertEquals(true, exec("bool t = true, f = false; return t && (f || t);"));
-    }
-    
-    public void testNegationInt() throws Exception {
-        assertEquals(-1, exec("return -1;"));
-        assertEquals(1, exec("return -(-1);"));
-        assertEquals(0, exec("return -0;"));
     }
 }

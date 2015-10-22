@@ -1189,16 +1189,16 @@ class Writer extends PlanABaseVisitor<Void> {
     void writeToStrings() {
         execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
     }
-
+    
     void writeBinaryInstruction(final ParserRuleContext source, final TypeMetadata metadata, final int token) {
         switch (metadata) {
             case INT:
                 switch (token) {
-                    case MUL:   execute.visitInsn(Opcodes.IMUL);  break;
-                    case DIV:   execute.visitInsn(Opcodes.IDIV);  break;
+                    case MUL:   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "multiplyExact", "(II)I", false);  break;
+                    case DIV:   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "divideWithoutOverflow", "(II)I", false);  break;
                     case REM:   execute.visitInsn(Opcodes.IREM);  break;
-                    case ADD:   execute.visitInsn(Opcodes.IADD);  break;
-                    case SUB:   execute.visitInsn(Opcodes.ISUB);  break;
+                    case ADD:   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "addExact", "(II)I", false);  break;
+                    case SUB:   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "subtractExact", "(II)I", false);  break;
                     case LSH:   execute.visitInsn(Opcodes.ISHL);  break;
                     case USH:   execute.visitInsn(Opcodes.IUSHR); break;
                     case RSH:   execute.visitInsn(Opcodes.ISHR);  break;
@@ -1212,11 +1212,11 @@ class Writer extends PlanABaseVisitor<Void> {
                 break;
             case LONG:
                 switch (token) {
-                    case MUL:   execute.visitInsn(Opcodes.LMUL);  break;
-                    case DIV:   execute.visitInsn(Opcodes.LDIV);  break;
+                    case MUL:   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "multiplyExact", "(JJ)J", false);  break;
+                    case DIV:   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "divideWithoutOverflow", "(JJ)J", false);  break;
                     case REM:   execute.visitInsn(Opcodes.LREM);  break;
-                    case ADD:   execute.visitInsn(Opcodes.LADD);  break;
-                    case SUB:   execute.visitInsn(Opcodes.LSUB);  break;
+                    case ADD:   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "addExact", "(JJ)J", false);  break;
+                    case SUB:   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "subtractExact", "(JJ)J", false);  break;
                     case LSH:   execute.visitInsn(Opcodes.LSHL);  break;
                     case USH:   execute.visitInsn(Opcodes.LUSHR); break;
                     case RSH:   execute.visitInsn(Opcodes.LSHR);  break;
