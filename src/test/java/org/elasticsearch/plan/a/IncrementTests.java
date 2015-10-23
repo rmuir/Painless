@@ -98,10 +98,25 @@ public class IncrementTests extends ScriptTestCase {
         assertEquals(Character.MAX_VALUE, exec("char x = (char) 0; x--; return x;"));
         
         // int
-        assertEquals(Integer.MIN_VALUE, exec("int x = 2147483647; ++x; return x;"));
-        assertEquals(Integer.MIN_VALUE, exec("int x = 2147483647; x++; return x;"));
-        assertEquals(Integer.MAX_VALUE, exec("int x = (int) -2147483648L; --x; return x;"));
-        assertEquals(Integer.MAX_VALUE, exec("int x = (int) -2147483648L; x--; return x;"));
+        try {
+            exec("int x = 2147483647; ++x; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        try {
+            exec("int x = 2147483647; x++; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        try {
+            exec("int x = (int) -2147483648L; --x; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        try {
+            exec("int x = (int) -2147483648L; x--; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
         
         // long
         try {

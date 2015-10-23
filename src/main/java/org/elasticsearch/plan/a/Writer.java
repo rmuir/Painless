@@ -1190,6 +1190,11 @@ class Writer extends PlanABaseVisitor<Void> {
         execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
     }
     
+    void writeIncrementInstruction(final ParserRuleContext source, final TypeMetadata metadata, final int token) {
+        assert token == ADD; // today always an add: fix this
+        writeBinaryInstruction(source, metadata, token);
+    }
+    
     void writeBinaryInstruction(final ParserRuleContext source, final TypeMetadata metadata, final int token) {
         switch (metadata) {
             case INT:
