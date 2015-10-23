@@ -268,19 +268,20 @@ class External {
     }
 
     private class TokenSegment extends Segment {
-        private final Type type;
+        private final Type originalType;
+        private final Type promotedType;
         private final int token;
 
-        TokenSegment(final ParserRuleContext source, final Type type, final int token) {
+        TokenSegment(ParserRuleContext source, Type originalType, Type promotedType, int token) {
             super(source);
-
-            this.type = type;
+            this.originalType = originalType;
+            this.promotedType = promotedType;
             this.token = token;
         }
 
         @Override
         void write() {
-            writer.writeCompoundAssignmentInstruction(source, type.metadata, token);
+            writer.writeCompoundAssignmentInstruction(source, originalType.metadata, promotedType.metadata, token);
         }
     }
 
@@ -697,7 +698,7 @@ class External {
                 
                 segments.add(new CastSegment(source, casts[0]));
                 segments.add(new NodeSegment(write));
-                segments.add(new TokenSegment(source, current, token));
+                segments.add(new TokenSegment(source, variable.type, current, token));
                 segments.add(new CastSegment(source, casts[1]));
                 
                 if (read && !post) {
@@ -815,7 +816,7 @@ class External {
 
                     segments.add(new CastSegment(source, casts[0]));
                     segments.add(new NodeSegment(write));
-                    segments.add(new TokenSegment(source, current, token));
+                    segments.add(new TokenSegment(source, field.type, current, token));
                     segments.add(new CastSegment(source, casts[1]));
 
                     if (read && !post) {
@@ -1009,7 +1010,7 @@ class External {
 
                 segments.add(new CastSegment(source, casts[0]));
                 segments.add(new NodeSegment(write));
-                segments.add(new TokenSegment(source, current, token));
+                segments.add(new TokenSegment(source, type, current, token));
                 segments.add(new CastSegment(source, casts[1]));
 
                 if (read && !post) {

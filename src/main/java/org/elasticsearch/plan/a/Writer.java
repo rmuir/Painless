@@ -1183,8 +1183,27 @@ class Writer extends PlanABaseVisitor<Void> {
      * We have to be stricter than writeBinary, and do overflow checks against the original type's size
      * instead of the promoted type's size, since the result will be implicitly cast back.
      */
-    void writeCompoundAssignmentInstruction(final ParserRuleContext source, final TypeMetadata metadata, final int token) {
-        writeBinaryInstruction(source, metadata, token);
+    void writeCompoundAssignmentInstruction(ParserRuleContext source, TypeMetadata original, TypeMetadata promoted, int token) {
+        switch (original) {
+            // these need special logic as they are implicitly promoted and
+            // then cast back during compound assignment.
+            case BYTE:
+            case SHORT:
+            case CHAR:
+                // TODO: special logic goes here
+                writeBinaryInstruction(source, promoted, token);
+                break;
+            // these types are never implicitly promoted during compound assignment
+            case INT:
+            case LONG:
+            case FLOAT:
+            case DOUBLE:
+                assert original == promoted;
+                writeBinaryInstruction(source, promoted, token);
+                break;
+            default:
+                throw new IllegalStateException(error(source) + "Unexpected writer state.");
+        }
     }
     
     void writeBinaryInstruction(final ParserRuleContext source, final TypeMetadata metadata, final int token) {
