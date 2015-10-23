@@ -49,7 +49,7 @@ public class ScriptEngineTests extends ScriptTestCase {
         assertEquals("value1", obj1.get("prop1"));
         assertEquals("value2", ((Map<String, Object>) obj1.get("obj2")).get("prop2"));
 
-        value = exec("return ((list)((smap)input.get(\"obj1\")).get(\"l\")).get(0);", vars);
+        value = exec("return ((List)((StringMap)input.get(\"obj1\")).get(\"l\")).get(0);", vars);
         assertEquals("2", value);
     }
 
@@ -62,15 +62,15 @@ public class ScriptEngineTests extends ScriptTestCase {
         obj1.put("obj2", obj2);
         vars.put("l", Arrays.asList("1", "2", "3", obj1));
 
-        assertEquals(4, exec("return ((list)input.get(\"l\")).size();", vars));
-        assertEquals("1", exec("return ((list)input.get(\"l\")).get(0);", vars));
+        assertEquals(4, exec("return ((List)input.get(\"l\")).size();", vars));
+        assertEquals("1", exec("return ((List)input.get(\"l\")).get(0);", vars));
 
-        Object value = exec("return ((list)input.get(\"l\")).get(3);", vars);
+        Object value = exec("return ((List)input.get(\"l\")).get(3);", vars);
         obj1 = (Map<String, Object>)value;
         assertEquals("value1", obj1.get("prop1"));
         assertEquals("value2", ((Map<String, Object>)obj1.get("obj2")).get("prop2"));
 
-        assertEquals("value1", exec("return ((smap)((list)input.get(\"l\")).get(3)).get(\"prop1\");", vars));
+        assertEquals("value1", exec("return ((StringMap)((List)input.get(\"l\")).get(3)).get(\"prop1\");", vars));
     }
 
     public void testChangingVarsCrossExecution1() {
@@ -78,7 +78,7 @@ public class ScriptEngineTests extends ScriptTestCase {
         Map<String, Object> ctx = new HashMap<>();
         vars.put("ctx", ctx);
 
-        Object compiledScript = scriptEngine.compile("return ((smap)input.get(\"ctx\")).get(\"value\");");
+        Object compiledScript = scriptEngine.compile("return ((StringMap)input.get(\"ctx\")).get(\"value\");");
         ExecutableScript script = scriptEngine.executable(new CompiledScript(ScriptService.ScriptType.INLINE,
                 "testChangingVarsCrossExecution1", "plan-a", compiledScript), vars);
 
