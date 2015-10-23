@@ -45,4 +45,18 @@ public class XorTests extends ScriptTestCase {
         assertEquals(5L ^ -12L, exec("return 5L ^ -12L;"));
         assertEquals(7L ^ 15L ^ 3L, exec("return 7L ^ 15L ^ 3L;"));
     }
+
+    public void testBool() throws Exception {
+        assertEquals(false, exec("boolean x = true; boolean y = true; return x ^ y;"));
+        assertEquals(true, exec("boolean x = true; boolean y = false; return x ^ y;"));
+        assertEquals(true, exec("boolean x = false; boolean y = true; return x ^ y;"));
+        assertEquals(false, exec("boolean x = false; boolean y = false; return x ^ y;"));
+    }
+
+    public void testBoolConst() throws Exception {
+        assertEquals(false, exec("return true ^ true;"));
+        assertEquals(true, exec("return true ^ false;"));
+        assertEquals(true, exec("return false ^ true;"));
+        assertEquals(false, exec("return false ^ false;"));
+    }
 }

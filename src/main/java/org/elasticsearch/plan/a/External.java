@@ -193,10 +193,10 @@ class External {
         void write() {
             switch (type.metadata) {
                 case VOID:   throw new IllegalStateException(error(source) + "Unexpected state during write.");
+                case BOOL:
                 case BYTE:   visitor.visitInsn(store ? Opcodes.BASTORE : Opcodes.BALOAD); break;
                 case SHORT:  visitor.visitInsn(store ? Opcodes.SASTORE : Opcodes.SALOAD); break;
                 case CHAR:   visitor.visitInsn(store ? Opcodes.CASTORE : Opcodes.CALOAD); break;
-                case BOOL:
                 case INT:    visitor.visitInsn(store ? Opcodes.IASTORE : Opcodes.IALOAD); break;
                 case LONG:   visitor.visitInsn(store ? Opcodes.LASTORE : Opcodes.LALOAD); break;
                 case FLOAT:  visitor.visitInsn(store ? Opcodes.FASTORE : Opcodes.FALOAD); break;
@@ -281,7 +281,15 @@ class External {
 
         @Override
         void write() {
-            writer.writeCompoundAssignmentInstruction(source, originalType.metadata, promotedType.metadata, token);
+
+            // If the type is bool, we don't need special range checks
+            // so we go straight to writing the binary instruction.
+
+            if (promotedType.metadata == TypeMetadata.BOOL) {
+                writer.writeBinaryInstruction(source, TypeMetadata.INT, token);
+            } else {
+                writer.writeCompoundAssignmentInstruction(source, originalType.metadata, promotedType.metadata, token);
+            }
         }
     }
 
@@ -1051,10 +1059,27 @@ class External {
     }
 
     private Cast[] toNumericCasts(final ParserRuleContext source) {
+        final Cast[] casts = new Cast[2];
+
+        // We have to first check if the type is a boolean under certain operators.
+
+        if (token == BWAND || token == BWXOR || token == BWOR) {
+            try {
+                casts[0] = caster.getLegalCast(source, current, standard.boolType, false);
+                casts[1] = caster.getLegalCast(source, standard.boolType, current, true);
+                current = standard.boolType;
+
+                return casts;
+            } catch (ClassCastException exception) {
+                // Do nothing.
+            }
+        }
+
+        // If the type is not a boolean then it must be numeric. Promote the single type.
+
         final boolean decimal = token == MUL || token == DIV || token == REM || token == ADD || token == SUB;
         final Promotion promotion = decimal ? caster.decimal : caster.numeric;
         final Type promote = caster.getTypePromotion(source, current, null, promotion);
-        final Cast[] casts = new Cast[2];
 
         casts[0] = caster.getLegalCast(source, current, promote, false);
         casts[1] = caster.getLegalCast(source, promote, current, true);
