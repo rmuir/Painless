@@ -732,9 +732,9 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     }
                 } else if (ctx.SUB() != null) {
                     if (tmd == TypeMetadata.INT) {
-                        unaryemd.preConst = -(int)expremd.postConst;
+                        unaryemd.preConst = Math.negateExact((int)expremd.postConst);
                     } else if (tmd == TypeMetadata.LONG) {
-                        unaryemd.preConst = -(long)expremd.postConst;
+                        unaryemd.preConst = Math.negateExact((long)expremd.postConst);
                     } else if (tmd == TypeMetadata.FLOAT) {
                         unaryemd.preConst = -(float)expremd.postConst;
                     } else if (tmd == TypeMetadata.DOUBLE) {

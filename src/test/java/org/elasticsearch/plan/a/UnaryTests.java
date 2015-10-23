@@ -39,4 +39,28 @@ public class UnaryTests extends ScriptTestCase {
         assertEquals(1, exec("return -(-1);"));
         assertEquals(0, exec("return -0;"));
     }
+    
+    public void testNegationOverflow() throws Exception {
+        try {
+            exec("int x = -2147483647 - 1; x = -x; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        try {
+            exec("long x = -9223372036854775807L - 1L; x = -x; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+    }
+    
+    public void testNegationOverflowConst() throws Exception {
+        try {
+            exec("int x = -(-2147483647 - 1); return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        try {
+            exec("long x = -(-9223372036854775807L - 1L); return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+    }
 }

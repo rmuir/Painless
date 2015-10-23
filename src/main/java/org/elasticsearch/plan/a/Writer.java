@@ -601,8 +601,8 @@ class Writer extends PlanABaseVisitor<Void> {
                         throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                     }
                 } else if (ctx.SUB() != null) {
-                    if      (metadata == TypeMetadata.INT)    execute.visitInsn(Opcodes.INEG);
-                    else if (metadata == TypeMetadata.LONG)   execute.visitInsn(Opcodes.LNEG);
+                    if      (metadata == TypeMetadata.INT)    execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "negateExact", "(I)I", false);
+                    else if (metadata == TypeMetadata.LONG)   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "negateExact", "(J)J", false);
                     else if (metadata == TypeMetadata.FLOAT)  execute.visitInsn(Opcodes.FNEG);
                     else if (metadata == TypeMetadata.DOUBLE) execute.visitInsn(Opcodes.DNEG);
                     else {
