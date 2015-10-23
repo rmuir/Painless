@@ -268,19 +268,20 @@ class External {
     }
 
     private class TokenSegment extends Segment {
-        private final Type type;
+        private final Type originalType;
+        private final Type promotedType;
         private final int token;
 
-        TokenSegment(final ParserRuleContext source, final Type type, final int token) {
+        TokenSegment(ParserRuleContext source, Type originalType, Type promotedType, int token) {
             super(source);
-
-            this.type = type;
+            this.originalType = originalType;
+            this.promotedType = promotedType;
             this.token = token;
         }
 
         @Override
         void write() {
-            writer.writeBinaryInstruction(source, type.metadata, token);
+            writer.writeCompoundAssignmentInstruction(source, originalType.metadata, promotedType.metadata, token);
         }
     }
 
@@ -339,23 +340,6 @@ class External {
         @Override
         void write() {
             visitor.visitInsn(instruction);
-        }
-    }
-
-    private class IncrementSegment extends Segment {
-        private final Variable variable;
-        private final int value;
-
-        IncrementSegment(final ParserRuleContext source, final Variable variable, final int value) {
-            super(source);
-
-            this.variable = variable;
-            this.value = value;
-        }
-
-        @Override
-        void write() {
-            visitor.visitIincInsn(variable.slot, value);
         }
     }
 
@@ -695,53 +679,39 @@ class External {
 
                 segments.add(new VariableSegment(source, variable, true));
             } else if (token > 0) {
-                final boolean increment = type.metadata == TypeMetadata.INT && (token == ADD || token == SUB);
                 current = type;
                 final Cast[] casts = toNumericCasts(source);
                 writeemd.to = current;
                 analyzer.visit(write);
 
-                if (increment && writeemd.postConst != null) {
-                    if (read && post) {
-                        segments.add(new VariableSegment(source, variable, false));
+                segments.add(new VariableSegment(source, variable, false));
+                
+                if (read && post) {
+                    if (type.metadata.size == 1) {
+                        segments.add(new InstructionSegment(source, Opcodes.DUP));
+                    } else if (type.metadata.size == 2) {
+                        segments.add(new InstructionSegment(source, Opcodes.DUP2));
+                    } else {
+                        throw new IllegalStateException(error(source) + "Unexpected type size.");
                     }
-
-                    final int value = token == SUB ? -1*(int)writeemd.postConst : (int)writeemd.postConst;
-                    segments.add(new IncrementSegment(source, variable, value));
-
-                    if (read && !post) {
-                        segments.add(new VariableSegment(source, variable, false));
-                    }
-                } else {
-                    segments.add(new VariableSegment(source, variable, false));
-
-                    if (read && post) {
-                        if (type.metadata.size == 1) {
-                            segments.add(new InstructionSegment(source, Opcodes.DUP));
-                        } else if (type.metadata.size == 2) {
-                            segments.add(new InstructionSegment(source, Opcodes.DUP2));
-                        } else {
-                            throw new IllegalStateException(error(source) + "Unexpected type size.");
-                        }
-                    }
-
-                    segments.add(new CastSegment(source, casts[0]));
-                    segments.add(new NodeSegment(write));
-                    segments.add(new TokenSegment(source, current, token));
-                    segments.add(new CastSegment(source, casts[1]));
-
-                    if (read && !post) {
-                        if (type.metadata.size == 1) {
-                            segments.add(new InstructionSegment(source, Opcodes.DUP));
-                        } else if (type.metadata.size == 2) {
-                            segments.add(new InstructionSegment(source, Opcodes.DUP2));
-                        } else {
-                            throw new IllegalStateException(error(source) + "Unexpected type size.");
-                        }
-                    }
-
-                    segments.add(new VariableSegment(source, variable, true));
                 }
+                
+                segments.add(new CastSegment(source, casts[0]));
+                segments.add(new NodeSegment(write));
+                segments.add(new TokenSegment(source, variable.type, current, token));
+                segments.add(new CastSegment(source, casts[1]));
+                
+                if (read && !post) {
+                    if (type.metadata.size == 1) {
+                        segments.add(new InstructionSegment(source, Opcodes.DUP));
+                    } else if (type.metadata.size == 2) {
+                        segments.add(new InstructionSegment(source, Opcodes.DUP2));
+                    } else {
+                        throw new IllegalStateException(error(source) + "Unexpected type size.");
+                    }
+                }
+                
+                segments.add(new VariableSegment(source, variable, true));
             } else {
                 writeemd.to = type;
                 analyzer.visit(write);
@@ -846,7 +816,7 @@ class External {
 
                     segments.add(new CastSegment(source, casts[0]));
                     segments.add(new NodeSegment(write));
-                    segments.add(new TokenSegment(source, current, token));
+                    segments.add(new TokenSegment(source, field.type, current, token));
                     segments.add(new CastSegment(source, casts[1]));
 
                     if (read && !post) {
@@ -1040,7 +1010,7 @@ class External {
 
                 segments.add(new CastSegment(source, casts[0]));
                 segments.add(new NodeSegment(write));
-                segments.add(new TokenSegment(source, current, token));
+                segments.add(new TokenSegment(source, type, current, token));
                 segments.add(new CastSegment(source, casts[1]));
 
                 if (read && !post) {
