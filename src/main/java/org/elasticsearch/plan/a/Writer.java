@@ -966,6 +966,10 @@ class Writer extends PlanABaseVisitor<Void> {
         local.fals = new Label();
         local.end = new Label();
 
+        if (branch != null) {
+            adapter.copyBranch(branch, expr1, expr2);
+        }
+
         visit(expr0);
         visit(expr1);
         execute.visitJumpInsn(Opcodes.GOTO, local.end);

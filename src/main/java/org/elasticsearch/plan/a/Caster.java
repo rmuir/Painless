@@ -167,28 +167,34 @@ class Caster {
         }
     }
 
-    private static class ToSuperClassSegment extends Segment {
+    private static class ToImplicitSegment extends Segment {
         final Definition definition;
 
-        ToSuperClassSegment(final Definition definition) {
+        ToImplicitSegment(final Definition definition) {
             this.definition = definition;
         }
 
         @Override
         Type promote(final ParserRuleContext source, final Type from0, final Type from1) {
-            if (from0.equals(from1)) {
-                return from0;
-            }
-
             final Cast cast0 = new Cast(from0, from1);
             final Cast cast1 = new Cast(from1, from0);
+            final Transform transform0 = definition.implicits.get(cast0);
+            final Transform transform1 = definition.implicits.get(cast1);
 
-            if (definition.upcasts.contains(cast0)) {
+            if (!from0.metadata.object && from1.metadata.object && transform0 != null) {
                 return from1;
             }
 
-            if (definition.upcasts.contains(cast1)) {
+            if (from0.metadata.object && !from1.metadata.object && transform1 != null) {
                 return from0;
+            }
+
+            if (transform0 != null && transform1 == null) {
+                return from0;
+            }
+
+            if (transform1 != null && transform0 == null) {
+                return from1;
             }
 
             return null;
@@ -210,17 +216,17 @@ class Caster {
                 return from0;
             }
 
-            if (from0.clazz.equals(from1.clazz)) {
-                if (from0.struct.generic && !from1.struct.generic) {
-                    return from1;
-                } else if (!from0.struct.generic && from1.struct.generic) {
-                    return from0;
+            if (from0.metadata.object && from1.metadata.object) {
+                if (from0.clazz.equals(from1.clazz)) {
+                    if (from0.struct.generic && !from1.struct.generic) {
+                        return from1;
+                    } else if (!from0.struct.generic && from1.struct.generic) {
+                        return from0;
+                    }
+
+                    return standard.objectType;
                 }
 
-                return standard.objectType;
-            }
-
-            if (from0.metadata.object && from1.metadata.object) {
                 try {
                     from0.clazz.asSubclass(from1.clazz);
 
@@ -275,15 +281,15 @@ class Caster {
         segments.add(new SameTypeSegment());
         segments.add(new AnyTypeSegment(this, standard.boolType));
         segments.add(new AnyNumericSegment(this, true));
-        segments.add(new ToSuperClassSegment(definition));
         segments.add(new ToSubClassSegment(definition, standard));
+        segments.add(new ToImplicitSegment(definition));
         concat = new Promotion(segments);
 
         segments = new ArrayList<>();
         segments.add(new AnyTypeSegment(this, standard.boolType));
         segments.add(new AnyNumericSegment(this, true));
-        segments.add(new ToSuperClassSegment(definition));
         segments.add(new ToSubClassSegment(definition, standard));
+        segments.add(new ToImplicitSegment(definition));
         equality = new Promotion(segments);
 
         segments = new ArrayList<>();
