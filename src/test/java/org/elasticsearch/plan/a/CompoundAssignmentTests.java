@@ -190,4 +190,13 @@ public class CompoundAssignmentTests extends ScriptTestCase {
         assertEquals(15L, exec("long x = 60L; x >>>= 2; return x;"));
         assertEquals(-60L >>> 2, exec("long x = -60L; x >>>= 2; return x;"));
     }
+    
+    @AwaitsFix(bugUrl = "buggy: boolean supports &=,|=,^=")
+    public void testAnd() {
+        // boolean
+        assertEquals(true, exec("boolean x = true; x &= true; return x;"));
+        assertEquals(false, exec("boolean x = true; x &= false; return x;"));
+        assertEquals(false, exec("boolean x = false; x &= true; return x;"));
+        assertEquals(false, exec("boolean x = false; x &= false; return x;"));
+    }
 }
