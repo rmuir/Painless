@@ -54,7 +54,7 @@ public class Default {
             validateExact(definition, "double", double.class);
             validateExact(definition, "Object", Object.class);
             validateExact(definition, "String", String.class);
-            validateSubclass(definition, "Exectuable", Executable.class);
+            validateSubclass(definition, "Executable", Executable.class);
             validateSubclass(definition, "List", List.class);
             validateSubclass(definition, "Map", Map.class);
             validateSubclass(definition, "StringMap", Map.class);
@@ -68,12 +68,12 @@ public class Default {
             longType = getTypeFromCanonicalName(definition, "long");
             floatType = getTypeFromCanonicalName(definition, "float");
             doubleType = getTypeFromCanonicalName(definition, "double");
-            objectType = getTypeFromCanonicalName(definition, "object");
-            stringType = getTypeFromCanonicalName(definition, "string");
-            execType = getTypeFromCanonicalName(definition, "exec");
-            listType = getTypeFromCanonicalName(definition, "list");
-            mapType = getTypeFromCanonicalName(definition, "map");
-            smapType = getTypeFromCanonicalName(definition, "smap");
+            objectType = getTypeFromCanonicalName(definition, "Object");
+            stringType = getTypeFromCanonicalName(definition, "String");
+            execType = getTypeFromCanonicalName(definition, "Executable");
+            listType = getTypeFromCanonicalName(definition, "List");
+            mapType = getTypeFromCanonicalName(definition, "Map");
+            smapType = getTypeFromCanonicalName(definition, "StringMap");
         }
 
         private void validateExact(final Definition definition, final String name, final Class clazz) {

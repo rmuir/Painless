@@ -104,15 +104,15 @@ public class Utility {
         return value != 0;
     }
 
-    public static boolean ShortToBoolean(final Short value) {
+    public static boolean ShortToboolean(final Short value) {
         return value != 0;
     }
 
-    public static char shortToChar(final Short value) {
+    public static char ShortTochar(final Short value) {
         return (char)value.shortValue();
     }
 
-    public static boolean charToBoolean(final char value) {
+    public static boolean charToboolean(final char value) {
         return value != 0;
     }
 
@@ -120,79 +120,79 @@ public class Utility {
         return (int)value;
     }
 
-    public static boolean characterToBoolean(final Character value) {
+    public static boolean CharacterToboolean(final Character value) {
         return value != 0;
     }
 
-    public static byte characterToByte(final Character value) {
+    public static byte CharacterTobyte(final Character value) {
         return (byte)value.charValue();
     }
 
-    public static short characterToShort(final Character value) {
+    public static short CharacterToshort(final Character value) {
         return (short)value.charValue();
     }
 
-    public static int characterToInt(final Character value) {
+    public static int CharacterToint(final Character value) {
         return (int)value;
     }
 
-    public static long characterToLong(final Character value) {
+    public static long CharacterTolong(final Character value) {
         return (long)value;
     }
 
-    public static float characterToFloat(final Character value) {
+    public static float CharacterTofloat(final Character value) {
         return (float)value;
     }
 
-    public static double characterToDouble(final Character value) {
+    public static double CharacterTodouble(final Character value) {
         return (double)value;
     }
 
-    public static boolean intToBoolean(final int value) {
+    public static boolean intToboolean(final int value) {
         return value != 0;
     }
 
-    public static boolean integerToBoolean(final Integer value) {
+    public static boolean IntegerToboolean(final Integer value) {
         return value != 0;
     }
 
-    public static char integerToChar(final Integer value) {
+    public static char IntegerTochar(final Integer value) {
         return (char)value.intValue();
     }
 
-    public static boolean longToBoolean(final long value) {
+    public static boolean longToboolean(final long value) {
         return value != 0;
     }
 
-    public static boolean longToBoolean(final Long value) {
+    public static boolean LongToboolean(final Long value) {
         return value != 0;
     }
 
-    public static char longToChar(final Long value) {
+    public static char LongTochar(final Long value) {
         return (char)value.longValue();
     }
 
-    public static boolean floatToBoolean(final float value) {
+    public static boolean floatToboolean(final float value) {
         return value != 0;
     }
 
-    public static boolean floatToBoolean(final Float value) {
+    public static boolean FloatToboolean(final Float value) {
         return value != 0;
     }
 
-    public static char floatToChar(final Float value) {
+    public static char FloatTochar(final Float value) {
         return (char)value.floatValue();
     }
 
-    public static boolean doubleToBoolean(final double value) {
+    public static boolean doubleToboolean(final double value) {
         return value != 0;
     }
 
-    public static boolean doubleToBoolean(final Double value) {
+    public static boolean DoubleToboolean(final Double value) {
         return value != 0;
     }
 
-    public static char doubleToChar(final Double value) {
+    public static char DoubleTochar(final Double value) {
         return (char)value.doubleValue();
     }
     
