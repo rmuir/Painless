@@ -152,7 +152,7 @@ public class DivisionTests extends ScriptTestCase {
         } catch (ArithmeticException expected) {}
         
         try {
-            System.out.println(exec("long x = -9223372036854775807L - 1L; long y = -1L; return x / y;"));
+            exec("long x = -9223372036854775807L - 1L; long y = -1L; return x / y;");
             fail("should have hit exception");
         } catch (ArithmeticException expected) {}
     }
