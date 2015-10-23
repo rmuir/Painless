@@ -190,13 +190,24 @@ public class CompoundAssignmentTests extends ScriptTestCase {
         assertEquals(15L, exec("long x = 60L; x >>>= 2; return x;"));
         assertEquals(-60L >>> 2, exec("long x = -60L; x >>>= 2; return x;"));
     }
-    
-    @AwaitsFix(bugUrl = "buggy: boolean supports &=,|=,^=")
+
     public void testAnd() {
         // boolean
         assertEquals(true, exec("boolean x = true; x &= true; return x;"));
         assertEquals(false, exec("boolean x = true; x &= false; return x;"));
         assertEquals(false, exec("boolean x = false; x &= true; return x;"));
         assertEquals(false, exec("boolean x = false; x &= false; return x;"));
+        assertEquals(true, exec("Boolean x = true; x &= true; return x;"));
+        assertEquals(false, exec("Boolean x = true; x &= false; return x;"));
+        assertEquals(false, exec("Boolean x = false; x &= true; return x;"));
+        assertEquals(false, exec("Boolean x = false; x &= false; return x;"));
+        assertEquals(true, exec("boolean[] x = boolean.makearray(1); x[0] = true; x[0] &= true; return x[0];"));
+        assertEquals(false, exec("boolean[] x = boolean.makearray(1); x[0] = true; x[0] &= false; return x[0];"));
+        assertEquals(false, exec("boolean[] x = boolean.makearray(1); x[0] = false; x[0] &= true; return x[0];"));
+        assertEquals(false, exec("boolean[] x = boolean.makearray(1); x[0] = false; x[0] &= false; return x[0];"));
+        assertEquals(true, exec("Boolean[] x = Boolean.makearray(1); x[0] = true; x[0] &= true; return x[0];"));
+        assertEquals(false, exec("Boolean[] x = Boolean.makearray(1); x[0] = true; x[0] &= false; return x[0];"));
+        assertEquals(false, exec("Boolean[] x = Boolean.makearray(1); x[0] = false; x[0] &= true; return x[0];"));
+        assertEquals(false, exec("Boolean[] x = Boolean.makearray(1); x[0] = false; x[0] &= false; return x[0];"));
     }
 }

@@ -803,6 +803,8 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         if (ctx.ADD() != null || ctx.SUB() != null || ctx.DIV() != null || ctx.MUL() != null || ctx.REM() != null) {
             promotion = caster.decimal;
+        } else if (ctx.BWXOR() != null) {
+            promotion = caster.binary;
         } else {
             promotion = caster.numeric;
         }
@@ -920,7 +922,9 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                 }
             } else if (ctx.BWXOR() != null) {
-                if (tmd == TypeMetadata.INT) {
+                if (tmd == TypeMetadata.BOOL) {
+                    binaryemd.preConst = (boolean)expremd0.postConst ^ (boolean)expremd1.postConst;
+                } else if (tmd == TypeMetadata.INT) {
                     binaryemd.preConst = (int)expremd0.postConst ^ (int)expremd1.postConst;
                 } else if (tmd == TypeMetadata.LONG) {
                     binaryemd.preConst = (long)expremd0.postConst ^ (long)expremd1.postConst;

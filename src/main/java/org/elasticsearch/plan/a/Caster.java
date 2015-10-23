@@ -255,6 +255,7 @@ class Caster {
     private final Definition definition;
     private final Standard standard;
 
+    final Promotion binary;
     final Promotion concat;
     final Promotion equality;
     final Promotion decimal;
@@ -266,6 +267,11 @@ class Caster {
         this.standard = standard;
 
         List<Segment> segments = new ArrayList<>();
+        segments.add(new AnyTypeSegment(this, standard.boolType));
+        segments.add(new AnyNumericSegment(this, false));
+        binary = new Promotion(segments);
+
+        segments = new ArrayList<>();
         segments.add(new SameTypeSegment());
         segments.add(new AnyTypeSegment(this, standard.boolType));
         segments.add(new AnyNumericSegment(this, true));

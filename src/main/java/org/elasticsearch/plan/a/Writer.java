@@ -659,7 +659,11 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(expr0);
             visit(expr1);
 
-            final TypeMetadata metadata = binaryemd.from.metadata;
+            // Promote any boolean metadata to int metadata for the
+            // purpose of writing binary instructions.
+
+            final TypeMetadata metadata = binaryemd.from.metadata == TypeMetadata.BOOL ?
+                    TypeMetadata.INT : binaryemd.from.metadata;
 
             if      (ctx.MUL()   != null) writeBinaryInstruction(ctx, metadata, MUL);
             else if (ctx.DIV()   != null) writeBinaryInstruction(ctx, metadata, DIV);
@@ -1218,7 +1222,7 @@ class Writer extends PlanABaseVisitor<Void> {
                 execute.visitInsn(Opcodes.L2I);
             }
         }
-        
+
         switch (metadata) {
             case INT:
                 switch (token) {
