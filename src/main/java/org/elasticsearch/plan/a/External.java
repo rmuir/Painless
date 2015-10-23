@@ -280,7 +280,7 @@ class External {
 
         @Override
         void write() {
-            writer.writeIncrementInstruction(source, type.metadata, token);
+            writer.writeCompoundAssignmentInstruction(source, type.metadata, token);
         }
     }
 

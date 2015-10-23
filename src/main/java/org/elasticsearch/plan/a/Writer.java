@@ -1178,8 +1178,12 @@ class Writer extends PlanABaseVisitor<Void> {
         execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
     }
     
-    void writeIncrementInstruction(final ParserRuleContext source, final TypeMetadata metadata, final int token) {
-        assert token == ADD; // today always an add: fix this
+    /**
+     * Called for any compound assignment (including increment/decrement instructions).
+     * We have to be stricter than writeBinary, and do overflow checks against the original type's size
+     * instead of the promoted type's size, since the result will be implicitly cast back.
+     */
+    void writeCompoundAssignmentInstruction(final ParserRuleContext source, final TypeMetadata metadata, final int token) {
         writeBinaryInstruction(source, metadata, token);
     }
     
