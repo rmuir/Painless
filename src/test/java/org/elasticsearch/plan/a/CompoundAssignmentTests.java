@@ -140,7 +140,6 @@ public class CompoundAssignmentTests extends ScriptTestCase {
         assertEquals(-3D, exec("double x = -15.0; x %= 4; return x;"));
     }
 
-    @AwaitsFix(bugUrl = "buggy")
     public void testLeftShift() {
         // byte
         assertEquals((byte) 60, exec("byte x = 15; x <<= 2; return x;"));
