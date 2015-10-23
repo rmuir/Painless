@@ -363,7 +363,9 @@ class Analyzer extends PlanABaseVisitor<Void> {
         try {
             visit(exprctx);
         } catch (ClassCastException exception) {
-            expremd.statement = false;
+            if (expremd.statement) {
+                throw exception;
+            }
         }
 
         if (!expremd.statement) {

@@ -45,4 +45,14 @@ public class WhenThingsGoWrongTests extends ScriptTestCase {
             fail("should have hit npe");
         } catch (NullPointerException expected) {}
     }
+
+    public void testInvalidShift() {
+        try {
+            exec("float x = 15F; x <<= 2; return x;");
+        } catch (ClassCastException expected) {}
+
+        try {
+            exec("double x = 15F; x <<= 2; return x;");
+        } catch (ClassCastException expected) {}
+    }
 }
