@@ -41,7 +41,7 @@ public class WhenThingsGoWrongTests extends ScriptTestCase {
 
     public void testNullPointer() {
         try {
-            exec("int x = (int) ((map) input).get(\"missing\"); return x;");
+            exec("int x = (int) ((Map) input).get(\"missing\"); return x;");
             fail("should have hit npe");
         } catch (NullPointerException expected) {}
     }

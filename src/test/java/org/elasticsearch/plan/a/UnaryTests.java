@@ -72,7 +72,7 @@ public class UnaryTests extends ScriptTestCase {
 
     public void testUnary() {
         assertEquals(false, exec("return !true;"));
-        assertEquals(true, exec("bool x = false; return !x;"));
+        assertEquals(true, exec("boolean x = false; return !x;"));
         assertEquals(-2, exec("return ~1;"));
         assertEquals(-2, exec("byte x = 1; return ~x;"));
         assertEquals(1, exec("return +1;"));

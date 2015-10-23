@@ -53,9 +53,9 @@ public class BasicExpressionTests extends ScriptTestCase {
         assertEquals(32.0F, exec("float f = 32F; return f;"));
         assertEquals((byte)255, exec("byte b = (byte)255; return b;"));
         assertEquals((short)5, exec("short s = (short)5; return s;"));
-        assertEquals("string", exec("string s = \"string\"; return s;"));
-        assertEquals(true, exec("bool v = true; return v;"));
-        assertEquals(false, exec("bool v = false; return v;"));
+        assertEquals("string", exec("String s = \"string\"; return s;"));
+        assertEquals(true, exec("boolean v = true; return v;"));
+        assertEquals(false, exec("boolean v = false; return v;"));
     }
 
     public void testCast() {
@@ -63,18 +63,18 @@ public class BasicExpressionTests extends ScriptTestCase {
         assertEquals((byte)100, exec("double x = 100; return (byte)x;"));
 
         assertEquals(3, exec(
-                "map x = hashmap.new();\n" +
-                "object y = x;\n" +
-                "((map)y).put(2, 3);\n" +
+                "Map x = HashMap.new();\n" +
+                "Object y = x;\n" +
+                "((Map)y).put(2, 3);\n" +
                 "return x.get(2);\n"));
     }
 
     public void testCat() {
         assertEquals("aaabbb", exec("return \"aaa\" .. \"bbb\";"));
-        assertEquals("aaabbb", exec("string aaa = \"aaa\", bbb = \"bbb\"; return aaa .. bbb;"));
+        assertEquals("aaabbb", exec("String aaa = \"aaa\", bbb = \"bbb\"; return aaa .. bbb;"));
 
         assertEquals("aaabbbbbbbbb", exec(
-                "string aaa = \"aaa\", bbb = \"bbb\"; int x;\n" +
+                "String aaa = \"aaa\", bbb = \"bbb\"; int x;\n" +
                 "for (; x < 3; ++x) \n" +
                 "    aaa ..= bbb;\n" +
                 "return aaa;"));
@@ -102,25 +102,25 @@ public class BasicExpressionTests extends ScriptTestCase {
         // return
         assertEquals(4, exec("return input.get(\"x\");", Collections.singletonMap("x", 4)));
         // assignment
-        assertEquals(4, exec("int y = (intobj)input.get(\"x\"); return y;", Collections.singletonMap("x", 4)));
+        assertEquals(4, exec("int y = (Integer)input.get(\"x\"); return y;", Collections.singletonMap("x", 4)));
         // comparison
-        assertEquals(true, exec("return 5 > (intobj)input.get(\"x\");", Collections.singletonMap("x", 4)));
+        assertEquals(true, exec("return 5 > (Integer)input.get(\"x\");", Collections.singletonMap("x", 4)));
     }
 
     public void testBool() {
         assertEquals(true, exec("return true && true;"));
-        assertEquals(false, exec("bool a = true, b = false; return a && b;"));
+        assertEquals(false, exec("boolean a = true, b = false; return a && b;"));
         assertEquals(true, exec("return true || true;"));
-        assertEquals(true, exec("bool a = true, b = false; return a || b;"));
+        assertEquals(true, exec("boolean a = true, b = false; return a || b;"));
     }
 
     public void testConditional() {
         assertEquals(1, exec("int x = 5; return x > 3 ? 1 : 0;"));
-        assertEquals(0, exec("string a = null; return a != null ? 1 : 0;"));
+        assertEquals(0, exec("String a = null; return a != null ? 1 : 0;"));
     }
 
     public void testPrecedence() {
         assertEquals(2, exec("int x = 5; return (x+x)/x;"));
-        assertEquals(true, exec("bool t = true, f = false; return t && (f || t);"));
+        assertEquals(true, exec("boolean t = true, f = false; return t && (f || t);"));
     }
 }
