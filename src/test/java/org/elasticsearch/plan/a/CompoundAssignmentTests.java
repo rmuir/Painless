@@ -70,4 +70,57 @@ public class CompoundAssignmentTests extends ScriptTestCase {
         assertEquals(15D, exec("double x = 5.0; x -= -10; return x;"));
         assertEquals(-5D, exec("double x = 5.0; x -= 10; return x;"));
     }
+    
+    public void testMultiplication() {
+        // byte
+        assertEquals((byte) 15, exec("byte x = 5; x *= 3; return x;"));
+        assertEquals((byte) -5, exec("byte x = 5; x *= -1; return x;"));
+        // short
+        assertEquals((short) 15, exec("short x = 5; x *= 3; return x;"));
+        assertEquals((short) -5, exec("short x = 5; x *= -1; return x;"));
+        // char
+        assertEquals((char) 15, exec("char x = 5; x *= 3; return x;"));
+        // int
+        assertEquals(15, exec("int x = 5; x *= 3; return x;"));
+        assertEquals(-5, exec("int x = 5; x *= -1; return x;"));
+        // long
+        assertEquals(15L, exec("long x = 5; x *= 3; return x;"));
+        assertEquals(-5L, exec("long x = 5; x *= -1; return x;"));
+        // float
+        assertEquals(15F, exec("float x = 5f; x *= 3; return x;"));
+        assertEquals(-5F, exec("float x = 5f; x *= -1; return x;"));
+        // double
+        assertEquals(15D, exec("double x = 5.0; x *= 3; return x;"));
+        assertEquals(-5D, exec("double x = 5.0; x *= -1; return x;"));
+    }
+    
+    public void testDivision() {
+        // byte
+        assertEquals((byte) 15, exec("byte x = 45; x /= 3; return x;"));
+        assertEquals((byte) -5, exec("byte x = 5; x /= -1; return x;"));
+        // short
+        assertEquals((short) 15, exec("short x = 45; x /= 3; return x;"));
+        assertEquals((short) -5, exec("short x = 5; x /= -1; return x;"));
+        // char
+        assertEquals((char) 15, exec("char x = 45; x /= 3; return x;"));
+        // int
+        assertEquals(15, exec("int x = 45; x /= 3; return x;"));
+        assertEquals(-5, exec("int x = 5; x /= -1; return x;"));
+        // long
+        assertEquals(15L, exec("long x = 45; x /= 3; return x;"));
+        assertEquals(-5L, exec("long x = 5; x /= -1; return x;"));
+        // float
+        assertEquals(15F, exec("float x = 45f; x /= 3; return x;"));
+        assertEquals(-5F, exec("float x = 5f; x /= -1; return x;"));
+        // double
+        assertEquals(15D, exec("double x = 45.0; x /= 3; return x;"));
+        assertEquals(-5D, exec("double x = 5.0; x /= -1; return x;"));
+    }
+    
+    @AwaitsFix(bugUrl = "some issue with casting")
+    public void testRemainder() {
+        // byte
+        assertEquals((byte) 3, exec("byte x = 15; x %= 4; return x;"));
+        assertEquals((byte) -3, exec("byte x = -15; x %= 4; return x;"));
+    }
 }
