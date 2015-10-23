@@ -45,4 +45,10 @@ public class WhenThingsGoWrongTests extends ScriptTestCase {
             fail("should have hit npe");
         } catch (NullPointerException expected) {}
     }
+    
+    @AwaitsFix(bugUrl = "buggy: should be invalid syntax, not NPE")
+    public void testInvalidShift() {
+        exec("float x = 15F; x <<= 2; return x;");
+        exec("double x = 15F; x <<= 2; return x;");
+    }
 }
