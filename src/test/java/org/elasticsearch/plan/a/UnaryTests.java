@@ -22,55 +22,8 @@ package org.elasticsearch.plan.a;
 /** Tests for unary operators across different types */
 public class UnaryTests extends ScriptTestCase {
 
-    /** incrementing byte values */
-    public void testIncrementByte() {
-        assertEquals((byte)0, exec("byte x = (byte)0; return x++;"));
-        assertEquals((byte)0, exec("byte x = (byte)0; return x--;"));
-        assertEquals((byte)1, exec("byte x = (byte)0; return ++x;"));
-        assertEquals((byte)-1, exec("byte x = (byte)0; return --x;"));
-    }
-    
-    /** incrementing short values */
-    public void testIncrementShort() {
-        assertEquals((short)0, exec("short x = (short)0; return x++;"));
-        assertEquals((short)0, exec("short x = (short)0; return x--;"));
-        assertEquals((short)1, exec("short x = (short)0; return ++x;"));
-        assertEquals((short)-1, exec("short x = (short)0; return --x;"));
-    }
-
-    /** incrementing integer values */
-    public void testIncrementInt() {
-        assertEquals(0, exec("int x = 0; return x++;"));
-        assertEquals(0, exec("int x = 0; return x--;"));
-        assertEquals(1, exec("int x = 0; return ++x;"));
-        assertEquals(-1, exec("int x = 0; return --x;"));
-    }
-    
-    /** incrementing long values */
-    public void testIncrementLong() {
-        assertEquals(0L, exec("long x = 0; return x++;"));
-        assertEquals(0L, exec("long x = 0; return x--;"));
-        assertEquals(1L, exec("long x = 0; return ++x;"));
-        assertEquals(-1L, exec("long x = 0; return --x;"));
-    }
-    
-    /** incrementing float values */
-    public void testIncrementFloat() {
-        assertEquals(0F, exec("float x = 0F; return x++;"));
-        assertEquals(0F, exec("float x = 0F; return x--;"));
-        assertEquals(1F, exec("float x = 0F; return ++x;"));
-        assertEquals(-1F, exec("float x = 0F; return --x;"));
-    }
-    
-    /** incrementing double values */
-    public void testIncrementDouble() {
-        assertEquals(0D, exec("double x = 0.0; return x++;"));
-        assertEquals(0D, exec("double x = 0.0; return x--;"));
-        assertEquals(1D, exec("double x = 0.0; return ++x;"));
-        assertEquals(-1D, exec("double x = 0.0; return --x;"));
-    }
-
-    public void testUnary() {
+    /** basic tests */
+    public void testBasics() {
         assertEquals(false, exec("return !true;"));
         assertEquals(true, exec("boolean x = false; return !x;"));
         assertEquals(-2, exec("return ~1;"));

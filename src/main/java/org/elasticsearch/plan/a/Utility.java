@@ -217,7 +217,7 @@ public class Utility {
      */
     public static long divideWithoutOverflow(long x, long y) {
         if (x == Long.MIN_VALUE && y == -1L) {
-            throw new ArithmeticException("integer overflow");
+            throw new ArithmeticException("long overflow");
         }
         return x / y;
      }
