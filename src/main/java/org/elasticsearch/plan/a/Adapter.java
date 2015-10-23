@@ -305,6 +305,12 @@ class Adapter {
         return branch;
     }
 
+    void copyBranch(final Branch branch, final ParserRuleContext... nodes) {
+        for (final ParserRuleContext node : nodes) {
+            branches.put(node, branch);
+        }
+    }
+
     Branch getBranch(final ParserRuleContext source) {
         return branches.get(source);
     }

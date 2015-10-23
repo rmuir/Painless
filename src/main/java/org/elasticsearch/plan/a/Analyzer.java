@@ -1115,12 +1115,14 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
         expremd1.to = condemd.to;
         expremd1.promotion = condemd.promotion;
+        expremd1.explicit = condemd.explicit;
         visit(exprctx1);
 
         final ExpressionContext exprctx2 = adapter.getExpressionContext(ctx.expression(2));
         final ExpressionMetadata expremd2 = adapter.createExpressionMetadata(exprctx2);
         expremd2.to = condemd.to;
         expremd2.promotion = condemd.promotion;
+        expremd2.explicit = condemd.explicit;
         visit(exprctx2);
 
         if (condemd.to != null) {
@@ -1128,9 +1130,9 @@ class Analyzer extends PlanABaseVisitor<Void> {
         } else if (condemd.promotion != null) {
             final Type promote = caster.getTypePromotion(ctx, expremd1.from, expremd2.from, condemd.promotion);
 
-            expremd0.to = promote;
-            caster.markCast(expremd1);
             expremd1.to = promote;
+            caster.markCast(expremd1);
+            expremd2.to = promote;
             caster.markCast(expremd2);
 
             condemd.from = promote;
