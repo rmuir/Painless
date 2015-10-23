@@ -33,9 +33,8 @@ public class IncrementTests extends ScriptTestCase {
     /** incrementing char values */
     public void testIncrementChar() {
         assertEquals((char)0, exec("char x = (char)0; return x++;"));
-        assertEquals((char)0, exec("char x = (char)0; return x--;"));
+        assertEquals((char)1, exec("char x = (char)1; return x--;"));
         assertEquals((char)1, exec("char x = (char)0; return ++x;"));
-        assertEquals((char)-1, exec("char x = (char)0; return --x;"));
     }
     
     /** incrementing short values */
@@ -80,22 +79,62 @@ public class IncrementTests extends ScriptTestCase {
     
     public void testIncOverFlow() throws Exception {
         // byte
-        assertEquals(Byte.MIN_VALUE, exec("byte x = 127; ++x; return x;"));
-        assertEquals(Byte.MIN_VALUE, exec("byte x = 127; x++; return x;"));
-        assertEquals(Byte.MAX_VALUE, exec("byte x = (byte) -128; --x; return x;"));
-        assertEquals(Byte.MAX_VALUE, exec("byte x = (byte) -128; x--; return x;"));
+        try {
+            exec("byte x = 127; ++x; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        try {
+            exec("byte x = 127; x++; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        try {
+            exec("byte x = (byte) -128; --x; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        try {
+            exec("byte x = (byte) -128; x--; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
         
         // short
-        assertEquals(Short.MIN_VALUE, exec("short x = 32767; ++x; return x;"));
-        assertEquals(Short.MIN_VALUE, exec("short x = 32767; x++; return x;"));
-        assertEquals(Short.MAX_VALUE, exec("short x = (short) -32768; --x; return x;"));
-        assertEquals(Short.MAX_VALUE, exec("short x = (short) -32768; x--; return x;"));
+        try {
+            exec("short x = 32767; ++x; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        try {
+            exec("short x = 32767; x++; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        try {
+            exec("short x = (short) -32768; --x; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        try {
+            exec("short x = (short) -32768; x--; return x;");
+        } catch (ArithmeticException expected) {}
         
         // char
-        assertEquals(Character.MIN_VALUE, exec("char x = 65535; ++x; return x;"));
-        assertEquals(Character.MIN_VALUE, exec("char x = 65535; x++; return x;"));
-        assertEquals(Character.MAX_VALUE, exec("char x = (char) 0; --x; return x;"));
-        assertEquals(Character.MAX_VALUE, exec("char x = (char) 0; x--; return x;"));
+        try {
+            exec("char x = 65535; ++x; return x;");
+        } catch (ArithmeticException expected) {}
+        
+        try {
+            exec("char x = 65535; x++; return x;");
+        } catch (ArithmeticException expected) {}
+        
+        try {
+            exec("char x = (char) 0; --x; return x;");
+        } catch (ArithmeticException expected) {}
+        
+        try {
+            exec("char x = (char) 0; x--; return x;");
+        } catch (ArithmeticException expected) {}
         
         // int
         try {

@@ -220,7 +220,45 @@ public class Utility {
             throw new ArithmeticException("long overflow");
         }
         return x / y;
-     }
+    }
+
+    // byte, short, and char are promoted to int for normal operations,
+    // so the JDK exact methods are typically used, and the result has a wider range.
+    // but compound assignments and increment/decrement operators (e.g. byte b = Byte.MAX_VALUE; b++;)
+    // implicitly cast back to the original type: so these need to be checked against the original range.
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for byte range.
+     */
+    public static byte toByteExact(int value) {
+        byte b = (byte) value;
+        if (b != value) {
+            throw new ArithmeticException("byte overflow");
+        }
+        return b;
+    }
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for char range.
+     */
+    public static char toCharExact(int value) {
+        char c = (char) value;
+        if (c != value) {
+            throw new ArithmeticException("char overflow");
+        }
+        return c;
+    }
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for short range.
+     */
+    public static short toShortExact(int value) {
+        short s = (short) value;
+        if (s != value) {
+            throw new ArithmeticException("short overflow");
+        }
+        return s;
+    }
 
     private Utility() {}
 }

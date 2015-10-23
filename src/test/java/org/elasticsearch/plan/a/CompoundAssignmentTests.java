@@ -27,6 +27,7 @@ public class CompoundAssignmentTests extends ScriptTestCase {
         // byte
         assertEquals((byte) 15, exec("byte x = 5; x += 10; return x;"));
         assertEquals((byte) -5, exec("byte x = 5; x += -10; return x;"));
+
         // short
         assertEquals((short) 15, exec("short x = 5; x += 10; return x;"));
         assertEquals((short) -5, exec("short x = 5; x += -10; return x;"));
@@ -45,6 +46,63 @@ public class CompoundAssignmentTests extends ScriptTestCase {
         // double
         assertEquals(15D, exec("double x = 5.0; x += 10; return x;"));
         assertEquals(-5D, exec("double x = 5.0; x += -10; return x;"));
+    }
+    
+    public void testAdditionOverflow() {
+        // byte
+        try {
+            exec("byte x = 0; x += 128; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+
+        try {
+            exec("byte x = 0; x += -129; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        // short
+        try {
+            exec("short x = 0; x += 32768; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+
+        try {
+            exec("byte x = 0; x += -32769; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        // char
+        try {
+            exec("char x = 0; x += 65536; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+
+        try {
+            exec("char x = 0; x += -65536; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        // int
+        try {
+            exec("int x = 1; x += 2147483647; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+
+        try {
+            exec("int x = -2; x += -2147483647; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        // long
+        try {
+            exec("long x = 1; x += 9223372036854775807L; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+
+        try {
+            exec("long x = -2; x += -9223372036854775807L; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
     }
     
     public void testSubtraction() {
@@ -71,6 +129,63 @@ public class CompoundAssignmentTests extends ScriptTestCase {
         assertEquals(-5D, exec("double x = 5.0; x -= 10; return x;"));
     }
     
+    public void testSubtractionOverflow() {
+        // byte
+        try {
+            exec("byte x = 0; x -= -128; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+
+        try {
+            exec("byte x = 0; x -= 129; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        // short
+        try {
+            exec("short x = 0; x -= -32768; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+
+        try {
+            exec("byte x = 0; x -= 32769; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        // char
+        try {
+            exec("char x = 0; x -= -65536; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+
+        try {
+            exec("char x = 0; x -= 65536; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        // int
+        try {
+            exec("int x = 1; x -= -2147483647; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+
+        try {
+            exec("int x = -2; x -= 2147483647; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        // long
+        try {
+            exec("long x = 1; x -= -9223372036854775807L; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+
+        try {
+            exec("long x = -2; x -= 9223372036854775807L; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+    }
+    
     public void testMultiplication() {
         // byte
         assertEquals((byte) 15, exec("byte x = 5; x *= 3; return x;"));
@@ -94,6 +209,52 @@ public class CompoundAssignmentTests extends ScriptTestCase {
         assertEquals(-5D, exec("double x = 5.0; x *= -1; return x;"));
     }
     
+    public void testMultiplicationOverflow() {
+        // byte
+        try {
+            exec("byte x = 2; x *= 128; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+
+        try {
+            exec("byte x = 2; x *= -128; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        // char
+        try {
+            exec("char x = 2; x *= 65536; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+
+        try {
+            exec("char x = 2; x *= -65536; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        // int
+        try {
+            exec("int x = 2; x *= 2147483647; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+
+        try {
+            exec("int x = 2; x *= -2147483647; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+        
+        // long
+        try {
+            exec("long x = 2; x *= 9223372036854775807L; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+
+        try {
+            exec("long x = 2; x *= -9223372036854775807L; return x;");
+            fail("did not get expected exception");
+        } catch (ArithmeticException expected) {}
+    }
+    
     public void testDivision() {
         // byte
         assertEquals((byte) 15, exec("byte x = 45; x /= 3; return x;"));
@@ -115,6 +276,66 @@ public class CompoundAssignmentTests extends ScriptTestCase {
         // double
         assertEquals(15D, exec("double x = 45.0; x /= 3; return x;"));
         assertEquals(-5D, exec("double x = 5.0; x /= -1; return x;"));
+    }
+    
+    public void testDivisionOverflow() {
+        // byte
+        try {
+            exec("byte x = (byte) -128; x /= -1; return x;");
+            fail("should have hit exception");
+        } catch (ArithmeticException expected) {}
+
+        // short
+        try {
+            exec("short x = (short) -32768; x /= -1; return x;");
+            fail("should have hit exception");
+        } catch (ArithmeticException expected) {}
+        
+        // cannot happen for char: unsigned
+        
+        // int
+        try {
+            exec("int x = -2147483647 - 1; x /= -1; return x;");
+            fail("should have hit exception");
+        } catch (ArithmeticException expected) {}
+        
+        // long
+        try {
+            exec("long x = -9223372036854775807L - 1L; x /=-1L; return x;");
+            fail("should have hit exception");
+        } catch (ArithmeticException expected) {}
+    }
+    
+    public void testDivisionByZero() {
+        // byte
+        try {
+            exec("byte x = 1; x /= 0; return x;");
+            fail("should have hit exception");
+        } catch (ArithmeticException expected) {}
+
+        // short
+        try {
+            exec("short x = 1; x /= 0; return x;");
+            fail("should have hit exception");
+        } catch (ArithmeticException expected) {}
+        
+        // char
+        try {
+            exec("char x = 1; x /= 0; return x;");
+            fail("should have hit exception");
+        } catch (ArithmeticException expected) {}
+        
+        // int
+        try {
+            exec("int x = 1; x /= 0; return x;");
+            fail("should have hit exception");
+        } catch (ArithmeticException expected) {}
+        
+        // long
+        try {
+            exec("long x = 1; x /= 0; return x;");
+            fail("should have hit exception");
+        } catch (ArithmeticException expected) {}
     }
     
     public void testRemainder() {
