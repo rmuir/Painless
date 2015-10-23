@@ -452,10 +452,11 @@ class External {
             segments.add(new NewStringsSegment(write));
         }
 
+        assignemd.statement = true;
+
         start(ctx.extstart());
 
         assignemd.from = current;
-        assignemd.statement = true;
         caster.markCast(assignemd);
     }
 
@@ -467,10 +468,11 @@ class External {
         token = ADD;
         post = true;
 
+        postincemd.statement = true;
+
         start(ctx.extstart());
 
         postincemd.from = current;
-        postincemd.statement = true;
         caster.markCast(postincemd);
     }
 
@@ -481,10 +483,11 @@ class External {
         write = ctx.increment();
         token = ADD;
 
+        preincemd.statement = true;
+
         start(ctx.extstart());
 
         preincemd.from = current;
-        preincemd.statement = true;
         caster.markCast(preincemd);
     }
 
