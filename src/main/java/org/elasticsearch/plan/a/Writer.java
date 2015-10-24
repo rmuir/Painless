@@ -46,12 +46,15 @@ class Writer extends PlanABaseVisitor<Void> {
 
     private ClassWriter writer;
     private MethodVisitor execute;
+    
+    private final CompilerSettings settings;
 
     private Writer(final Adapter adapter) {
         this.adapter = adapter;
         caster = adapter.caster;
         root = adapter.root;
         source = adapter.source;
+        settings = adapter.settings;
 
         writeBegin();
         writeConstructor();
@@ -595,19 +598,35 @@ class Writer extends PlanABaseVisitor<Void> {
                 visit(exprctx);
 
                 if (ctx.BWNOT() != null) {
-                    if      (metadata == TypeMetadata.INT)  { writeConstant(ctx, -1);  execute.visitInsn(Opcodes.IXOR); }
-                    else if (metadata == TypeMetadata.LONG) { writeConstant(ctx, -1L); execute.visitInsn(Opcodes.LXOR); }
-                    else {
+                    if (metadata == TypeMetadata.INT)  { 
+                        writeConstant(ctx, -1);  execute.visitInsn(Opcodes.IXOR);
+                    } else if (metadata == TypeMetadata.LONG) { 
+                        writeConstant(ctx, -1L); execute.visitInsn(Opcodes.LXOR);
+                    } else {
                         throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                     }
                 } else if (ctx.SUB() != null) {
-                    if      (metadata == TypeMetadata.INT)    execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "negateExact", "(I)I", false);
-                    else if (metadata == TypeMetadata.LONG)   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "negateExact", "(J)J", false);
-                    else if (metadata == TypeMetadata.FLOAT)  execute.visitInsn(Opcodes.FNEG);
-                    else if (metadata == TypeMetadata.DOUBLE) execute.visitInsn(Opcodes.DNEG);
-                    else {
+                    if (metadata == TypeMetadata.INT) {
+                        if (settings.getIntegerOverflow()) {
+                            execute.visitInsn(Opcodes.INEG);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "negateExact", "(I)I", false);
+                        }
+                    } else if (metadata == TypeMetadata.LONG) {
+                        if (settings.getIntegerOverflow()) {
+                            execute.visitInsn(Opcodes.LNEG);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "negateExact", "(J)J", false);
+                        }
+                    } else if (metadata == TypeMetadata.FLOAT) {
+                        execute.visitInsn(Opcodes.FNEG);
+                    } else if (metadata == TypeMetadata.DOUBLE) {
+                        execute.visitInsn(Opcodes.DNEG);
+                    } else {
                         throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                     }
+                } else {
+                    // TODO: why not this check? throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                 }
 
                 caster.checkWriteCast(execute, unaryemd);
@@ -1193,16 +1212,18 @@ class Writer extends PlanABaseVisitor<Void> {
      */
     void writeCompoundAssignmentInstruction(ParserRuleContext source, TypeMetadata original, TypeMetadata promoted, int token) {
         writeBinaryInstruction(source, promoted, token);
-        if (token == ADD || token == SUB || token == MUL || token == DIV) {
-            if (original == TypeMetadata.BYTE) {
-                execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "toByteExact", "(I)B", false);
-            } else if (original == TypeMetadata.SHORT) {
-                execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "toShortExact", "(I)S", false);
-            } else if (original == TypeMetadata.CHAR) {
-                execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "toCharExact", "(I)C", false);
-            } else {
-                // all other types are never promoted during compound assignment
-                assert original == promoted;
+        if (settings.getIntegerOverflow() == false) {
+            if (token == ADD || token == SUB || token == MUL || token == DIV) {
+                if (original == TypeMetadata.BYTE) {
+                    execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "toByteExact", "(I)B", false);
+                } else if (original == TypeMetadata.SHORT) {
+                    execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "toShortExact", "(I)S", false);
+                } else if (original == TypeMetadata.CHAR) {
+                    execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "toCharExact", "(I)C", false);
+                } else {
+                    // all other types are never promoted during compound assignment
+                    assert original == promoted;
+                }
             }
         }
     }
@@ -1223,11 +1244,35 @@ class Writer extends PlanABaseVisitor<Void> {
         switch (metadata) {
             case INT:
                 switch (token) {
-                    case MUL:   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "multiplyExact", "(II)I", false);  break;
-                    case DIV:   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "divideWithoutOverflow", "(II)I", false);  break;
+                    case MUL:   
+                        if (settings.getIntegerOverflow()) {
+                            execute.visitInsn(Opcodes.IMUL);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "multiplyExact", "(II)I", false);
+                        }
+                        break;
+                    case DIV:   
+                        if (settings.getIntegerOverflow()) {
+                            execute.visitInsn(Opcodes.IDIV);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "divideWithoutOverflow", "(II)I", false);
+                        }
+                        break;
+                    case ADD:   
+                        if (settings.getIntegerOverflow()) {
+                            execute.visitInsn(Opcodes.IADD);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "addExact", "(II)I", false);
+                        }
+                        break;
+                    case SUB:   
+                        if (settings.getIntegerOverflow()) {
+                            execute.visitInsn(Opcodes.ISUB);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "subtractExact", "(II)I", false);
+                        }
+                        break;
                     case REM:   execute.visitInsn(Opcodes.IREM);  break;
-                    case ADD:   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "addExact", "(II)I", false);  break;
-                    case SUB:   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "subtractExact", "(II)I", false);  break;
                     case LSH:   execute.visitInsn(Opcodes.ISHL);  break;
                     case USH:   execute.visitInsn(Opcodes.IUSHR); break;
                     case RSH:   execute.visitInsn(Opcodes.ISHR);  break;
@@ -1241,11 +1286,35 @@ class Writer extends PlanABaseVisitor<Void> {
                 break;
             case LONG:
                 switch (token) {
-                    case MUL:   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "multiplyExact", "(JJ)J", false);  break;
-                    case DIV:   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "divideWithoutOverflow", "(JJ)J", false);  break;
+                    case MUL:
+                        if (settings.getIntegerOverflow()) {
+                            execute.visitInsn(Opcodes.LMUL);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "multiplyExact", "(JJ)J", false);
+                        }
+                        break;
+                    case DIV:
+                        if (settings.getIntegerOverflow()) {
+                            execute.visitInsn(Opcodes.LDIV);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "divideWithoutOverflow", "(JJ)J", false);
+                        }
+                        break;
+                    case ADD:
+                        if (settings.getIntegerOverflow()) {
+                            execute.visitInsn(Opcodes.LADD);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "addExact", "(JJ)J", false);
+                        }
+                        break;
+                    case SUB:
+                        if (settings.getIntegerOverflow()) {
+                            execute.visitInsn(Opcodes.LSUB);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "subtractExact", "(JJ)J", false);
+                        }
+                        break;
                     case REM:   execute.visitInsn(Opcodes.LREM);  break;
-                    case ADD:   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "addExact", "(JJ)J", false);  break;
-                    case SUB:   execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "subtractExact", "(JJ)J", false);  break;
                     case LSH:   execute.visitInsn(Opcodes.LSHL);  break;
                     case USH:   execute.visitInsn(Opcodes.LUSHR); break;
                     case RSH:   execute.visitInsn(Opcodes.LSHR);  break;

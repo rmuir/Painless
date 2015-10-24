@@ -34,10 +34,17 @@ import java.util.Map;
  */
 public abstract class ScriptTestCase extends ESTestCase {
     protected PlanAScriptEngineService scriptEngine;
+    
+    /** Override to provide different compiler settings */
+    protected Settings getSettings() {
+        Settings.Builder builder = Settings.builder();
+        builder.put(PlanAScriptEngineService.INTEGER_OVERFLOW, random().nextBoolean());
+        return builder.build();
+    }
 
     @Before
     public void setup() {
-        scriptEngine = new PlanAScriptEngineService(Settings.Builder.EMPTY_SETTINGS);
+        scriptEngine = new PlanAScriptEngineService(getSettings());
     }
 
     /** Compiles and returns the result of {@code script} */

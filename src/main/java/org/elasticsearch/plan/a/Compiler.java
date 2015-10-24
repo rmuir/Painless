@@ -58,7 +58,7 @@ final class Compiler {
     }
 
     static Executable compile(final String name, final String source,
-                              final ClassLoader parent, final Properties properties) {
+                              final ClassLoader parent, final Properties properties, CompilerSettings settings) {
         long start = System.currentTimeMillis();
 
         final Definition definition = properties == null ? DEFAULT_DEFINITION : loadFromProperties(properties);
@@ -86,7 +86,7 @@ final class Compiler {
         //end = System.currentTimeMillis() - start;
         //System.out.println("tree: " + end);
 
-        final Adapter adapter = new Adapter(definition, standard, caster, source, root);
+        final Adapter adapter = new Adapter(definition, standard, caster, source, root, settings);
         adapter.incrementScope();
         adapter.addVariable(null, "this", adapter.standard.execType);
         adapter.addVariable(null, "input", adapter.standard.smapType);
