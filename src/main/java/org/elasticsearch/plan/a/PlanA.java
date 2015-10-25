@@ -89,7 +89,7 @@ public final class PlanA {
     }
 
     public static Executable compile(String name, String source, ClassLoader parent, Properties properties) {
-        return Compiler.compile(name, source, parent, properties);
+        return Compiler.compile(name, source, parent, properties, new CompilerSettings());
     }
 
     private PlanA() {}

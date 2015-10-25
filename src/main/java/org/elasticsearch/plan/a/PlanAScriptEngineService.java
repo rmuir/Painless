@@ -39,10 +39,15 @@ import java.util.Map;
 public class PlanAScriptEngineService extends AbstractComponent implements ScriptEngineService {
 
     public static final String NAME = "plan-a";
+    // TODO: this should really be per-script since scripts do so many different things?
+    private static final CompilerSettings compilerSettings = new CompilerSettings();
+    
+    public static final String INTEGER_OVERFLOW = "plan-a.integer_overflow";
 
     @Inject
     public PlanAScriptEngineService(Settings settings) {
         super(settings);
+        compilerSettings.setIntegerOverflow(settings.getAsBoolean(INTEGER_OVERFLOW, compilerSettings.getIntegerOverflow()));
     }
 
     @Override
@@ -71,7 +76,7 @@ public class PlanAScriptEngineService extends AbstractComponent implements Scrip
             @Override
             public Executable run() {
                 // NOTE: validation is delayed to allow runtime vars, and we don't have access to per index stuff here
-                return Compiler.compile("something", script, getClass().getClassLoader(), null);
+                return Compiler.compile("something", script, getClass().getClassLoader(), null, compilerSettings);
             }
         });
     }

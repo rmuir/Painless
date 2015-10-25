@@ -144,28 +144,4 @@ public class DivisionTests extends ScriptTestCase {
             // divide by zero
         }
     }
-    
-    public void testOverflow() throws Exception {
-        try {
-            exec("int x = -2147483647 - 1; int y = -1; return x / y;");
-            fail("should have hit exception");
-        } catch (ArithmeticException expected) {}
-        
-        try {
-            exec("long x = -9223372036854775807L - 1L; long y = -1L; return x / y;");
-            fail("should have hit exception");
-        } catch (ArithmeticException expected) {}
-    }
-    
-    public void testOverflowConst() throws Exception {
-        try {
-            exec("return (-2147483647 - 1) / -1;");
-            fail("should have hit exception");
-        } catch (ArithmeticException expected) {}
-
-        try {
-            exec("return (-9223372036854775807L - 1L) / -1L;");
-            fail("should have hit exception");
-        } catch (ArithmeticException expected) {}
-    }
 }

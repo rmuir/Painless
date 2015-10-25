@@ -176,28 +176,4 @@ public class SubtractionTests extends ScriptTestCase {
         assertEquals(10.0-0.0, exec("return 10.0-0.0;"));
         assertEquals(0.0-0.0, exec("return 0.0-0.0;"));
     }
-  
-    public void testOverflow() throws Exception {
-        try {
-            exec("int x = -10; int y = 2147483647; return x - y;");
-            fail("should have hit exception");
-        } catch (ArithmeticException expected) {}
-        
-        try {
-            exec("long x = -10L; long y = 9223372036854775807L; return x - y;");
-            fail("should have hit exception");
-        } catch (ArithmeticException expected) {}
-    }
-    
-    public void testOverflowConst() throws Exception {
-        try {
-            exec("return -10 - 2147483647;");
-            fail("should have hit exception");
-        } catch (ArithmeticException expected) {}
-        
-        try {
-            exec("return -10L - 9223372036854775807L;");
-            fail("should have hit exception");
-        } catch (ArithmeticException expected) {}
-    }
 }

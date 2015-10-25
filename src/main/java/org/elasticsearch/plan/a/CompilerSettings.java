@@ -19,24 +19,27 @@
 
 package org.elasticsearch.plan.a;
 
-/** Tests for unary operators across different types */
-public class UnaryTests extends ScriptTestCase {
+/** 
+ * Settings to use when compiling a script 
+ */
+final class CompilerSettings {
 
-    /** basic tests */
-    public void testBasics() {
-        assertEquals(false, exec("return !true;"));
-        assertEquals(true, exec("boolean x = false; return !x;"));
-        assertEquals(-2, exec("return ~1;"));
-        assertEquals(-2, exec("byte x = 1; return ~x;"));
-        assertEquals(1, exec("return +1;"));
-        assertEquals(1.0, exec("double x = 1; return +x;"));
-        assertEquals(-1, exec("return -1;"));
-        assertEquals(-2, exec("short x = 2; return -x;"));
+    private boolean integerOverflow = true;
+
+    /**
+     * Returns {@code true} if integer operations should overflow, false
+     * if they should signal an exception
+     * @see #setIntegerOverflow
+     */
+    public boolean getIntegerOverflow() {
+        return integerOverflow;
     }
 
-    public void testNegationInt() throws Exception {
-        assertEquals(-1, exec("return -1;"));
-        assertEquals(1, exec("return -(-1);"));
-        assertEquals(0, exec("return -0;"));
+    /**
+     * Set {@code true} for integers to overflow, false to deliver exceptions.
+     * @see #getIntegerOverflow
+     */
+    public void setIntegerOverflow(boolean allow) {
+        this.integerOverflow = allow;
     }
 }
