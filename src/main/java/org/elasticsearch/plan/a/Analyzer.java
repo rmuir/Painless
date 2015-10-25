@@ -1,5 +1,3 @@
-package org.elasticsearch.plan.a;
-
 /*
  * Licensed to Elasticsearch under one or more contributor
  * license agreements. See the NOTICE file distributed with
@@ -18,6 +16,13 @@ package org.elasticsearch.plan.a;
  * specific language governing permissions and limitations
  * under the License.
  */
+
+package org.elasticsearch.plan.a;
+
+import java.util.Arrays;
+import java.util.List;
+
+import org.antlr.v4.runtime.ParserRuleContext;
 
 import static org.elasticsearch.plan.a.Adapter.*;
 import static org.elasticsearch.plan.a.Caster.*;
@@ -87,7 +92,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         adapter.incrementScope();
 
-        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
+        final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = standard.boolType;
         visit(exprctx);
@@ -129,7 +134,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         adapter.incrementScope();
 
-        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
+        final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = standard.boolType;
         visit(exprctx);
@@ -199,7 +204,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             throw new IllegalArgumentException(error(ctx) + "The loop will never exit.");
         }
 
-        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
+        final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = standard.boolType;
         visit(exprctx);
@@ -240,7 +245,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             visit(declctx);
         }
 
-        final ExpressionContext exprctx0 = adapter.getExpressionContext(ctx.expression(0));
+        final ExpressionContext exprctx0 = adapter.updateExpressionTree(ctx.expression(0));
 
         if (exprctx0 != null) {
             final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
@@ -260,7 +265,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             exitrequired = true;
         }
 
-        final ExpressionContext exprctx1 = adapter.getExpressionContext(ctx.expression(1));
+        final ExpressionContext exprctx1 = adapter.updateExpressionTree(ctx.expression(1));
 
         if (exprctx1 != null) {
             final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
@@ -269,7 +274,9 @@ class Analyzer extends PlanABaseVisitor<Void> {
             try {
                 visit(exprctx1);
             } catch (ClassCastException exception) {
-                expremd1.statement = false;
+                if (expremd1.statement) {
+                    throw exception;
+                }
             }
 
             if (!expremd1.statement) {
@@ -344,7 +351,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitReturn(final ReturnContext ctx) {
         final StatementMetadata returnsmd = adapter.getStatementMetadata(ctx);
 
-        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
+        final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = standard.objectType;
         visit(exprctx);
@@ -358,7 +365,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
     @Override
     public Void visitExpr(final ExprContext ctx) {
-        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
+        final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = standard.voidType;
 
@@ -456,9 +463,9 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExpressionMetadata declvaremd = adapter.getExpressionMetadata(ctx);
 
         final String name = ctx.ID().getText();
-        declvaremd.postConst = adapter.addVariable(ctx, name, declvaremd.to);
+        declvaremd.postConst = adapter.addVariable(ctx, name, declvaremd.to).slot;
 
-        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
+        final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
 
         if (exprctx != null) {
             final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
@@ -644,14 +651,14 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitCat(CatContext ctx) {
         ExpressionMetadata catemd = adapter.getExpressionMetadata(ctx);
 
-        final ExpressionContext exprctx0 = adapter.getExpressionContext(ctx.expression(0));
+        final ExpressionContext exprctx0 = adapter.updateExpressionTree(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
         expremd0.promotion = caster.concat;
         visit(exprctx0);
         expremd0.to = expremd0.from;
         caster.markCast(expremd0);
 
-        final ExpressionContext exprctx1 = adapter.getExpressionContext(ctx.expression(1));
+        final ExpressionContext exprctx1 = adapter.updateExpressionTree(ctx.expression(1));
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
         expremd1.promotion = caster.concat;
         visit(exprctx1);
@@ -669,28 +676,55 @@ class Analyzer extends PlanABaseVisitor<Void> {
     }
 
     @Override
-    public Void visitExt(final ExtContext ctx) {
-        External external = new External(adapter, this);
-        external.ext(ctx);
-        adapter.putExternal(ctx, external);
+    public Void visitExternal(final ExternalContext ctx) {
+        final ExpressionMetadata extemd = adapter.getExpressionMetadata(ctx);
+
+        final ExtstartContext extstartctx = ctx.extstart();
+        final ExternalMetadata extstartemd = adapter.createExternalMetadata(extstartctx);
+        extstartemd.read = extemd.promotion != null || extemd.to.metadata != TypeMetadata.VOID;
+        visit(extstartctx);
+
+        extemd.statement = extstartemd.statement;
+        extemd.from = extstartemd.current;
+        caster.markCast(extemd);
 
         return null;
     }
 
     @Override
     public Void visitPostinc(final PostincContext ctx) {
-        External external = new External(adapter, this);
-        external.postinc(ctx);
-        adapter.putExternal(ctx, external);
+        final ExpressionMetadata postincemd = adapter.getExpressionMetadata(ctx);
+
+        final ExtstartContext extstartctx = ctx.extstart();
+        final ExternalMetadata extstartemd = adapter.createExternalMetadata(extstartctx);
+        extstartemd.read = postincemd.promotion != null || postincemd.to.metadata != TypeMetadata.VOID;
+        extstartemd.storeExpr = ctx.increment();
+        extstartemd.token = ADD;
+        extstartemd.post = true;
+        postincemd.statement = true;
+        visit(extstartctx);
+
+        postincemd.from = extstartemd.current;
+        caster.markCast(postincemd);
 
         return null;
     }
 
     @Override
     public Void visitPreinc(final PreincContext ctx) {
-        External external = new External(adapter, this);
-        external.preinc(ctx);
-        adapter.putExternal(ctx, external);
+        final ExpressionMetadata preincemd = adapter.getExpressionMetadata(ctx);
+
+        final ExtstartContext extstartctx = ctx.extstart();
+        final ExternalMetadata extstartemd = adapter.createExternalMetadata(extstartctx);
+        extstartemd.read = preincemd.promotion != null || preincemd.to.metadata != TypeMetadata.VOID;
+        extstartemd.storeExpr = ctx.increment();
+        extstartemd.token = ADD;
+        extstartemd.pre = true;
+        preincemd.statement = true;
+        visit(extstartctx);
+
+        preincemd.from = extstartemd.current;
+        caster.markCast(preincemd);
 
         return null;
     }
@@ -699,7 +733,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitUnary(final UnaryContext ctx) {
         final ExpressionMetadata unaryemd = adapter.getExpressionMetadata(ctx);
 
-        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
+        final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
 
         if (ctx.BOOLNOT() != null) {
@@ -790,7 +824,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final Type type = decltypemd.from;
         castemd.from = type;
 
-        final ExpressionContext exprctx = adapter.getExpressionContext(ctx.expression());
+        final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
         expremd.to = type;
         expremd.explicit = true;
@@ -819,12 +853,12 @@ class Analyzer extends PlanABaseVisitor<Void> {
             promotion = caster.numeric;
         }
 
-        final ExpressionContext exprctx0 = adapter.getExpressionContext(ctx.expression(0));
+        final ExpressionContext exprctx0 = adapter.updateExpressionTree(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
         expremd0.promotion = promotion;
         visit(exprctx0);
 
-        final ExpressionContext exprctx1 = adapter.getExpressionContext(ctx.expression(1));
+        final ExpressionContext exprctx1 = adapter.updateExpressionTree(ctx.expression(1));
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
         expremd1.promotion = promotion;
         visit(exprctx1);
@@ -999,12 +1033,12 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 ctx.EQ() != null || ctx.EQR() != null || ctx.NE() != null || ctx.NER() != null ?
                 caster.equality : caster.decimal;
 
-        final ExpressionContext exprctx0 = adapter.getExpressionContext(ctx.expression(0));
+        final ExpressionContext exprctx0 = adapter.updateExpressionTree(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
         expremd0.promotion = promotion;
         visit(exprctx0);
 
-        final ExpressionContext exprctx1 = adapter.getExpressionContext(ctx.expression(1));
+        final ExpressionContext exprctx1 = adapter.updateExpressionTree(ctx.expression(1));
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
         expremd1.promotion = promotion;
         visit(exprctx1);
@@ -1114,12 +1148,12 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitBool(final BoolContext ctx) {
         final ExpressionMetadata boolemd = adapter.getExpressionMetadata(ctx);
 
-        final ExpressionContext exprctx0 = adapter.getExpressionContext(ctx.expression(0));
+        final ExpressionContext exprctx0 = adapter.updateExpressionTree(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
         expremd0.to = standard.boolType;
         visit(exprctx0);
 
-        final ExpressionContext exprctx1 = adapter.getExpressionContext(ctx.expression(1));
+        final ExpressionContext exprctx1 = adapter.updateExpressionTree(ctx.expression(1));
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
         expremd1.to = standard.boolType;
         visit(exprctx1);
@@ -1144,7 +1178,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitConditional(final ConditionalContext ctx) {
         final ExpressionMetadata condemd = adapter.getExpressionMetadata(ctx);
 
-        final ExpressionContext exprctx0 = adapter.getExpressionContext(ctx.expression(0));
+        final ExpressionContext exprctx0 = adapter.updateExpressionTree(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
         expremd0.to = standard.boolType;
         visit(exprctx0);
@@ -1153,14 +1187,14 @@ class Analyzer extends PlanABaseVisitor<Void> {
             throw new IllegalArgumentException(error(ctx) + "Unnecessary conditional statement.");
         }
 
-        final ExpressionContext exprctx1 = adapter.getExpressionContext(ctx.expression(1));
+        final ExpressionContext exprctx1 = adapter.updateExpressionTree(ctx.expression(1));
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
         expremd1.to = condemd.to;
         expremd1.promotion = condemd.promotion;
         expremd1.explicit = condemd.explicit;
         visit(exprctx1);
 
-        final ExpressionContext exprctx2 = adapter.getExpressionContext(ctx.expression(2));
+        final ExpressionContext exprctx2 = adapter.updateExpressionTree(ctx.expression(2));
         final ExpressionMetadata expremd2 = adapter.createExpressionMetadata(exprctx2);
         expremd2.to = condemd.to;
         expremd2.promotion = condemd.promotion;
@@ -1189,51 +1223,419 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
     @Override
     public Void visitAssignment(final AssignmentContext ctx) {
-        External external = new External(adapter, this);
-        external.assignment(ctx);
-        adapter.putExternal(ctx, external);
+        final ExpressionMetadata assignemd = adapter.getExpressionMetadata(ctx);
+
+        final ExtstartContext extstartctx = ctx.extstart();
+        final ExternalMetadata extstartemd = adapter.createExternalMetadata(extstartctx);
+
+        extstartemd.read = assignemd.promotion != null || assignemd.to.metadata != TypeMetadata.VOID;
+        extstartemd.storeExpr = adapter.updateExpressionTree(ctx.expression());
+
+        if (ctx.AMUL() != null) {
+            extstartemd.token = MUL;
+        } else if (ctx.ADIV() != null) {
+            extstartemd.token = DIV;
+        } else if (ctx.AREM() != null) {
+            extstartemd.token = REM;
+        } else if (ctx.AADD() != null) {
+            extstartemd.token = ADD;
+        } else if (ctx.ASUB() != null) {
+            extstartemd.token = SUB;
+        } else if (ctx.ALSH() != null) {
+            extstartemd.token = LSH;
+        } else if (ctx.AUSH() != null) {
+            extstartemd.token = USH;
+        } else if (ctx.ARSH() != null) {
+            extstartemd.token = RSH;
+        } else if (ctx.AAND() != null) {
+            extstartemd.token = BWAND;
+        } else if (ctx.AXOR() != null) {
+            extstartemd.token = BWXOR;
+        } else if (ctx.AOR() != null) {
+            extstartemd.token = BWOR;
+        } else if (ctx.ACAT() != null) {
+            extstartemd.token = CAT;
+        }
+
+        assignemd.statement = true;
+
+        visit(extstartctx);
+
+        assignemd.from = extstartemd.current;
+        caster.markCast(assignemd);
 
         return null;
     }
 
     @Override
     public Void visitExtstart(final ExtstartContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected parser state.");
+        final ExtprecContext precctx = ctx.extprec();
+        final ExtcastContext castctx = ctx.extcast();
+        final ExttypeContext typectx = ctx.exttype();
+        final ExtmemberContext memberctx = ctx.extmember();
+
+        if (precctx != null) {
+            adapter.createExtNodeMetadata(ctx, precctx);
+            visit(precctx);
+        } else if (castctx != null) {
+            adapter.createExtNodeMetadata(ctx, castctx);
+            visit(castctx);
+        } else if (typectx != null) {
+            adapter.createExtNodeMetadata(ctx, typectx);
+            visit(typectx);
+        } else if (memberctx != null) {
+            adapter.createExtNodeMetadata(ctx, memberctx);
+            visit(memberctx);
+        } else {
+            throw new IllegalStateException();
+        }
+
+        return null;
     }
 
     @Override
     public Void visitExtprec(final ExtprecContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected parser state.");
+        final ExtNodeMetadata precenmd = adapter.getExtNodeMetadata(ctx);
+        final ParserRuleContext parent = precenmd.parent;
+        final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
+
+        final ExtprecContext precctx = ctx.extprec();
+        final ExtcastContext castctx = ctx.extcast();
+        final ExttypeContext typectx = ctx.exttype();
+        final ExtmemberContext memberctx = ctx.extmember();
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        if (dotctx != null || bracectx != null) {
+            ++parentemd.scope;
+        }
+
+        if (precctx != null) {
+            adapter.createExtNodeMetadata(parent, precctx);
+            visit(precctx);
+        } else if (castctx != null) {
+            adapter.createExtNodeMetadata(parent, castctx);
+            visit(castctx);
+        } else if (typectx != null) {
+            adapter.createExtNodeMetadata(parent, typectx);
+            visit(typectx);
+        } else if (memberctx != null) {
+            adapter.createExtNodeMetadata(parent, memberctx);
+            visit(memberctx);
+        } else {
+            throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+        }
+
+        parentemd.statement = false;
+
+        if (dotctx != null) {
+            --parentemd.scope;
+
+            adapter.createExtNodeMetadata(parent, dotctx);
+            visit(dotctx);
+        } else if (bracectx != null) {
+            --parentemd.scope;
+
+            adapter.createExtNodeMetadata(parent, bracectx);
+            visit(bracectx);
+        }
+
+        return null;
     }
 
     @Override
     public Void visitExtcast(final ExtcastContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected parser state.");
+        final ExtNodeMetadata castenmd = adapter.getExtNodeMetadata(ctx);
+        final ParserRuleContext parent = castenmd.parent;
+        final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
+
+        final ExtprecContext precctx = ctx.extprec();
+        final ExtcastContext castctx = ctx.extcast();
+        final ExttypeContext typectx = ctx.exttype();
+        final ExtmemberContext memberctx = ctx.extmember();
+
+        if (precctx != null) {
+            adapter.createExtNodeMetadata(parent, precctx);
+            visit(precctx);
+        } else if (castctx != null) {
+            adapter.createExtNodeMetadata(parent, castctx);
+            visit(castctx);
+        } else if (typectx != null) {
+            adapter.createExtNodeMetadata(parent, typectx);
+            visit(typectx);
+        } else if (memberctx != null) {
+            adapter.createExtNodeMetadata(parent, memberctx);
+            visit(memberctx);
+        } else {
+            throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+        }
+
+        final DecltypeContext declctx = ctx.decltype();
+        final ExpressionMetadata declemd = adapter.createExpressionMetadata(declctx);
+        visit(declctx);
+
+        castenmd.castTo = caster.getLegalCast(ctx, parentemd.current, declemd.from, true);
+        castenmd.type = declemd.from;
+        parentemd.current = declemd.from;
+        parentemd.statement = false;
+
+        return null;
     }
 
     @Override
     public Void visitExtbrace(final ExtbraceContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected parser state.");
+        final ExtNodeMetadata braceenmd = adapter.getExtNodeMetadata(ctx);
+        final ParserRuleContext parent = braceenmd.parent;
+        final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
+
+        if (parentemd.current.dimensions == 0) {
+            throw new IllegalArgumentException(error(ctx) +
+                    "Attempting to address a non-array type [" + parentemd.current.name + "] as an array.");
+        }
+
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        braceenmd.last = parentemd.scope == 0 && dotctx == null && bracectx == null;
+
+        final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
+        final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
+        expremd.to = standard.intType;
+        visit(exprctx);
+
+        braceenmd.target = "#brace";
+        braceenmd.type = getTypeWithArrayDimensions(parentemd.current.struct, parentemd.current.dimensions - 1);
+        parentemd.current = analyzeLoadStoreExternal(ctx);
+
+        if (dotctx != null) {
+            adapter.createExtNodeMetadata(parent, dotctx);
+            visit(dotctx);
+        } else if (bracectx != null) {
+            adapter.createExtNodeMetadata(parent, bracectx);
+            visit(bracectx);
+        }
+
+        return null;
     }
 
     @Override
     public Void visitExtdot(final ExtdotContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected parser state.");
+        final ExtNodeMetadata dotemnd = adapter.getExtNodeMetadata(ctx);
+        final ParserRuleContext parent = dotemnd.parent;
+
+        final ExtcallContext callctx = ctx.extcall();
+        final ExtmemberContext memberctx = ctx.extmember();
+
+        if (callctx != null) {
+            adapter.createExtNodeMetadata(parent, callctx);
+            visit(callctx);
+        } else if (memberctx != null) {
+            adapter.createExtNodeMetadata(parent, memberctx);
+            visit(memberctx);
+        }
+
+        return null;
     }
 
     @Override
     public Void visitExttype(final ExttypeContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected parser state.");
+        final ExtNodeMetadata typeenmd = adapter.getExtNodeMetadata(ctx);
+        final ParserRuleContext parent = typeenmd.parent;
+        final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
+
+        if (parentemd.current != null) {
+            throw new IllegalArgumentException(error(ctx) + "Unexpected static type.");
+        }
+
+        final String typestr = ctx.ID().getText();
+        typeenmd.type = getTypeFromCanonicalName(definition, typestr);
+        parentemd.current = typeenmd.type;
+        parentemd.statik = true;
+
+        final ExtdotContext dotctx = ctx.extdot();
+        adapter.createExtNodeMetadata(parent, dotctx);
+        visit(dotctx);
+
+        return null;
     }
 
     @Override
     public Void visitExtcall(final ExtcallContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected parser state.");
+        final ExtNodeMetadata callenmd = adapter.getExtNodeMetadata(ctx);
+        final ParserRuleContext parent = callenmd.parent;
+        final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
+
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        callenmd.last = parentemd.scope == 0 && dotctx == null && bracectx == null;
+
+        final String name = ctx.ID().getText();
+
+        if (parentemd.current.dimensions > 0) {
+            throw new IllegalArgumentException(error(ctx) + "Unexpected call [" + name + "] on an array.");
+        } else if (callenmd.last && parentemd.storeExpr != null) {
+            throw new IllegalArgumentException(error(ctx) + "Cannot assign a value to a call [" + name + "].");
+        }
+
+        final Struct struct = parentemd.current.struct;
+        final List<ExpressionContext> arguments = ctx.arguments().expression();
+        final int size = arguments.size();
+
+        Type[] types;
+
+        if (parentemd.statik && "makearray".equals(name)) {
+            if (!parentemd.read) {
+                throw new IllegalArgumentException(error(ctx) + "A newly created array must be assigned.");
+            }
+
+            types = new Type[size];
+            Arrays.fill(types, standard.intType);
+
+            callenmd.target = "#makearray";
+
+            if (size > 1) {
+                callenmd.type = getTypeWithArrayDimensions(struct, size);
+                parentemd.current = callenmd.type;
+            } else if (size == 1) {
+                callenmd.type = parentemd.current;
+                parentemd.current = getTypeWithArrayDimensions(struct, 1);
+            } else {
+                throw new IllegalArgumentException(error(ctx) + "A newly created array cannot have zeor dimensions.");
+            }
+        } else {
+            final Constructor constructor = parentemd.statik ? struct.constructors.get(name) : null;
+            final Method method = parentemd.statik ? struct.functions.get(name) : struct.methods.get(name);
+
+            if (constructor != null) {
+                types = new Type[constructor.arguments.size()];
+                constructor.arguments.toArray(types);
+
+                callenmd.target = constructor;
+                callenmd.type = getTypeWithArrayDimensions(struct, 0);
+
+                if (!parentemd.read) {
+                    parentemd.current = standard.voidType;
+                    parentemd.statement = true;
+                } else {
+                    parentemd.current = callenmd.type;
+                }
+            } else if (method != null) {
+                types = new Type[method.arguments.size()];
+                method.arguments.toArray(types);
+
+                callenmd.target = method;
+                callenmd.type = method.rtn;
+
+                if (!parentemd.read) {
+                    parentemd.current = standard.voidType;
+                    parentemd.statement = true;
+                } else {
+                    parentemd.current = method.rtn;
+                }
+            } else {
+                throw new IllegalArgumentException(
+                        error(ctx) + "Unknown call [" + name + "] on type [" + struct.name + "].");
+            }
+        }
+
+        if (size != types.length) {
+            throw new IllegalArgumentException(error(ctx) + "When calling [" + name + "] on type " +
+                    "[" + struct.name + "] expected [" + types.length + "] arguments," +
+                    " but found [" + arguments.size() + "].");
+        }
+
+        for (int argument = 0; argument < size; ++argument) {
+            final ExpressionContext exprctx = adapter.updateExpressionTree(arguments.get(argument));
+            final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
+            expremd.to = types[argument];
+            visit(exprctx);
+        }
+
+        parentemd.statik = false;
+
+        if (dotctx != null) {
+            adapter.createExtNodeMetadata(parent, dotctx);
+            visit(dotctx);
+        } else if (bracectx != null) {
+            adapter.createExtNodeMetadata(parent, bracectx);
+            visit(bracectx);
+        }
+
+        return null;
     }
 
     @Override
     public Void visitExtmember(final ExtmemberContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected parser state.");
+        final ExtNodeMetadata memberenmd = adapter.getExtNodeMetadata(ctx);
+        final ParserRuleContext parent = memberenmd.parent;
+        final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
+
+        final String name = ctx.ID().getText();
+
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        memberenmd.last = parentemd.scope == 0 && dotctx == null && bracectx == null;
+        final boolean store = memberenmd.last && parentemd.storeExpr != null;
+
+        if (parentemd.current == null) {
+            final Variable variable = adapter.getVariable(name);
+
+            if (variable == null) {
+                throw new IllegalArgumentException(error(ctx) + "Unknown variable [" + name + "].");
+            }
+
+            memberenmd.target = variable.slot;
+            memberenmd.type = variable.type;
+            parentemd.current = analyzeLoadStoreExternal(ctx);
+        } else {
+            if (parentemd.current.dimensions > 0) {
+                if ("length".equals(name)) {
+                    if (!parentemd.read) {
+                        throw new IllegalArgumentException(error(ctx) + "Must read array field [length].");
+                    } else if (store) {
+                        throw new IllegalArgumentException(
+                                error(ctx) + "Cannot write to read-only array field [length].");
+                    }
+
+                    memberenmd.target = "#length";
+                    memberenmd.type = standard.intType;
+                    parentemd.current = standard.intType;
+                } else {
+                    throw new IllegalArgumentException(error(ctx) + "Unexpected array field [" + name + "].");
+                }
+            } else {
+                final Struct struct = parentemd.current.struct;
+                final Field field = parentemd.statik ? struct.statics.get(name) : struct.members.get(name);
+
+                if (field == null) {
+                    throw new IllegalArgumentException(
+                            error(ctx) + "Unknown field [" + name + "] for type [" + struct.name + "].");
+                }
+
+                if (store && java.lang.reflect.Modifier.isFinal(field.field.getModifiers())) {
+                        throw new IllegalArgumentException(error(ctx) + "Cannot write to read-only" +
+                                " field [" + name + "] for type [" + struct.name + "].");
+                }
+
+                memberenmd.target = field;
+                memberenmd.type = field.type;
+                parentemd.current = analyzeLoadStoreExternal(ctx);
+            }
+        }
+
+        parentemd.statik = false;
+
+        if (dotctx != null) {
+            adapter.createExtNodeMetadata(parent, dotctx);
+            visit(dotctx);
+        } else if (bracectx != null) {
+            adapter.createExtNodeMetadata(parent, bracectx);
+            visit(bracectx);
+        }
+
+        return null;
     }
 
     @Override
@@ -1270,5 +1672,44 @@ class Analyzer extends PlanABaseVisitor<Void> {
         caster.markCast(incremd);
 
         return null;
+    }
+
+    private Type analyzeLoadStoreExternal(final ParserRuleContext source) {
+        final ExtNodeMetadata extenmd = adapter.getExtNodeMetadata(source);
+        final ParserRuleContext parent = extenmd.parent;
+        final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
+
+        if (extenmd.last && parentemd.storeExpr != null) {
+            final ParserRuleContext store = parentemd.storeExpr;
+            final ExpressionMetadata storeemd = adapter.createExpressionMetadata(parentemd.storeExpr);
+            final int token = parentemd.token;
+
+            if (token == CAT) {
+                storeemd.promotion = caster.concat;
+                visit(store);
+                storeemd.to = storeemd.from;
+                caster.markCast(storeemd);
+
+                extenmd.castTo = caster.getLegalCast(source, standard.stringType, extenmd.type, false);
+            } else if (token > 0) {
+                final boolean compound = token == BWAND || token == BWXOR || token == BWOR;
+                final boolean decimal = token == MUL || token == DIV || token == REM || token == ADD || token == SUB;
+                Promotion promotion = compound ? caster.compound : decimal ? caster.decimal : caster.numeric;
+                extenmd.promote = caster.getTypePromotion(source, extenmd.type, null, promotion);
+
+                extenmd.castFrom = caster.getLegalCast(source, extenmd.type, extenmd.promote, false);
+                extenmd.castTo = caster.getLegalCast(source, extenmd.promote, extenmd.type, true);
+
+                storeemd.to = extenmd.promote;
+                visit(store);
+            } else {
+                storeemd.to = extenmd.type;
+                visit(store);
+            }
+
+            return parentemd.read ? extenmd.type : standard.voidType;
+        } else {
+            return extenmd.type;
+        }
     }
 }

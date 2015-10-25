@@ -1,5 +1,3 @@
-package org.elasticsearch.plan.a;
-
 /*
  * Licensed to Elasticsearch under one or more contributor
  * license agreements. See the NOTICE file distributed with
@@ -18,6 +16,8 @@ package org.elasticsearch.plan.a;
  * specific language governing permissions and limitations
  * under the License.
  */
+
+package org.elasticsearch.plan.a;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.objectweb.asm.MethodVisitor;
@@ -266,7 +266,7 @@ class Caster {
     final Promotion equality;
     final Promotion decimal;
     final Promotion numeric;
-    final Promotion shortcut;
+    final Promotion compound;
 
     Caster(final Definition definition, final Standard standard) {
         this.definition = definition;
@@ -301,9 +301,9 @@ class Caster {
         numeric = new Promotion(segments);
 
         segments = new ArrayList<>();
-        segments.add(new ToTypeSegment(this, standard.intType));
-        segments.add(new ToTypeSegment(this, standard.objectType));
-        shortcut = new Promotion(segments);
+        segments.add(new ToTypeSegment(this, standard.boolType));
+        segments.add(new ToNumericSegment(this, false));
+        compound = new Promotion(segments);
     }
 
     void markCast(final ExpressionMetadata emd) {

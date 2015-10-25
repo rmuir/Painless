@@ -1,5 +1,3 @@
-package org.elasticsearch.plan.a;
-
 /*
  * Licensed to Elasticsearch under one or more contributor
  * license agreements. See the NOTICE file distributed with
@@ -18,6 +16,8 @@ package org.elasticsearch.plan.a;
  * specific language governing permissions and limitations
  * under the License.
  */
+
+package org.elasticsearch.plan.a;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -109,6 +109,64 @@ class Adapter {
         }
     }
 
+    static class ExternalMetadata {
+        final ParserRuleContext source;
+
+        boolean read;
+        ParserRuleContext storeExpr;
+        int token;
+        boolean pre;
+        boolean post;
+
+        int scope;
+        Type current;
+        boolean statik;
+        boolean statement;
+
+        private ExternalMetadata(final ParserRuleContext source) {
+            this.source = source;
+
+            read = false;
+            storeExpr = null;
+            token = 0;
+            pre = false;
+            post = false;
+
+            scope = 0;
+            current = null;
+            statik = false;
+            statement = false;
+        }
+    }
+
+    static class ExtNodeMetadata {
+        final ParserRuleContext parent;
+        final ParserRuleContext source;
+
+        Object target;
+        boolean last;
+
+        Type type;
+        Type promote;
+
+        Cast castFrom;
+        Cast castTo;
+
+        private ExtNodeMetadata(final ParserRuleContext parent, final ParserRuleContext source) {
+            this.parent = parent;
+            this.source = source;
+
+            target = null;
+            last = false;
+
+            type = null;
+            promote = null;
+
+            castFrom = null;
+            castTo = null;
+        }
+    }
+
     static class Branch {
         final ParserRuleContext source;
 
@@ -142,7 +200,8 @@ class Adapter {
 
     private final Map<ParserRuleContext, StatementMetadata> statementMetadata;
     private final Map<ParserRuleContext, ExpressionMetadata> expressionMetadata;
-    private final Map<ParserRuleContext, External> externals;
+    private final Map<ParserRuleContext, ExternalMetadata> externalMetadata;
+    private final Map<ParserRuleContext, ExtNodeMetadata> extNodeMetadata;
 
     private final Map<ParserRuleContext, Branch> branches;
     private final Deque<Branch> jumps;
@@ -164,7 +223,8 @@ class Adapter {
 
         statementMetadata = new HashMap<>();
         expressionMetadata = new HashMap<>();
-        externals = new HashMap<>();
+        externalMetadata = new HashMap<>();
+        extNodeMetadata = new HashMap<>();
 
         branches = new HashMap<>();
         jumps = new ArrayDeque<>();
@@ -242,7 +302,7 @@ class Adapter {
         return sourcesmd;
     }
 
-    ExpressionContext getExpressionContext(ExpressionContext source) {
+    ExpressionContext updateExpressionTree(ExpressionContext source) {
         if (source instanceof PrecedenceContext) {
             final ParserRuleContext parent = source.getParent();
             int index = 0;
@@ -283,19 +343,40 @@ class Adapter {
         return sourceemd;
     }
 
-    void putExternal(final ParserRuleContext source, final External external) {
-        externals.put(source, external);
+    ExternalMetadata createExternalMetadata(final ParserRuleContext source) {
+        final ExternalMetadata sourceemd = new ExternalMetadata(source);
+        externalMetadata.put(source, sourceemd);
+
+        return sourceemd;
     }
 
-    External getExternal(final ParserRuleContext source) {
-        final External external = externals.get(source);
+    ExternalMetadata getExternalMetadata(final ParserRuleContext source) {
+        final ExternalMetadata sourceemd = externalMetadata.get(source);
 
-        if (external == null) {
-            throw new IllegalStateException(error(source) + "External data does not exist at" +
+        if (sourceemd == null) {
+            throw new IllegalStateException(error(source) + "External metadata does not exist at" +
                     " the parse node with text [" + source.getText() + "].");
         }
 
-        return external;
+        return sourceemd;
+    }
+
+    ExtNodeMetadata createExtNodeMetadata(final ParserRuleContext parent, final ParserRuleContext source) {
+        final ExtNodeMetadata sourceemd = new ExtNodeMetadata(parent, source);
+        extNodeMetadata.put(source, sourceemd);
+
+        return sourceemd;
+    }
+
+    ExtNodeMetadata getExtNodeMetadata(final ParserRuleContext source) {
+        final ExtNodeMetadata sourceemd = extNodeMetadata.get(source);
+
+        if (sourceemd == null) {
+            throw new IllegalStateException(error(source) + "External metadata does not exist at" +
+                    " the parse node with text [" + source.getText() + "].");
+        }
+
+        return sourceemd;
     }
 
     Branch markBranch(final ParserRuleContext source, final ParserRuleContext... nodes) {

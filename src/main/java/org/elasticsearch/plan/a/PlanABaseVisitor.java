@@ -132,13 +132,6 @@ class PlanABaseVisitor<T> extends AbstractParseTreeVisitor<T> implements PlanAVi
    * <p>The default implementation returns the result of calling
    * {@link #visitChildren} on {@code ctx}.</p>
    */
-  @Override public T visitExt(PlanAParser.ExtContext ctx) { return visitChildren(ctx); }
-  /**
-   * {@inheritDoc}
-   *
-   * <p>The default implementation returns the result of calling
-   * {@link #visitChildren} on {@code ctx}.</p>
-   */
   @Override public T visitComp(PlanAParser.CompContext ctx) { return visitChildren(ctx); }
   /**
    * {@inheritDoc}
@@ -217,6 +210,13 @@ class PlanABaseVisitor<T> extends AbstractParseTreeVisitor<T> implements PlanAVi
    * {@link #visitChildren} on {@code ctx}.</p>
    */
   @Override public T visitCast(PlanAParser.CastContext ctx) { return visitChildren(ctx); }
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The default implementation returns the result of calling
+   * {@link #visitChildren} on {@code ctx}.</p>
+   */
+  @Override public T visitExternal(PlanAParser.ExternalContext ctx) { return visitChildren(ctx); }
   /**
    * {@inheritDoc}
    *

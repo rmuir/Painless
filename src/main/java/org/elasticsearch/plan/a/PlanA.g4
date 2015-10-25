@@ -65,7 +65,7 @@ expression
     |               TRUE                                                           # true
     |               FALSE                                                          # false
     |               NULL                                                           # null
-    |               extstart                                                       # ext
+    |               extstart                                                       # external
     |               extstart increment                                             # postinc
     |               increment extstart                                             # preinc
     |               ( BOOLNOT | BWNOT | ADD | SUB ) expression                     # unary
