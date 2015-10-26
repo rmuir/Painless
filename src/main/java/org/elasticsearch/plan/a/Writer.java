@@ -1328,11 +1328,41 @@ class Writer extends PlanABaseVisitor<Void> {
                 break;
             case FLOAT:
                 switch (token) {
-                    case MUL: execute.visitInsn(Opcodes.FMUL); break;
-                    case DIV: execute.visitInsn(Opcodes.FDIV); break;
-                    case REM: execute.visitInsn(Opcodes.FREM); break;
-                    case ADD: execute.visitInsn(Opcodes.FADD); break;
-                    case SUB: execute.visitInsn(Opcodes.FSUB); break;
+                    case MUL:
+                        if (settings.getNumericOverflow()) {
+                            execute.visitInsn(Opcodes.FMUL);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "multiplyWithoutOverflow", "(FF)F", false);
+                        }
+                        break;
+                    case DIV: 
+                        if (settings.getNumericOverflow()) {
+                            execute.visitInsn(Opcodes.FDIV);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "divideWithoutOverflow", "(FF)F", false);
+                        }
+                        break;
+                    case REM:
+                        if (settings.getNumericOverflow()) {
+                            execute.visitInsn(Opcodes.FREM);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "remainderWithoutOverflow", "(FF)F", false);
+                        }
+                        break;
+                    case ADD: 
+                        if (settings.getNumericOverflow()) {
+                            execute.visitInsn(Opcodes.FADD);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "addWithoutOverflow", "(FF)F", false);
+                        }
+                        break;
+                    case SUB:
+                        if (settings.getNumericOverflow()) {
+                            execute.visitInsn(Opcodes.FSUB);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "subtractWithoutOverflow", "(FF)F", false);
+                        }
+                        break;
                     default:
                         throw new IllegalStateException(error(source) + "Unexpected writer state.");
                 }
@@ -1340,11 +1370,41 @@ class Writer extends PlanABaseVisitor<Void> {
                 break;
             case DOUBLE:
                 switch (token) {
-                    case MUL: execute.visitInsn(Opcodes.DMUL); break;
-                    case DIV: execute.visitInsn(Opcodes.DDIV); break;
-                    case REM: execute.visitInsn(Opcodes.DREM); break;
-                    case ADD: execute.visitInsn(Opcodes.DADD); break;
-                    case SUB: execute.visitInsn(Opcodes.DSUB); break;
+                    case MUL:
+                        if (settings.getNumericOverflow()) {
+                            execute.visitInsn(Opcodes.DMUL);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "multiplyWithoutOverflow", "(DD)D", false);
+                        }
+                        break;
+                    case DIV: 
+                        if (settings.getNumericOverflow()) {
+                            execute.visitInsn(Opcodes.DDIV);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "divideWithoutOverflow", "(DD)D", false);
+                        }
+                        break;
+                    case REM:
+                        if (settings.getNumericOverflow()) {
+                            execute.visitInsn(Opcodes.DREM);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "remainderWithoutOverflow", "(DD)D", false);
+                        }
+                        break;
+                    case ADD: 
+                        if (settings.getNumericOverflow()) {
+                            execute.visitInsn(Opcodes.DADD);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "addWithoutOverflow", "(DD)D", false);
+                        }
+                        break;
+                    case SUB:
+                        if (settings.getNumericOverflow()) {
+                            execute.visitInsn(Opcodes.DSUB);
+                        } else {
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "subtractWithoutOverflow", "(DD)D", false);
+                        }
+                        break;
                     default:
                         throw new IllegalStateException(error(source) + "Unexpected writer state.");
                 }

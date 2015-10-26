@@ -33,104 +33,112 @@ public class FloatOverflowEnabledTests extends ScriptTestCase {
     }
 
     public void testAssignmentAdditionOverflow() {        
-        // int
-        assertEquals(1 + 2147483647, exec("int x = 1; x += 2147483647; return x;"));
-        assertEquals(-2 + -2147483647, exec("int x = -2; x += -2147483647; return x;"));
+        // float
+        assertEquals(Float.POSITIVE_INFINITY, exec("float x = 3.4028234663852886E38f; x += 3.4028234663852886E38f; return x;"));
+        assertEquals(Float.NEGATIVE_INFINITY, exec("float x = -3.4028234663852886E38f; x += -3.4028234663852886E38f; return x;"));
         
-        // long
-        assertEquals(1L + 9223372036854775807L, exec("long x = 1; x += 9223372036854775807L; return x;"));
-        assertEquals(-2L + -9223372036854775807L, exec("long x = -2; x += -9223372036854775807L; return x;"));
+        // double
+        assertEquals(Double.POSITIVE_INFINITY, exec("double x = 1.7976931348623157E308; x += 1.7976931348623157E308; return x;"));
+        assertEquals(Double.NEGATIVE_INFINITY, exec("double x = -1.7976931348623157E308; x += -1.7976931348623157E308; return x;"));
     }
     
-    public void testAssignmentSubtractionOverflow() {        
-        // int
-        assertEquals(1 - -2147483647, exec("int x = 1; x -= -2147483647; return x;"));
-        assertEquals(-2 - 2147483647, exec("int x = -2; x -= 2147483647; return x;"));
+    public void testAssignmentSubtractionOverflow() {    
+        // float
+        assertEquals(Float.POSITIVE_INFINITY, exec("float x = 3.4028234663852886E38f; x -= -3.4028234663852886E38f; return x;"));
+        assertEquals(Float.NEGATIVE_INFINITY, exec("float x = -3.4028234663852886E38f; x -= 3.4028234663852886E38f; return x;"));
         
-        // long
-        assertEquals(1L - -9223372036854775807L, exec("long x = 1; x -= -9223372036854775807L; return x;"));
-        assertEquals(-2L - 9223372036854775807L, exec("long x = -2; x -= 9223372036854775807L; return x;"));
+        // double
+        assertEquals(Double.POSITIVE_INFINITY, exec("double x = 1.7976931348623157E308; x -= -1.7976931348623157E308; return x;"));
+        assertEquals(Double.NEGATIVE_INFINITY, exec("double x = -1.7976931348623157E308; x -= 1.7976931348623157E308; return x;"));
     }
     
     public void testAssignmentMultiplicationOverflow() {
-        // int
-        assertEquals(2 * 2147483647, exec("int x = 2; x *= 2147483647; return x;"));
-        assertEquals(2 * -2147483647, exec("int x = 2; x *= -2147483647; return x;"));
+        // float
+        assertEquals(Float.POSITIVE_INFINITY, exec("float x = 3.4028234663852886E38f; x *= 3.4028234663852886E38f; return x;"));
+        assertEquals(Float.NEGATIVE_INFINITY, exec("float x = 3.4028234663852886E38f; x *= -3.4028234663852886E38f; return x;"));
         
-        // long
-        assertEquals(2L * 9223372036854775807L, exec("long x = 2; x *= 9223372036854775807L; return x;"));
-        assertEquals(2L * -9223372036854775807L, exec("long x = 2; x *= -9223372036854775807L; return x;"));
+        // double
+        assertEquals(Double.POSITIVE_INFINITY, exec("double x = 1.7976931348623157E308; x *= 1.7976931348623157E308; return x;"));
+        assertEquals(Double.NEGATIVE_INFINITY, exec("double x = 1.7976931348623157E308; x *= -1.7976931348623157E308; return x;"));
     }
     
     public void testAssignmentDivisionOverflow() {
-        // int
-        assertEquals((-2147483647 - 1) / -1, exec("int x = -2147483647 - 1; x /= -1; return x;"));
+        // float
+        assertEquals(Float.POSITIVE_INFINITY, exec("float x = 3.4028234663852886E38f; x /= 1.401298464324817E-45f; return x;"));
+        assertEquals(Float.NEGATIVE_INFINITY, exec("float x = 3.4028234663852886E38f; x /= -1.401298464324817E-45f; return x;"));
+        assertEquals(Float.POSITIVE_INFINITY, exec("float x = 1.0f; x /= 0.0f; return x;"));
         
-        // long
-        assertEquals((-9223372036854775807L - 1L) / -1L, exec("long x = -9223372036854775807L - 1L; x /=-1L; return x;"));
+        // double
+        assertEquals(Double.POSITIVE_INFINITY, exec("double x = 1.7976931348623157E308; x /= 4.9E-324; return x;"));
+        assertEquals(Double.NEGATIVE_INFINITY, exec("double x = 1.7976931348623157E308; x /= -4.9E-324; return x;"));
+        assertEquals(Double.POSITIVE_INFINITY, exec("double x = 1.0f; x /= 0.0; return x;"));
     }
-    
-    public void testIncrementOverFlow() throws Exception {
-        // int
-        assertEquals(2147483647 + 1, exec("int x = 2147483647; ++x; return x;"));        
-        assertEquals(2147483647 + 1, exec("int x = 2147483647; x++; return x;"));
-        assertEquals(-2147483648 - 1, exec("int x = (int) -2147483648L; --x; return x;"));        
-        assertEquals(-2147483648 - 1, exec("int x = (int) -2147483648L; x--; return x;"));
-        
-        // long
-        assertEquals(9223372036854775807L + 1L, exec("long x = 9223372036854775807L; ++x; return x;"));        
-        assertEquals(9223372036854775807L + 1L, exec("long x = 9223372036854775807L; x++; return x;"));
-        assertEquals(-9223372036854775807L - 1L - 1L, exec("long x = -9223372036854775807L - 1L; --x; return x;"));
-        assertEquals(-9223372036854775807L - 1L - 1L, exec("long x = -9223372036854775807L - 1L; x--; return x;"));
-    }
-    
+
     public void testAddition() throws Exception {
-        assertEquals(2147483647 + 2147483647, exec("int x = 2147483647; int y = 2147483647; return x + y;"));        
-        assertEquals(9223372036854775807L + 9223372036854775807L, exec("long x = 9223372036854775807L; long y = 9223372036854775807L; return x + y;"));
+        assertEquals(Float.POSITIVE_INFINITY, exec("float x = 3.4028234663852886E38f; float y = 3.4028234663852886E38f; return x + y;"));        
+        assertEquals(Double.POSITIVE_INFINITY, exec("double x = 1.7976931348623157E308; double y = 1.7976931348623157E308; return x + y;"));
     }
     
     public void testAdditionConst() throws Exception {
-        assertEquals(2147483647 + 2147483647, exec("return 2147483647 + 2147483647;"));        
-        assertEquals(9223372036854775807L + 9223372036854775807L, exec("return 9223372036854775807L + 9223372036854775807L;"));
+        assertEquals(Float.POSITIVE_INFINITY, exec("return 3.4028234663852886E38f + 3.4028234663852886E38f;"));        
+        assertEquals(Double.POSITIVE_INFINITY, exec("return 1.7976931348623157E308 + 1.7976931348623157E308;"));
     }
     
     public void testSubtraction() throws Exception {
-        assertEquals(-10 - 2147483647, exec("int x = -10; int y = 2147483647; return x - y;"));        
-        assertEquals(-10L - 9223372036854775807L, exec("long x = -10L; long y = 9223372036854775807L; return x - y;"));
+        assertEquals(Float.NEGATIVE_INFINITY, exec("float x = -3.4028234663852886E38f; float y = 3.4028234663852886E38f; return x - y;"));        
+        assertEquals(Double.NEGATIVE_INFINITY, exec("double x = -1.7976931348623157E308; double y = 1.7976931348623157E308; return x - y;"));
     }
     
     public void testSubtractionConst() throws Exception {
-        assertEquals(-10 - 2147483647, exec("return -10 - 2147483647;"));        
-        assertEquals(-10L - 9223372036854775807L, exec("return -10L - 9223372036854775807L;"));
+        assertEquals(Float.NEGATIVE_INFINITY, exec("return -3.4028234663852886E38f - 3.4028234663852886E38f;"));        
+        assertEquals(Double.NEGATIVE_INFINITY, exec("return -1.7976931348623157E308 - 1.7976931348623157E308;"));
     }
     
     public void testMultiplication() throws Exception {
-        assertEquals(2147483647 * 2147483647, exec("int x = 2147483647; int y = 2147483647; return x * y;"));        
-        assertEquals(9223372036854775807L * 9223372036854775807L, exec("long x = 9223372036854775807L; long y = 9223372036854775807L; return x * y;"));
+        assertEquals(Float.POSITIVE_INFINITY, exec("float x = 3.4028234663852886E38f; float y = 3.4028234663852886E38f; return x * y;"));        
+        assertEquals(Double.POSITIVE_INFINITY, exec("double x = 1.7976931348623157E308; double y = 1.7976931348623157E308; return x * y;"));
     }
     
     public void testMultiplicationConst() throws Exception {
-        assertEquals(2147483647 * 2147483647, exec("return 2147483647 * 2147483647;"));
-        assertEquals(9223372036854775807L * 9223372036854775807L, exec("return 9223372036854775807L * 9223372036854775807L;"));
+        assertEquals(Float.POSITIVE_INFINITY, exec("return 3.4028234663852886E38f * 3.4028234663852886E38f;"));        
+        assertEquals(Double.POSITIVE_INFINITY, exec("return 1.7976931348623157E308 * 1.7976931348623157E308;"));
     }
 
     public void testDivision() throws Exception {
-        assertEquals((-2147483647 - 1) / -1, exec("int x = -2147483647 - 1; int y = -1; return x / y;"));        
-        assertEquals((-9223372036854775807L - 1L) / -1L, exec("long x = -9223372036854775807L - 1L; long y = -1L; return x / y;"));
+        assertEquals(Float.POSITIVE_INFINITY, exec("float x = 3.4028234663852886E38f; float y = 1.401298464324817E-45f; return x / y;"));
+        assertEquals(Float.POSITIVE_INFINITY, exec("float x = 1.0f; float y = 0.0f; return x / y;"));
+        assertEquals(Double.POSITIVE_INFINITY, exec("double x = 1.7976931348623157E308; double y = 4.9E-324; return x / y;"));
+        assertEquals(Double.POSITIVE_INFINITY, exec("double x = 1.0; double y = 0.0; return x / y;"));
     }
     
     public void testDivisionConst() throws Exception {
-        assertEquals((-2147483647 - 1) / -1, exec("return (-2147483647 - 1) / -1;"));
-        assertEquals((-9223372036854775807L - 1L) / -1L, exec("return (-9223372036854775807L - 1L) / -1L;"));
+        assertEquals(Float.POSITIVE_INFINITY, exec("return 3.4028234663852886E38f / 1.401298464324817E-45f;"));
+        assertEquals(Float.POSITIVE_INFINITY, exec("return 1.0f / 0.0f;"));
+        assertEquals(Double.POSITIVE_INFINITY, exec("return 1.7976931348623157E308 / 4.9E-324;"));
+        assertEquals(Double.POSITIVE_INFINITY, exec("return 1.0 / 0.0;"));
     }
     
-    public void testNegationOverflow() throws Exception {
-        assertEquals(-(-2147483647 - 1), exec("int x = -2147483647 - 1; x = -x; return x;"));        
-        assertEquals(-(-9223372036854775807L - 1L), exec("long x = -9223372036854775807L - 1L; x = -x; return x;"));
+    public void testDivisionNaN() throws Exception {
+        // float division, constant division, and assignment
+        assertTrue(Float.isNaN((Float) exec("float x = 0f; float y = 0f; return x / y;")));
+        assertTrue(Float.isNaN((Float) exec("return 0f / 0f;")));
+        assertTrue(Float.isNaN((Float) exec("float x = 0f; x /= 0f; return x;")));
+        
+        // double division, constant division, and assignment
+        assertTrue(Double.isNaN((Double) exec("double x = 0.0; double y = 0.0; return x / y;")));
+        assertTrue(Double.isNaN((Double) exec("return 0.0 / 0.0;")));
+        assertTrue(Double.isNaN((Double) exec("double x = 0.0; x /= 0.0; return x;")));
     }
     
-    public void testNegationOverflowConst() throws Exception {
-        assertEquals(-(-2147483647 - 1), exec("int x = -(-2147483647 - 1); return x;"));
-        assertEquals(-(-9223372036854775807L - 1L), exec("long x = -(-9223372036854775807L - 1L); return x;"));
+    public void testRemainderNaN() throws Exception {
+        // float division, constant division, and assignment
+        assertTrue(Float.isNaN((Float) exec("float x = 1f; float y = 0f; return x % y;")));
+        assertTrue(Float.isNaN((Float) exec("return 1f % 0f;")));
+        assertTrue(Float.isNaN((Float) exec("float x = 1f; x %= 0f; return x;")));
+        
+        // double division, constant division, and assignment
+        assertTrue(Double.isNaN((Double) exec("double x = 1.0; double y = 0.0; return x % y;")));
+        assertTrue(Double.isNaN((Double) exec("return 1.0 % 0.0;")));
+        assertTrue(Double.isNaN((Double) exec("double x = 1.0; x %= 0.0; return x;")));
     }
 }
