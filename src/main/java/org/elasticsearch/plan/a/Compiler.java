@@ -62,7 +62,6 @@ final class Compiler {
 
         final Definition definition = properties == null ? DEFAULT_DEFINITION : loadFromProperties(properties);
         final Standard standard = properties == null ? DEFAULT_STANDARD : new Standard(definition);
-        final Caster caster = properties == null ? DEFAULT_CASTER : new Caster(definition, standard);
 
         //long end = System.currentTimeMillis() - start;
         //System.out.println("definition: " + end);
@@ -85,7 +84,7 @@ final class Compiler {
         //end = System.currentTimeMillis() - start;
         //System.out.println("tree: " + end);
 
-        final Adapter adapter = new Adapter(definition, standard, caster, source, root, settings);
+        final Adapter adapter = new Adapter(definition, standard, source, root, settings);
         adapter.incrementScope();
         adapter.addVariable(null, "this", adapter.standard.execType);
         adapter.addVariable(null, "input", adapter.standard.smapType);

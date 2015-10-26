@@ -19,17 +19,12 @@ package org.elasticsearch.plan.a;
  * under the License.
  */
 
-import com.sun.xml.internal.bind.v2.runtime.reflect.opt.Const;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-
-import java.lang.annotation.Target;
-import java.util.Arrays;
-import java.util.List;
 
 import static org.elasticsearch.plan.a.Adapter.*;
 import static org.elasticsearch.plan.a.Definition.*;
@@ -48,7 +43,6 @@ class Writer extends PlanABaseVisitor<Void> {
     }
 
     private final Adapter adapter;
-    private final Caster caster;
     private final ParseTree root;
     private final String source;
 
@@ -59,7 +53,6 @@ class Writer extends PlanABaseVisitor<Void> {
 
     private Writer(final Adapter adapter) {
         this.adapter = adapter;
-        caster = adapter.caster;
         root = adapter.root;
         source = adapter.source;
         settings = adapter.settings;
@@ -378,7 +371,7 @@ class Writer extends PlanABaseVisitor<Void> {
 
         if (postConst == null) {
             writeNumeric(ctx, numericemd.preConst);
-            caster.checkWriteCast(execute, numericemd);
+            checkWriteCast(numericemd);
         } else {
             writeConstant(ctx, postConst);
         }
@@ -395,7 +388,7 @@ class Writer extends PlanABaseVisitor<Void> {
 
         if (postConst == null) {
             writeString(ctx, stringemd.preConst);
-            caster.checkWriteCast(execute, stringemd);
+            checkWriteCast(stringemd);
         } else {
             writeConstant(ctx, postConst);
         }
@@ -412,7 +405,7 @@ class Writer extends PlanABaseVisitor<Void> {
 
         if (postConst == null) {
             writeNumeric(ctx, (int)(char)charemd.preConst);
-            caster.checkWriteCast(execute, charemd);
+            checkWriteCast(charemd);
         } else {
             writeConstant(ctx, postConst);
         }
@@ -431,7 +424,7 @@ class Writer extends PlanABaseVisitor<Void> {
         if (branch == null) {
             if (postConst == null) {
                 writeBoolean(ctx, true);
-                caster.checkWriteCast(execute, trueemd);
+                checkWriteCast(trueemd);
             } else {
                 writeConstant(ctx, postConst);
             }
@@ -451,7 +444,7 @@ class Writer extends PlanABaseVisitor<Void> {
         if (branch == null) {
             if (postConst == null) {
                 writeBoolean(ctx, false);
-                caster.checkWriteCast(execute, falseemd);
+                checkWriteCast(falseemd);
             } else {
                 writeConstant(ctx, postConst);
             }
@@ -467,7 +460,7 @@ class Writer extends PlanABaseVisitor<Void> {
         final ExpressionMetadata nullemd = adapter.getExpressionMetadata(ctx);
 
         execute.visitInsn(Opcodes.ACONST_NULL);
-        caster.checkWriteCast(execute, nullemd);
+        checkWriteCast(nullemd);
         adapter.checkWriteBranch(execute, ctx);
 
         return null;
@@ -511,7 +504,7 @@ class Writer extends PlanABaseVisitor<Void> {
                 writeToStrings();
             }
 
-            caster.checkWriteCast(execute, catemd);
+            checkWriteCast(catemd);
         }
 
         adapter.checkWriteBranch(execute, ctx);
@@ -523,7 +516,7 @@ class Writer extends PlanABaseVisitor<Void> {
     public Void visitExternal(final ExternalContext ctx) {
         final ExpressionMetadata expremd = adapter.getExpressionMetadata(ctx);
         visit(ctx.extstart());
-        caster.checkWriteCast(execute, expremd);
+        checkWriteCast(expremd);
         adapter.checkWriteBranch(execute, ctx);
 
         return null;
@@ -534,7 +527,7 @@ class Writer extends PlanABaseVisitor<Void> {
     public Void visitPostinc(final PostincContext ctx) {
         final ExpressionMetadata expremd = adapter.getExpressionMetadata(ctx);
         visit(ctx.extstart());
-        caster.checkWriteCast(execute, expremd);
+        checkWriteCast(expremd);
         adapter.checkWriteBranch(execute, ctx);
 
         return null;
@@ -544,7 +537,7 @@ class Writer extends PlanABaseVisitor<Void> {
     public Void visitPreinc(final PreincContext ctx) {
         final ExpressionMetadata expremd = adapter.getExpressionMetadata(ctx);
         visit(ctx.extstart());
-        caster.checkWriteCast(execute, expremd);
+        checkWriteCast(expremd);
         adapter.checkWriteBranch(execute, ctx);
 
         return null;
@@ -575,7 +568,7 @@ class Writer extends PlanABaseVisitor<Void> {
         } else if (preConst != null) {
             if (branch == null) {
                 writeConstant(ctx, preConst);
-                caster.checkWriteCast(execute, unaryemd);
+                checkWriteCast(unaryemd);
             } else {
                 throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
             }
@@ -597,7 +590,7 @@ class Writer extends PlanABaseVisitor<Void> {
                     execute.visitInsn(Opcodes.ICONST_1);
                     execute.visitLabel(aend);
 
-                    caster.checkWriteCast(execute, unaryemd);
+                    checkWriteCast(unaryemd);
                 } else {
                     local.tru = branch.fals;
                     local.fals = branch.tru;
@@ -641,7 +634,7 @@ class Writer extends PlanABaseVisitor<Void> {
                     // TODO: why not this check? throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                 }
 
-                caster.checkWriteCast(execute, unaryemd);
+                checkWriteCast(unaryemd);
                 adapter.checkWriteBranch(execute, ctx);
             }
         }
@@ -656,7 +649,7 @@ class Writer extends PlanABaseVisitor<Void> {
 
         if (postConst == null) {
             visit(ctx.expression());
-            caster.checkWriteCast(execute, castemd);
+            checkWriteCast(castemd);
         } else {
             writeConstant(ctx, postConst);
         }
@@ -678,7 +671,7 @@ class Writer extends PlanABaseVisitor<Void> {
         } else if (preConst != null) {
             if (branch == null) {
                 writeConstant(ctx, preConst);
-                caster.checkWriteCast(execute, binaryemd);
+                checkWriteCast(binaryemd);
             } else {
                 throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
             }
@@ -707,7 +700,7 @@ class Writer extends PlanABaseVisitor<Void> {
                 throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
             }
 
-            caster.checkWriteCast(execute, binaryemd);
+            checkWriteCast(binaryemd);
         }
 
         adapter.checkWriteBranch(execute, ctx);
@@ -735,7 +728,7 @@ class Writer extends PlanABaseVisitor<Void> {
         } else if (preConst != null) {
             if (branch == null) {
                 writeConstant(ctx, preConst);
-                caster.checkWriteCast(execute, compemd);
+                checkWriteCast(compemd);
             } else {
                 throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
             }
@@ -874,7 +867,7 @@ class Writer extends PlanABaseVisitor<Void> {
                     execute.visitLabel(end);
                 }
 
-                caster.checkWriteCast(execute, compemd);
+                checkWriteCast(compemd);
             }
         }
 
@@ -901,7 +894,7 @@ class Writer extends PlanABaseVisitor<Void> {
         } else if (preConst != null) {
             if (branch == null) {
                 writeConstant(ctx, preConst);
-                caster.checkWriteCast(execute, boolemd);
+                checkWriteCast(boolemd);
             } else {
                 throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
             }
@@ -943,7 +936,7 @@ class Writer extends PlanABaseVisitor<Void> {
                     throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                 }
 
-                caster.checkWriteCast(execute, boolemd);
+                checkWriteCast(boolemd);
             } else {
                 if (ctx.BOOLAND() != null) {
                     final Branch branch0 = adapter.markBranch(ctx, exprctx0);
@@ -1005,7 +998,7 @@ class Writer extends PlanABaseVisitor<Void> {
         execute.visitLabel(local.end);
 
         if (branch == null) {
-            caster.checkWriteCast(execute, condemd);
+            checkWriteCast(condemd);
         }
 
         return null;
@@ -1015,7 +1008,7 @@ class Writer extends PlanABaseVisitor<Void> {
     public Void visitAssignment(final AssignmentContext ctx) {
         final ExpressionMetadata expremd = adapter.getExpressionMetadata(ctx);
         visit(ctx.extstart());
-        caster.checkWriteCast(execute, expremd);
+        checkWriteCast(expremd);
         adapter.checkWriteBranch(execute, ctx);
 
         return null;
@@ -1100,7 +1093,7 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(memberctx);
         }
 
-        caster.checkWriteCast(execute, ctx, castenmd.castTo);
+        checkWriteCast(ctx, castenmd.castTo);
 
         return null;
     }
@@ -1189,7 +1182,7 @@ class Writer extends PlanABaseVisitor<Void> {
 
         if (postConst == null) {
             writeString(ctx, incremd.preConst);
-            caster.checkWriteCast(execute, incremd);
+            checkWriteCast(incremd);
         } else {
             writeConstant(ctx, postConst);
         }
@@ -1199,7 +1192,7 @@ class Writer extends PlanABaseVisitor<Void> {
         return null;
     }
 
-    void writeConstant(final ParserRuleContext source, final Object constant) {
+    private void writeConstant(final ParserRuleContext source, final Object constant) {
         if (constant instanceof Number) {
             writeNumeric(source, constant);
         } else if (constant instanceof Character) {
@@ -1297,13 +1290,13 @@ class Writer extends PlanABaseVisitor<Void> {
         }
     }
 
-    void writeNewStrings() {
+    private void writeNewStrings() {
         execute.visitTypeInsn(Opcodes.NEW, "java/lang/StringBuilder");
         execute.visitInsn(Opcodes.DUP);
         execute.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/StringBuilder", "<init>", "()V", false);
     }
 
-    void writeAppendStrings(final ParserRuleContext source, final TypeMetadata metadata) {
+    private void writeAppendStrings(final ParserRuleContext source, final TypeMetadata metadata) {
         final String internal = "java/lang/StringBuilder";
         final String builder = "Ljava/lang/StringBuilder;";
         final String string = "(Ljava/lang/String;)" + builder;
@@ -1326,7 +1319,7 @@ class Writer extends PlanABaseVisitor<Void> {
         }
     }
 
-    void writeToStrings() {
+    private void writeToStrings() {
         execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
     }
     
@@ -1335,7 +1328,7 @@ class Writer extends PlanABaseVisitor<Void> {
      * We have to be stricter than writeBinary, and do overflow checks against the original type's size
      * instead of the promoted type's size, since the result will be implicitly cast back.
      */
-    void writeCompoundAssignmentInstruction(ParserRuleContext source, TypeMetadata original, TypeMetadata promoted, int token) {
+    private void writeCompoundAssignmentInstruction(ParserRuleContext source, TypeMetadata original, TypeMetadata promoted, int token) {
         writeBinaryInstruction(source, promoted, token);
         if (settings.getIntegerOverflow() == false) {
             if (token == ADD || token == SUB || token == MUL || token == DIV) {
@@ -1353,7 +1346,7 @@ class Writer extends PlanABaseVisitor<Void> {
         }
     }
     
-    void writeBinaryInstruction(final ParserRuleContext source, final TypeMetadata metadata, final int token) {
+    private void writeBinaryInstruction(final ParserRuleContext source, final TypeMetadata metadata, final int token) {
 
         // if its a 64-bit shift, fixup the last argument to truncate to 32-bits
         // note unlike java, this means we still do binary promotion of shifts,
@@ -1531,7 +1524,7 @@ class Writer extends PlanABaseVisitor<Void> {
                 }
 
                 writeToStrings();
-                caster.checkWriteCast(execute, source, sourceemd.castTo);
+                checkWriteCast(source, sourceemd.castTo);
 
                 if (parentemd.read) {
                     writeDup(sourceemd.type.metadata.size, field, array);
@@ -1551,11 +1544,11 @@ class Writer extends PlanABaseVisitor<Void> {
                     writeDup(sourceemd.type.metadata.size, field, array);
                 }
 
-                caster.checkWriteCast(execute, source, sourceemd.castFrom);
+                checkWriteCast(source, sourceemd.castFrom);
                 visit(parentemd.storeExpr);
                 writeCompoundAssignmentInstruction(
                         source, sourceemd.type.metadata, sourceemd.promote.metadata, parentemd.token);
-                caster.checkWriteCast(execute, source, sourceemd.castTo);
+                checkWriteCast(source, sourceemd.castTo);
 
                 if (parentemd.read && !parentemd.post) {
                     writeDup(sourceemd.type.metadata.size, field, array);
@@ -1711,7 +1704,7 @@ class Writer extends PlanABaseVisitor<Void> {
         }
     }
 
-    void writeNewArray(ParserRuleContext source, final Type type) {
+    private void writeNewArray(ParserRuleContext source, final Type type) {
         if (type.dimensions > 1) {
             execute.visitMultiANewArrayInsn(type.descriptor, type.dimensions);
         } else {
@@ -1735,6 +1728,135 @@ class Writer extends PlanABaseVisitor<Void> {
             execute.visitInsn(Opcodes.POP);
         } else if (size == 2) {
             execute.visitInsn(Opcodes.POP2);
+        }
+    }
+
+    private void checkWriteCast(final ExpressionMetadata metadata) {
+        checkWriteCast(metadata.source, metadata.cast);
+    }
+
+    private void checkWriteCast(final ParserRuleContext source, final Cast cast) {
+        if (cast instanceof Transform) {
+            writeTransform((Transform)cast);
+        } else if (cast != null) {
+            writeCast(cast);
+        } else {
+            throw new IllegalStateException(error(source) + "Unexpected cast object.");
+        }
+    }
+
+    private void writeCast(final Cast cast) {
+        final Type from = cast.from;
+        final Type to = cast.to;
+
+        if (from.equals(to)) {
+            return;
+        }
+
+        if (from.metadata.numeric && to.metadata.numeric) {
+            switch (from.metadata) {
+                case BYTE:
+                    switch (to.metadata) {
+                        case SHORT:  execute.visitInsn(Opcodes.I2S); break;
+                        case CHAR:   execute.visitInsn(Opcodes.I2C); break;
+                        case LONG:   execute.visitInsn(Opcodes.I2L); break;
+                        case FLOAT:  execute.visitInsn(Opcodes.I2F); break;
+                        case DOUBLE: execute.visitInsn(Opcodes.I2D); break;
+                    }
+                    break;
+                case SHORT:
+                    switch (to.metadata) {
+                        case BYTE:   execute.visitInsn(Opcodes.I2B); break;
+                        case CHAR:   execute.visitInsn(Opcodes.I2C); break;
+                        case LONG:   execute.visitInsn(Opcodes.I2L); break;
+                        case FLOAT:  execute.visitInsn(Opcodes.I2F); break;
+                        case DOUBLE: execute.visitInsn(Opcodes.I2D); break;
+                    }
+                    break;
+                case CHAR:
+                    switch (to.metadata) {
+                        case BYTE:   execute.visitInsn(Opcodes.I2B); break;
+                        case SHORT:  execute.visitInsn(Opcodes.I2S); break;
+                        case LONG:   execute.visitInsn(Opcodes.I2L); break;
+                        case FLOAT:  execute.visitInsn(Opcodes.I2F); break;
+                        case DOUBLE: execute.visitInsn(Opcodes.I2D); break;
+                    }
+                    break;
+                case INT:
+                    switch (to.metadata) {
+                        case BYTE:   execute.visitInsn(Opcodes.I2B); break;
+                        case SHORT:  execute.visitInsn(Opcodes.I2S); break;
+                        case CHAR:   execute.visitInsn(Opcodes.I2C); break;
+                        case LONG:   execute.visitInsn(Opcodes.I2L); break;
+                        case FLOAT:  execute.visitInsn(Opcodes.I2F); break;
+                        case DOUBLE: execute.visitInsn(Opcodes.I2D); break;
+                    }
+                    break;
+                case LONG:
+                    switch (to.metadata) {
+                        case BYTE:   execute.visitInsn(Opcodes.L2I); execute.visitInsn(Opcodes.I2B); break;
+                        case SHORT:  execute.visitInsn(Opcodes.L2I); execute.visitInsn(Opcodes.I2S); break;
+                        case CHAR:   execute.visitInsn(Opcodes.L2I); execute.visitInsn(Opcodes.I2C); break;
+                        case INT:    execute.visitInsn(Opcodes.L2I); break;
+                        case FLOAT:  execute.visitInsn(Opcodes.L2F); break;
+                        case DOUBLE: execute.visitInsn(Opcodes.L2D); break;
+                    }
+                    break;
+                case FLOAT:
+                    switch (to.metadata) {
+                        case BYTE:   execute.visitInsn(Opcodes.F2I); execute.visitInsn(Opcodes.I2B); break;
+                        case SHORT:  execute.visitInsn(Opcodes.F2I); execute.visitInsn(Opcodes.I2S); break;
+                        case CHAR:   execute.visitInsn(Opcodes.F2I); execute.visitInsn(Opcodes.I2C); break;
+                        case INT:    execute.visitInsn(Opcodes.F2I); break;
+                        case LONG:   execute.visitInsn(Opcodes.F2L); break;
+                        case DOUBLE: execute.visitInsn(Opcodes.F2D); break;
+                    }
+                    break;
+                case DOUBLE:
+                    switch (to.metadata) {
+                        case BYTE:  execute.visitInsn(Opcodes.D2I); execute.visitInsn(Opcodes.I2B); break;
+                        case SHORT: execute.visitInsn(Opcodes.D2I); execute.visitInsn(Opcodes.I2S); break;
+                        case CHAR:  execute.visitInsn(Opcodes.D2I); execute.visitInsn(Opcodes.I2C); break;
+                        case INT:   execute.visitInsn(Opcodes.D2I); break;
+                        case LONG:  execute.visitInsn(Opcodes.D2L); break;
+                        case FLOAT: execute.visitInsn(Opcodes.D2F); break;
+                    }
+                    break;
+            }
+        } else {
+            try {
+                from.clazz.asSubclass(to.clazz);
+            } catch (ClassCastException exception) {
+                execute.visitTypeInsn(Opcodes.CHECKCAST, to.internal);
+            }
+        }
+    }
+
+    private void writeTransform(final Transform transform) {
+        final Class clazz = transform.method.owner.clazz;
+        final java.lang.reflect.Method method = transform.method.method;
+
+        final String name = method.getName();
+        final String internal = transform.method.owner.internal;
+        final String descriptor = transform.method.descriptor;
+
+        final Type upcast = transform.upcast;
+        final Type downcast = transform.downcast;
+
+        if (upcast != null) {
+            execute.visitTypeInsn(Opcodes.CHECKCAST, upcast.internal);
+        }
+
+        if (java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
+            execute.visitMethodInsn(Opcodes.INVOKESTATIC, internal, name, descriptor, false);
+        } else if (java.lang.reflect.Modifier.isInterface(clazz.getModifiers())) {
+            execute.visitMethodInsn(Opcodes.INVOKEINTERFACE, internal, name, descriptor, true);
+        } else {
+            execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, name, descriptor, false);
+        }
+
+        if (downcast != null) {
+            execute.visitTypeInsn(Opcodes.CHECKCAST, downcast.internal);
         }
     }
 

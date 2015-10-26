@@ -33,7 +33,6 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-import static org.elasticsearch.plan.a.Caster.*;
 import static org.elasticsearch.plan.a.Default.*;
 import static org.elasticsearch.plan.a.Definition.*;
 import static org.elasticsearch.plan.a.PlanAParser.*;
@@ -86,7 +85,7 @@ class Adapter {
 
         Type to;
         Type from;
-        Promotion promotion;
+        Object promotion;
         boolean explicit;
 
         Cast cast;
@@ -191,7 +190,6 @@ class Adapter {
 
     final Definition definition;
     final Standard standard;
-    final Caster caster;
     final String source;
     final ParserRuleContext root;
 
@@ -209,11 +207,10 @@ class Adapter {
     
     final CompilerSettings settings;
 
-    Adapter(final Definition definition, final Standard standard, final Caster caster,
-            final String source, final ParserRuleContext root, CompilerSettings settings) {
+    Adapter(final Definition definition, final Standard standard, final String source,
+            final ParserRuleContext root, CompilerSettings settings) {
         this.definition = definition;
         this.standard = standard;
-        this.caster = caster;
         this.source = source;
         this.root = root;
         this.settings = settings;
