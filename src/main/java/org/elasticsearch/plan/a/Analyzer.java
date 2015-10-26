@@ -19,18 +19,155 @@
 
 package org.elasticsearch.plan.a;
 
+import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.List;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 
 import static org.elasticsearch.plan.a.Adapter.*;
-import static org.elasticsearch.plan.a.Caster.*;
 import static org.elasticsearch.plan.a.Default.*;
 import static org.elasticsearch.plan.a.Definition.*;
 import static org.elasticsearch.plan.a.PlanAParser.*;
 
 class Analyzer extends PlanABaseVisitor<Void> {
+    private abstract static class Promotion {
+        protected final ParserRuleContext source;
+
+        protected Promotion(final ParserRuleContext source) {
+            this.source = source;
+        }
+
+        Type promote(final Type from) {
+            return promote(from, null);
+        }
+
+        abstract Type promote(final Type from0, final Type from1);
+
+        protected void exception(final Type from0, final Type from1) {
+            if (from1 == null) {
+                throw new ClassCastException(error(source) +
+                        "Cannot find valid promotion for type [" + from0.name + "].");
+            } else {
+                throw new ClassCastException(error(source) + "Cannot find valid promotion for types [" +
+                        from0.name + "] and [" + from1.name + "].");
+            }
+        }
+    }
+
+    private class NumericPromotion extends Promotion {
+        NumericPromotion(final ParserRuleContext source) {
+            super(source);
+        }
+
+        Type promote(final Type from0, final Type from1) {
+            final Type promote = promoteToNumeric(from0, from1, false);
+
+            if (promote == null) {
+                exception(from0, from1);
+            }
+
+            return promote;
+        }
+    }
+
+    private class DecimalPromotion extends Promotion {
+        DecimalPromotion(final ParserRuleContext source) {
+            super(source);
+        }
+
+        Type promote(final Type from0, final Type from1) {
+            final Type promote = promoteToNumeric(from0, from1, true);
+
+            if (promote == null) {
+                exception(from0, from1);
+            }
+
+            return promote;
+        }
+    }
+
+    private class BinaryPromotion extends Promotion {
+        BinaryPromotion(final ParserRuleContext source) {
+            super(source);
+        }
+
+        Type promote(final Type from0, final Type from1) {
+            Type promote = promoteToType(source, from0, from1, standard.boolType);
+
+            if (promote == null) {
+                promote = promoteToNumeric(from0, from1, false);
+            }
+
+            if (promote == null) {
+                exception(from0, from1);
+            }
+
+            return promote;
+        }
+    }
+
+    private class CatPromotion extends Promotion {
+        CatPromotion(final ParserRuleContext source) {
+            super(source);
+        }
+
+        Type promote(final Type from0, final Type from1) {
+            Type promote = promoteSameType(from0, from1);
+
+            if (promote == null) {
+                promote = promoteAnyType(source, from0, from1, standard.boolType);
+            }
+
+            if (promote == null) {
+                promote = promoteAnyNumeric(from0, from1, true);
+            }
+
+            if (promote == null) {
+                promote = promoteToSubclass(from0, from1);
+            }
+
+            if (promote == null) {
+                promote = promoteToImplicit(from0, from1);
+            }
+
+            if (promote == null) {
+                exception(from0, from1);
+            }
+
+            return promote;
+        }
+    }
+
+    private class EqualityPromotion extends Promotion {
+        EqualityPromotion(final ParserRuleContext source) {
+            super(source);
+        }
+
+        Type promote(final Type from0, final Type from1) {
+            Type promote = promoteAnyType(source, from0, from1, standard.boolType);
+
+            if (promote == null) {
+                promote = promoteAnyNumeric(from0, from1, true);
+            }
+
+            if (promote == null) {
+                promote = promoteToSubclass(from0, from1);
+            }
+
+            if (promote == null) {
+                promote = promoteToImplicit(from0, from1);
+            }
+
+            if (promote == null) {
+                exception(from0, from1);
+            }
+
+            return promote;
+        }
+    }
+
     static void analyze(final Adapter adapter) {
         new Analyzer(adapter);
     }
@@ -38,14 +175,12 @@ class Analyzer extends PlanABaseVisitor<Void> {
     private final Adapter adapter;
     private final Definition definition;
     private final Standard standard;
-    private final Caster caster;
     private final CompilerSettings settings;
 
     private Analyzer(final Adapter adapter) {
         this.adapter = adapter;
         definition = adapter.definition;
         standard = adapter.standard;
-        caster = adapter.caster;
         settings = adapter.settings;
 
         adapter.createStatementMetadata(adapter.root);
@@ -552,7 +687,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             }
         }
 
-        caster.markCast(numericemd);
+        markCast(numericemd);
 
         return null;
     }
@@ -569,7 +704,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         stringemd.preConst = ctx.STRING().getText().substring(1, length - 1);
         stringemd.from = standard.stringType;
 
-        caster.markCast(stringemd);
+        markCast(stringemd);
 
         return null;
     }
@@ -589,7 +724,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         charemd.preConst = ctx.CHAR().getText().charAt(1);
         charemd.from = standard.charType;
 
-        caster.markCast(charemd);
+        markCast(charemd);
 
         return null;
     }
@@ -605,7 +740,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         trueemd.preConst = true;
         trueemd.from = standard.boolType;
 
-        caster.markCast(trueemd);
+        markCast(trueemd);
 
         return null;
     }
@@ -621,7 +756,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         falseemd.preConst = false;
         falseemd.from = standard.boolType;
 
-        caster.markCast(falseemd);
+        markCast(falseemd);
 
         return null;
     }
@@ -642,35 +777,36 @@ class Analyzer extends PlanABaseVisitor<Void> {
             nullemd.from = standard.objectType;
         }
 
-        caster.markCast(nullemd);
+        markCast(nullemd);
 
         return null;
     }
 
     @Override
     public Void visitCat(CatContext ctx) {
-        ExpressionMetadata catemd = adapter.getExpressionMetadata(ctx);
+        final ExpressionMetadata catemd = adapter.getExpressionMetadata(ctx);
+        final Promotion promotion = new CatPromotion(ctx);
 
         final ExpressionContext exprctx0 = adapter.updateExpressionTree(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
-        expremd0.promotion = caster.concat;
+        expremd0.promotion = promotion;
         visit(exprctx0);
         expremd0.to = expremd0.from;
-        caster.markCast(expremd0);
+        markCast(expremd0);
 
         final ExpressionContext exprctx1 = adapter.updateExpressionTree(ctx.expression(1));
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
-        expremd1.promotion = caster.concat;
+        expremd1.promotion = promotion;
         visit(exprctx1);
         expremd1.to = expremd1.from;
-        caster.markCast(expremd1);
+        markCast(expremd1);
 
         if (expremd0.postConst != null && expremd1.postConst != null) {
             catemd.postConst = expremd0.postConst.toString() + expremd1.postConst.toString();
         }
 
         catemd.from = standard.stringType;
-        caster.markCast(catemd);
+        markCast(catemd);
 
         return null;
     }
@@ -686,7 +822,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         extemd.statement = extstartemd.statement;
         extemd.from = extstartemd.current;
-        caster.markCast(extemd);
+        markCast(extemd);
 
         return null;
     }
@@ -705,7 +841,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         visit(extstartctx);
 
         postincemd.from = extstartemd.current;
-        caster.markCast(postincemd);
+        markCast(postincemd);
 
         return null;
     }
@@ -724,7 +860,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         visit(extstartctx);
 
         preincemd.from = extstartemd.current;
-        caster.markCast(preincemd);
+        markCast(preincemd);
 
         return null;
     }
@@ -746,14 +882,14 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
             unaryemd.from = standard.boolType;
         } else if (ctx.BWNOT() != null || ctx.ADD() != null || ctx.SUB() != null) {
-            final Promotion promotion = ctx.BWNOT() != null ? caster.numeric : caster.decimal;
+            final Promotion promotion = ctx.BWNOT() != null ? new NumericPromotion(ctx) : new DecimalPromotion(ctx);
             expremd.promotion = promotion;
             visit(exprctx);
 
-            final Type promote = caster.getTypePromotion(ctx, expremd.from, null, promotion);
+            final Type promote = promotion.promote(expremd.from);
 
             expremd.to = promote;
-            caster.markCast(expremd);
+            markCast(expremd);
 
             if (expremd.postConst != null) {
                 final TypeMetadata tmd = promote.metadata;
@@ -808,7 +944,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
         }
 
-        caster.markCast(unaryemd);
+        markCast(unaryemd);
 
         return null;
     }
@@ -834,7 +970,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             castemd.preConst = expremd.postConst;
         }
 
-        caster.markCast(castemd);
+        markCast(castemd);
 
         return null;
     }
@@ -846,11 +982,11 @@ class Analyzer extends PlanABaseVisitor<Void> {
         Promotion promotion;
 
         if (ctx.ADD() != null || ctx.SUB() != null || ctx.DIV() != null || ctx.MUL() != null || ctx.REM() != null) {
-            promotion = caster.decimal;
+            promotion = new DecimalPromotion(ctx);
         } else if (ctx.BWXOR() != null) {
-            promotion = caster.binary;
+            promotion = new BinaryPromotion(ctx);
         } else {
-            promotion = caster.numeric;
+            promotion = new NumericPromotion(ctx);
         }
 
         final ExpressionContext exprctx0 = adapter.updateExpressionTree(ctx.expression(0));
@@ -863,12 +999,12 @@ class Analyzer extends PlanABaseVisitor<Void> {
         expremd1.promotion = promotion;
         visit(exprctx1);
 
-        final Type promote = caster.getTypePromotion(ctx, expremd0.from, expremd1.from, promotion);
+        final Type promote = promotion.promote(expremd0.from, expremd1.from);
 
         expremd0.to = promote;
-        caster.markCast(expremd0);
+        markCast(expremd0);
         expremd1.to = promote;
-        caster.markCast(expremd1);
+        markCast(expremd1);
 
         if (expremd0.postConst != null && expremd1.postConst != null) {
             final TypeMetadata tmd = promote.metadata;
@@ -1021,7 +1157,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
 
         binaryemd.from = promote;
-        caster.markCast(binaryemd);
+        markCast(binaryemd);
 
         return null;
     }
@@ -1031,7 +1167,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExpressionMetadata compemd = adapter.getExpressionMetadata(ctx);
         final Promotion promotion =
                 ctx.EQ() != null || ctx.EQR() != null || ctx.NE() != null || ctx.NER() != null ?
-                caster.equality : caster.decimal;
+                new EqualityPromotion(ctx) : new DecimalPromotion(ctx);
 
         final ExpressionContext exprctx0 = adapter.updateExpressionTree(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
@@ -1043,16 +1179,16 @@ class Analyzer extends PlanABaseVisitor<Void> {
         expremd1.promotion = promotion;
         visit(exprctx1);
 
-        final Type promote = caster.getTypePromotion(ctx, expremd0.from, expremd1.from, promotion);
+        final Type promote = promotion.promote(expremd0.from, expremd1.from);
 
         if (expremd0.isNull && expremd1.isNull) {
             throw new IllegalArgumentException(error(ctx) + "Unnecessary comparison of null constants.");
         }
 
         expremd0.to = promote;
-        caster.markCast(expremd0);
+        markCast(expremd0);
         expremd1.to = promote;
-        caster.markCast(expremd1);
+        markCast(expremd1);
 
         if (expremd0.postConst != null && expremd1.postConst != null) {
             final TypeMetadata metadata = promote.metadata;
@@ -1139,7 +1275,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
 
         compemd.from = standard.boolType;
-        caster.markCast(compemd);
+        markCast(compemd);
 
         return null;
     }
@@ -1169,7 +1305,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
 
         boolemd.from = standard.boolType;
-        caster.markCast(boolemd);
+        markCast(boolemd);
 
         return null;
     }
@@ -1204,19 +1340,19 @@ class Analyzer extends PlanABaseVisitor<Void> {
         if (condemd.to != null) {
             condemd.from = condemd.to;
         } else if (condemd.promotion != null) {
-            final Type promote = caster.getTypePromotion(ctx, expremd1.from, expremd2.from, condemd.promotion);
+            final Type promote = ((Promotion)condemd.promotion).promote(expremd1.from, expremd2.from);
 
             expremd1.to = promote;
-            caster.markCast(expremd1);
+            markCast(expremd1);
             expremd2.to = promote;
-            caster.markCast(expremd2);
+            markCast(expremd2);
 
             condemd.from = promote;
         } else {
             throw new IllegalStateException(error(ctx) + "No cast or promotion specified.");
         }
 
-        caster.markCast(condemd);
+        markCast(condemd);
 
         return null;
     }
@@ -1262,7 +1398,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         visit(extstartctx);
 
         assignemd.from = extstartemd.current;
-        caster.markCast(assignemd);
+        markCast(assignemd);
 
         return null;
     }
@@ -1374,7 +1510,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExpressionMetadata declemd = adapter.createExpressionMetadata(declctx);
         visit(declctx);
 
-        castenmd.castTo = caster.getLegalCast(ctx, parentemd.current, declemd.from, true);
+        castenmd.castTo = getLegalCast(ctx, parentemd.current, declemd.from, true);
         castenmd.type = declemd.from;
         parentemd.current = declemd.from;
         parentemd.statement = false;
@@ -1669,7 +1805,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             }
         }
 
-        caster.markCast(incremd);
+        markCast(incremd);
 
         return null;
     }
@@ -1685,20 +1821,21 @@ class Analyzer extends PlanABaseVisitor<Void> {
             final int token = parentemd.token;
 
             if (token == CAT) {
-                storeemd.promotion = caster.concat;
+                storeemd.promotion = new CatPromotion(source);
                 visit(store);
                 storeemd.to = storeemd.from;
-                caster.markCast(storeemd);
+                markCast(storeemd);
 
-                extenmd.castTo = caster.getLegalCast(source, standard.stringType, extenmd.type, false);
+                extenmd.castTo = getLegalCast(source, standard.stringType, extenmd.type, false);
             } else if (token > 0) {
-                final boolean compound = token == BWAND || token == BWXOR || token == BWOR;
+                final boolean binary = token == BWAND || token == BWXOR || token == BWOR;
                 final boolean decimal = token == MUL || token == DIV || token == REM || token == ADD || token == SUB;
-                Promotion promotion = compound ? caster.compound : decimal ? caster.decimal : caster.numeric;
-                extenmd.promote = caster.getTypePromotion(source, extenmd.type, null, promotion);
+                Promotion promotion = binary ? new BinaryPromotion(source) :
+                        decimal ? new DecimalPromotion(source) : new NumericPromotion(source);
+                extenmd.promote = promotion.promote(extenmd.type);
 
-                extenmd.castFrom = caster.getLegalCast(source, extenmd.type, extenmd.promote, false);
-                extenmd.castTo = caster.getLegalCast(source, extenmd.promote, extenmd.type, true);
+                extenmd.castFrom = getLegalCast(source, extenmd.type, extenmd.promote, false);
+                extenmd.castTo = getLegalCast(source, extenmd.promote, extenmd.type, true);
 
                 storeemd.to = extenmd.promote;
                 visit(store);
@@ -1711,5 +1848,307 @@ class Analyzer extends PlanABaseVisitor<Void> {
         } else {
             return extenmd.type;
         }
+    }
+
+    private void markCast(final ExpressionMetadata emd) {
+        if (emd.from == null) {
+            throw new IllegalStateException(error(emd.source) + "From cast type should never be null.");
+        }
+
+        if (emd.to != null) {
+            emd.cast = getLegalCast(emd.source, emd.from, emd.to, emd.explicit);
+
+            if (emd.preConst != null && emd.to.metadata.constant) {
+                emd.postConst = constCast(emd.source, emd.preConst, emd.cast);
+            }
+        } else if (emd.promotion == null) {
+            throw new IllegalStateException(error(emd.source) + "No cast or promotion specified.");
+        }
+    }
+
+    private Cast getLegalCast(final ParserRuleContext source, final Type from, final Type to, final boolean force) {
+        final Cast cast = new Cast(from, to);
+
+        if (from.equals(to)) {
+            return cast;
+        }
+
+        final Transform explicit = definition.explicits.get(cast);
+
+        if (force && explicit != null) {
+            return explicit;
+        }
+
+        final Transform implicit = definition.implicits.get(cast);
+
+        if (implicit != null) {
+            return implicit;
+        }
+
+        if (definition.upcasts.contains(cast)) {
+            return cast;
+        }
+
+        if (from.metadata.numeric && to.metadata.numeric && (force || definition.numerics.contains(cast))) {
+            return cast;
+        }
+
+        try {
+            from.clazz.asSubclass(to.clazz);
+
+            return cast;
+        } catch (ClassCastException cce0) {
+            try {
+                if (force) {
+                    to.clazz.asSubclass(from.clazz);
+
+                    return cast;
+                } else {
+                    throw new ClassCastException(
+                            error(source) + "Cannot cast from [" + from.name + "] to [" + to.name + "].");
+                }
+            } catch (ClassCastException cce1) {
+                throw new ClassCastException(
+                        error(source) + "Cannot cast from [" + from.name + "] to [" + to.name + "].");
+            }
+        }
+    }
+
+    private Object constCast(final ParserRuleContext source, final Object constant, final Cast cast) {
+        if (cast instanceof Transform) {
+            final Transform transform = (Transform)cast;
+            return invokeTransform(source, transform, constant);
+        } else {
+            final TypeMetadata fromTMD = cast.from.metadata;
+            final TypeMetadata toTMD = cast.to.metadata;
+
+            if (fromTMD == toTMD) {
+                return constant;
+            } else if (fromTMD.numeric && toTMD.numeric) {
+                Number number;
+
+                if (fromTMD == TypeMetadata.CHAR) {
+                    number = (int)(char)constant;
+                } else {
+                    number = (Number)constant;
+                }
+
+                switch (toTMD) {
+                    case BYTE:   return number.byteValue();
+                    case SHORT:  return number.shortValue();
+                    case CHAR:   return (char)number.intValue();
+                    case INT:    return number.intValue();
+                    case LONG:   return number.longValue();
+                    case FLOAT:  return number.floatValue();
+                    case DOUBLE: return number.doubleValue();
+                    default:
+                        throw new IllegalStateException(error(source) + "Expected numeric type for cast.");
+                }
+            } else {
+                throw new IllegalStateException(error(source) + "No valid constant cast from " +
+                        "[" + cast.from.clazz.getCanonicalName() + "] to " +
+                        "[" + cast.to.clazz.getCanonicalName() + "].");
+            }
+        }
+    }
+
+    private Object invokeTransform(final ParserRuleContext source, final Transform transform, final Object object) {
+        final Method method = transform.method;
+        final java.lang.reflect.Method jmethod = method.method;
+        final int modifiers = jmethod.getModifiers();
+
+        try {
+            if (java.lang.reflect.Modifier.isStatic(modifiers)) {
+                return jmethod.invoke(null, object);
+            } else {
+                return jmethod.invoke(object);
+            }
+        } catch (IllegalAccessException | IllegalArgumentException |
+                java.lang.reflect.InvocationTargetException | NullPointerException |
+                ExceptionInInitializerError exception) {
+            throw new IllegalStateException(error(source) + "Unable to invoke transform to cast constant from " +
+                    "[" + transform.from.name + "] to [" + transform.to.name + "].");
+        }
+    }
+
+    private Type promoteSameType(final Type from0, final Type from1) {
+        if (from1 != null && from0.equals(from1)) {
+            return from0;
+        }
+
+        return null;
+    }
+
+    private Type promoteAnyType(final ParserRuleContext source, final Type from0, final Type from1, final Type to) {
+        final boolean eq0 = from0.equals(to);
+        final boolean eq1 = from1 != null && from1.equals(to);
+
+        if (eq0 && (from1 == null || eq1)) {
+            return to;
+        }
+
+        if (eq0 || eq1) {
+            try {
+                getLegalCast(source, eq0 ? from1 : from0, to, false);
+
+                return to;
+            } catch (ClassCastException exception) {
+                // Do nothing.
+            }
+        }
+
+        return null;
+    }
+
+
+    private Type promoteToType(final ParserRuleContext source, final Type from0, final Type from1, final Type to) {
+        final boolean eq0 = from0.equals(to);
+        final boolean eq1 = from1 == null || from1.equals(to);
+
+        if (eq0 && eq1) {
+            return to;
+        }
+
+        boolean castable = true;
+
+        if (!eq0) {
+            try {
+                getLegalCast(source, from0, to, false);
+            } catch (ClassCastException exception) {
+                castable = false;
+            }
+        }
+
+        if (!eq1) {
+            try {
+                getLegalCast(source, from1, to, false);
+            } catch (ClassCastException exception) {
+                castable = false;
+            }
+        }
+
+        if (castable) {
+            return to;
+        }
+
+        return null;
+    }
+
+    private Type promoteAnyNumeric(final Type from0, final Type from1, final boolean decimal) {
+        if (from0.metadata.numeric || from1 != null && from1.metadata.numeric) {
+            try {
+                return promoteToNumeric(from0, from1, decimal);
+            } catch (ClassCastException exception) {
+                // Do nothing.
+            }
+        }
+
+        return null;
+    }
+
+    private Type promoteToNumeric(final Type from0, final Type from1, boolean decimal) {
+        final Deque<Type> upcast = new ArrayDeque<>();
+        final Deque<Type> downcast = new ArrayDeque<>();
+
+        if (decimal) {
+            upcast.push(standard.doubleType);
+            upcast.push(standard.floatType);
+        } else {
+            downcast.push(standard.doubleType);
+            downcast.push(standard.floatType);
+        }
+
+        upcast.push(standard.longType);
+        upcast.push(standard.intType);
+
+        while (!upcast.isEmpty()) {
+            final Type to = upcast.pop();
+            final Cast cast0 = new Cast(from0, to);
+
+            if (from0.metadata.numeric && from0.metadata != to.metadata &&
+                    !definition.numerics.contains(cast0))                            continue;
+            if (upcast.contains(from0))                                              continue;
+            if (downcast.contains(from0) && !definition.numerics.contains(cast0) &&
+                    !definition.implicits.containsKey(cast0))                        continue;
+            if (!from0.metadata.numeric && !definition.implicits.containsKey(cast0)) continue;
+
+            if (from1 != null) {
+                final Cast cast1 = new Cast(from1, to);
+
+                if (from1.metadata.numeric && from1.metadata != to.metadata &&
+                        !definition.numerics.contains(cast1))                            continue;
+                if (upcast.contains(from1))                                              continue;
+                if (downcast.contains(from1) && !definition.numerics.contains(cast1) &&
+                        !definition.implicits.containsKey(cast1))                        continue;
+                if (!from1.metadata.numeric && !definition.implicits.containsKey(cast1)) continue;
+            }
+
+            return to;
+        }
+
+        return null;
+    }
+
+    private Type promoteToImplicit(final Type from0, final Type from1) {
+        final Cast cast0 = new Cast(from0, from1);
+        final Cast cast1 = new Cast(from1, from0);
+        final Transform transform0 = definition.implicits.get(cast0);
+        final Transform transform1 = definition.implicits.get(cast1);
+
+        if (!from0.metadata.object && from1.metadata.object && transform0 != null) {
+            return from1;
+        }
+
+        if (from0.metadata.object && !from1.metadata.object && transform1 != null) {
+            return from0;
+        }
+
+        if (transform0 != null && transform1 == null) {
+            return from0;
+        }
+
+        if (transform1 != null && transform0 == null) {
+            return from1;
+        }
+
+        return null;
+    }
+
+    private Type promoteToSubclass(final Type from0, final Type from1) {
+        if (from0.equals(from1)) {
+            return from0;
+        }
+
+        if (from0.metadata.object && from1.metadata.object) {
+            if (from0.clazz.equals(from1.clazz)) {
+                if (from0.struct.generic && !from1.struct.generic) {
+                    return from1;
+                } else if (!from0.struct.generic && from1.struct.generic) {
+                    return from0;
+                }
+
+                return standard.objectType;
+            }
+
+            try {
+                from0.clazz.asSubclass(from1.clazz);
+
+                return from1;
+            } catch (ClassCastException cce0) {
+                // Do nothing.
+            }
+
+            try {
+                from1.clazz.asSubclass(from0.clazz);
+
+                return from0;
+            } catch (ClassCastException cce0) {
+                // Do nothing.
+            }
+
+            return standard.objectType;
+        }
+
+        return null;
     }
 }
