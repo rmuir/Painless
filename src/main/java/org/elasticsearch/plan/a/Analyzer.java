@@ -904,13 +904,13 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     }
                 } else if (ctx.SUB() != null) {
                     if (tmd == TypeMetadata.INT) {
-                        if (settings.getIntegerOverflow()) {
+                        if (settings.getNumericOverflow()) {
                             unaryemd.preConst = -(int)expremd.postConst;
                         } else {
                             unaryemd.preConst = Math.negateExact((int)expremd.postConst);
                         }
                     } else if (tmd == TypeMetadata.LONG) {
-                        if (settings.getIntegerOverflow()) {
+                        if (settings.getNumericOverflow()) {
                             unaryemd.preConst = -(long)expremd.postConst;
                         } else {
                             unaryemd.preConst = Math.negateExact((long)expremd.postConst);
@@ -1011,41 +1011,57 @@ class Analyzer extends PlanABaseVisitor<Void> {
             
             if (ctx.MUL() != null) {
                 if (tmd == TypeMetadata.INT) {
-                    if (settings.getIntegerOverflow()) {
+                    if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (int)expremd0.postConst * (int)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.multiplyExact((int)expremd0.postConst, (int)expremd1.postConst);
                     }
                 } else if (tmd == TypeMetadata.LONG) {
-                    if (settings.getIntegerOverflow()) {
+                    if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (long)expremd0.postConst * (long)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.multiplyExact((long)expremd0.postConst, (long)expremd1.postConst);
                     }
                 } else if (tmd == TypeMetadata.FLOAT) {
-                    binaryemd.preConst = (float)expremd0.postConst * (float)expremd1.postConst;
+                    if (settings.getNumericOverflow()) {
+                        binaryemd.preConst = (float)expremd0.postConst * (float)expremd1.postConst;
+                    } else {
+                        binaryemd.preConst = Utility.multiplyWithoutOverflow((float)expremd0.postConst, (float)expremd1.postConst);
+                    }
                 } else if (tmd == TypeMetadata.DOUBLE) {
-                    binaryemd.preConst = (double)expremd0.postConst * (double)expremd1.postConst;
+                    if (settings.getNumericOverflow()) {
+                        binaryemd.preConst = (double)expremd0.postConst * (double)expremd1.postConst;
+                    } else {
+                        binaryemd.preConst = Utility.multiplyWithoutOverflow((double)expremd0.postConst, (double)expremd1.postConst);
+                    }
                 } else {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                 }
             } else if (ctx.DIV() != null) {
                 if (tmd == TypeMetadata.INT) {
-                    if (settings.getIntegerOverflow()) {
+                    if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (int)expremd0.postConst / (int)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Utility.divideWithoutOverflow((int)expremd0.postConst, (int)expremd1.postConst);
                     }
                 } else if (tmd == TypeMetadata.LONG) {
-                    if (settings.getIntegerOverflow()) {
+                    if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (long)expremd0.postConst / (long)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Utility.divideWithoutOverflow((long)expremd0.postConst, (long)expremd1.postConst);
                     }
                 } else if (tmd == TypeMetadata.FLOAT) {
-                    binaryemd.preConst = (float)expremd0.postConst / (float)expremd1.postConst;
+                    if (settings.getNumericOverflow()) {
+                        binaryemd.preConst = (float)expremd0.postConst / (float)expremd1.postConst;
+                    } else {
+                        binaryemd.preConst = Utility.divideWithoutOverflow((float)expremd0.postConst, (float)expremd1.postConst);
+                    }
                 } else if (tmd == TypeMetadata.DOUBLE) {
-                    binaryemd.preConst = (double)expremd0.postConst / (double)expremd1.postConst;
+                    if (settings.getNumericOverflow()) {
+                        binaryemd.preConst = (double)expremd0.postConst / (double)expremd1.postConst;
+                    } else {
+                        binaryemd.preConst = Utility.divideWithoutOverflow((double)expremd0.postConst, (double)expremd1.postConst);
+                    }
                 } else {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                 }
@@ -1055,49 +1071,73 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 } else if (tmd == TypeMetadata.LONG) {
                     binaryemd.preConst = (long)expremd0.postConst % (long)expremd1.postConst;
                 } else if (tmd == TypeMetadata.FLOAT) {
-                    binaryemd.preConst = (float)expremd0.postConst % (float)expremd1.postConst;
+                    if (settings.getNumericOverflow()) {
+                        binaryemd.preConst = (float)expremd0.postConst % (float)expremd1.postConst;
+                    } else {
+                        binaryemd.preConst = Utility.remainderWithoutOverflow((float)expremd0.postConst, (float)expremd1.postConst);
+                    }
                 } else if (tmd == TypeMetadata.DOUBLE) {
-                    binaryemd.preConst = (double)expremd0.postConst % (double)expremd1.postConst;
+                    if (settings.getNumericOverflow()) {
+                        binaryemd.preConst = (double)expremd0.postConst % (double)expremd1.postConst;
+                    } else {
+                        binaryemd.preConst = Utility.remainderWithoutOverflow((double)expremd0.postConst, (double)expremd1.postConst);
+                    }
                 } else {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                 }
             } else if (ctx.ADD() != null) {
                 if (tmd == TypeMetadata.INT) {
-                    if (settings.getIntegerOverflow()) {
+                    if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (int)expremd0.postConst + (int)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.addExact((int)expremd0.postConst, (int)expremd1.postConst);
                     }
                 } else if (tmd == TypeMetadata.LONG) {
-                    if (settings.getIntegerOverflow()) {
+                    if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (long)expremd0.postConst + (long)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.addExact((long)expremd0.postConst, (long)expremd1.postConst);
                     }
                 } else if (tmd == TypeMetadata.FLOAT) {
-                    binaryemd.preConst = (float)expremd0.postConst + (float)expremd1.postConst;
+                    if (settings.getNumericOverflow()) {
+                        binaryemd.preConst = (float)expremd0.postConst + (float)expremd1.postConst;
+                    } else {
+                        binaryemd.preConst = Utility.addWithoutOverflow((float)expremd0.postConst, (float)expremd1.postConst);
+                    }
                 } else if (tmd == TypeMetadata.DOUBLE) {
-                    binaryemd.preConst = (double)expremd0.postConst + (double)expremd1.postConst;
+                    if (settings.getNumericOverflow()) {
+                        binaryemd.preConst = (double)expremd0.postConst + (double)expremd1.postConst;
+                    } else {
+                        binaryemd.preConst = Utility.addWithoutOverflow((double)expremd0.postConst, (double)expremd1.postConst);
+                    }
                 } else {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                 }
             } else if (ctx.SUB() != null) {
                 if (tmd == TypeMetadata.INT) {
-                    if (settings.getIntegerOverflow()) {
+                    if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (int)expremd0.postConst - (int)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.subtractExact((int)expremd0.postConst, (int)expremd1.postConst);
                     }
                 } else if (tmd == TypeMetadata.LONG) {
-                    if (settings.getIntegerOverflow()) {
+                    if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (long)expremd0.postConst - (long)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.subtractExact((long)expremd0.postConst, (long)expremd1.postConst);
                     }
                 } else if (tmd == TypeMetadata.FLOAT) {
-                    binaryemd.preConst = (float)expremd0.postConst - (float)expremd1.postConst;
+                    if (settings.getNumericOverflow()) {
+                        binaryemd.preConst = (float)expremd0.postConst - (float)expremd1.postConst;
+                    } else {
+                        binaryemd.preConst = Utility.subtractWithoutOverflow((float)expremd0.postConst, (float)expremd1.postConst);
+                    }
                 } else if (tmd == TypeMetadata.DOUBLE) {
-                    binaryemd.preConst = (double)expremd0.postConst - (double)expremd1.postConst;
+                    if (settings.getNumericOverflow()) {
+                        binaryemd.preConst = (double)expremd0.postConst - (double)expremd1.postConst;
+                    } else {
+                        binaryemd.preConst = Utility.subtractWithoutOverflow((double)expremd0.postConst, (double)expremd1.postConst);
+                    }
                 } else {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                 }

@@ -259,6 +259,140 @@ public class Utility {
         }
         return s;
     }
+    
+    /**
+     * Checks for overflow, result is infinite but operands are finite
+     * @throws ArithmeticException if overflow occurred
+     */
+    private static float checkInfFloat(float x, float y, float z) {
+        if (Float.isInfinite(z)) {
+            if (Float.isFinite(x) && Float.isFinite(y)) {
+                throw new ArithmeticException("float overflow");
+            }
+        }
+        return z;
+    }
+    
+    /**
+     * Checks for NaN, result is NaN but operands are finite
+     * @throws ArithmeticException if overflow occurred
+     */
+    private static float checkNaNFloat(float x, float y, float z) {
+        if (Float.isNaN(z)) {
+            if (Float.isFinite(x) && Float.isFinite(y)) {
+                throw new ArithmeticException("NaN");
+            }
+        }
+        return z;
+    }
+    
+    /**
+     * Checks for NaN, result is infinite but operands are finite
+     * @throws ArithmeticException if overflow occurred
+     */
+    private static double checkInfDouble(double x, double y, double z) {
+        if (Double.isInfinite(z)) {
+            if (Double.isFinite(x) && Double.isFinite(y)) {
+                throw new ArithmeticException("double overflow");
+            }
+        }
+        return z;
+    }
+    
+    /**
+     * Checks for NaN, result is NaN but operands are finite
+     * @throws ArithmeticException if overflow occurred
+     */
+    private static double checkNaNDouble(double x, double y, double z) {
+        if (Double.isNaN(z)) {
+            if (Double.isFinite(x) && Double.isFinite(y)) {
+                throw new ArithmeticException("NaN");
+            }
+        }
+        return z;
+    }
+    
+    /**
+     * Adds two floats but throws {@code ArithmeticException}
+     * if the result overflows.
+     */
+    public static float addWithoutOverflow(float x, float y) {
+        return checkInfFloat(x, y, x + y);
+    }
+    
+    /**
+     * Adds two doubles but throws {@code ArithmeticException}
+     * if the result overflows.
+     */
+    public static double addWithoutOverflow(double x, double y) {
+        return checkInfDouble(x, y, x + y);
+    }
+    
+    /**
+     * Subtracts two floats but throws {@code ArithmeticException}
+     * if the result overflows.
+     */
+    public static float subtractWithoutOverflow(float x, float y) {
+        return checkInfFloat(x, y, x - y);
+    }
+    
+    /**
+     * Subtracts two doubles but throws {@code ArithmeticException}
+     * if the result overflows.
+     */
+    public static double subtractWithoutOverflow(double x, double y) {
+        return checkInfDouble(x, y , x - y);
+    }
+    
+    /**
+     * Multiplies two floats but throws {@code ArithmeticException}
+     * if the result overflows.
+     */
+    public static float multiplyWithoutOverflow(float x, float y) {
+        return checkInfFloat(x, y, x * y);
+    }
+    
+    /**
+     * Multiplies two doubles but throws {@code ArithmeticException}
+     * if the result overflows.
+     */
+    public static double multiplyWithoutOverflow(double x, double y) {
+        return checkInfDouble(x, y, x * y);
+    }
+    
+    /**
+     * Divides two floats but throws {@code ArithmeticException}
+     * if the result overflows, or would create NaN from finite
+     * inputs ({@code x == 0, y == 0})
+     */
+    public static float divideWithoutOverflow(float x, float y) {
+        return checkNaNFloat(x, y, checkInfFloat(x, y, x / y));
+    }
+    
+    /**
+     * Divides two doubles but throws {@code ArithmeticException}
+     * if the result overflows, or would create NaN from finite
+     * inputs ({@code x == 0, y == 0})
+     */
+    public static double divideWithoutOverflow(double x, double y) {
+        return checkNaNDouble(x, y, checkInfDouble(x, y, x / y));
+    }
+    
+    /**
+     * Takes remainder two floats but throws {@code ArithmeticException}
+     * if the result would create NaN from finite inputs ({@code y == 0})
+     */
+    public static float remainderWithoutOverflow(float x, float y) {
+        return checkNaNFloat(x, y, x % y);
+    }
+    
+    /**
+     * Divides two doubles but throws {@code ArithmeticException}
+     * if the result would create NaN from finite inputs ({@code y == 0})
+     */
+    public static double remainderWithoutOverflow(double x, double y) {
+        return checkNaNDouble(x, y, x % y);
+    }
 
     private Utility() {}
 }

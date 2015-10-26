@@ -21,14 +21,14 @@ package org.elasticsearch.plan.a;
 
 import org.elasticsearch.common.settings.Settings;
 
-/** Tests overflow with integer overflow enabled */
+/** Tests integer overflow with numeric overflow enabled */
 public class IntegerOverflowEnabledTests extends ScriptTestCase {
     
     @Override
     protected Settings getSettings() {
         Settings.Builder builder = Settings.builder();
         builder.put(super.getSettings());
-        builder.put(PlanAScriptEngineService.INTEGER_OVERFLOW, true);
+        builder.put(PlanAScriptEngineService.NUMERIC_OVERFLOW, true);
         return builder.build();
     }
 
@@ -172,12 +172,12 @@ public class IntegerOverflowEnabledTests extends ScriptTestCase {
         assertEquals(9223372036854775807L * 9223372036854775807L, exec("return 9223372036854775807L * 9223372036854775807L;"));
     }
 
-    public void testOverflow() throws Exception {
+    public void testDivision() throws Exception {
         assertEquals((-2147483647 - 1) / -1, exec("int x = -2147483647 - 1; int y = -1; return x / y;"));        
         assertEquals((-9223372036854775807L - 1L) / -1L, exec("long x = -9223372036854775807L - 1L; long y = -1L; return x / y;"));
     }
     
-    public void testOverflowConst() throws Exception {
+    public void testDivisionConst() throws Exception {
         assertEquals((-2147483647 - 1) / -1, exec("return (-2147483647 - 1) / -1;"));
         assertEquals((-9223372036854775807L - 1L) / -1L, exec("return (-9223372036854775807L - 1L) / -1L;"));
     }
