@@ -24,22 +24,26 @@ package org.elasticsearch.plan.a;
  */
 final class CompilerSettings {
 
-    private boolean integerOverflow = true;
+    private boolean numericOverflow = true;
 
     /**
-     * Returns {@code true} if integer operations should overflow, false
-     * if they should signal an exception
-     * @see #setIntegerOverflow
+     * Returns {@code true} if numeric operations should overflow, {@code false}
+     * if they should signal an exception.
+     * <p>
+     * If this value is {@code true} (default), then things behave like java:
+     * overflow for integer types can result in unexpected values / unexpected 
+     * signs, and overflow for floating point types can result in infinite or
+     * {@code NaN} values.
      */
-    public boolean getIntegerOverflow() {
-        return integerOverflow;
+    public boolean getNumericOverflow() {
+        return numericOverflow;
     }
 
     /**
-     * Set {@code true} for integers to overflow, false to deliver exceptions.
-     * @see #getIntegerOverflow
+     * Set {@code true} for numerics to overflow, false to deliver exceptions.
+     * @see #getNumericOverflow
      */
-    public void setIntegerOverflow(boolean allow) {
-        this.integerOverflow = allow;
+    public void setNumericOverflow(boolean allow) {
+        this.numericOverflow = allow;
     }
 }

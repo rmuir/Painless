@@ -21,14 +21,14 @@ package org.elasticsearch.plan.a;
 
 import org.elasticsearch.common.settings.Settings;
 
-/** Tests overflow with integer overflow disabled */
+/** Tests integer overflow with numeric overflow disabled */
 public class IntegerOverflowDisabledTests extends ScriptTestCase {
     
     @Override
     protected Settings getSettings() {
         Settings.Builder builder = Settings.builder();
         builder.put(super.getSettings());
-        builder.put(PlanAScriptEngineService.INTEGER_OVERFLOW, false);
+        builder.put(PlanAScriptEngineService.NUMERIC_OVERFLOW, false);
         return builder.build();
     }
 
@@ -395,7 +395,7 @@ public class IntegerOverflowDisabledTests extends ScriptTestCase {
         } catch (ArithmeticException expected) {}
     }
 
-    public void testOverflow() throws Exception {
+    public void testDivision() throws Exception {
         try {
             exec("int x = -2147483647 - 1; int y = -1; return x / y;");
             fail("should have hit exception");
@@ -407,7 +407,7 @@ public class IntegerOverflowDisabledTests extends ScriptTestCase {
         } catch (ArithmeticException expected) {}
     }
     
-    public void testOverflowConst() throws Exception {
+    public void testDivisionConst() throws Exception {
         try {
             exec("return (-2147483647 - 1) / -1;");
             fail("should have hit exception");

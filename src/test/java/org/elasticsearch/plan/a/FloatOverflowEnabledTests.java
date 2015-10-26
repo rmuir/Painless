@@ -21,8 +21,8 @@ package org.elasticsearch.plan.a;
 
 import org.elasticsearch.common.settings.Settings;
 
-/** Tests integer overflow with numeric overflow enabled */
-public class IntegerOverflowEnabledTests extends ScriptTestCase {
+/** Tests floating point overflow with numeric overflow enabled */
+public class FloatOverflowEnabledTests extends ScriptTestCase {
     
     @Override
     protected Settings getSettings() {
@@ -32,19 +32,7 @@ public class IntegerOverflowEnabledTests extends ScriptTestCase {
         return builder.build();
     }
 
-    public void testAssignmentAdditionOverflow() {
-        // byte
-        assertEquals((byte)(0 + 128), exec("byte x = 0; x += 128; return x;"));
-        assertEquals((byte)(0 + -129), exec("byte x = 0; x += -129; return x;"));
-        
-        // short
-        assertEquals((short)(0 + 32768), exec("short x = 0; x += 32768; return x;"));
-        assertEquals((short)(0 + -32769), exec("short x = 0; x += -32769; return x;"));
-        
-        // char
-        assertEquals((char)(0 + 65536), exec("char x = 0; x += 65536; return x;"));
-        assertEquals((char)(0 + -65536), exec("char x = 0; x += -65536; return x;"));
-        
+    public void testAssignmentAdditionOverflow() {        
         // int
         assertEquals(1 + 2147483647, exec("int x = 1; x += 2147483647; return x;"));
         assertEquals(-2 + -2147483647, exec("int x = -2; x += -2147483647; return x;"));
@@ -54,19 +42,7 @@ public class IntegerOverflowEnabledTests extends ScriptTestCase {
         assertEquals(-2L + -9223372036854775807L, exec("long x = -2; x += -9223372036854775807L; return x;"));
     }
     
-    public void testAssignmentSubtractionOverflow() {
-        // byte
-        assertEquals((byte)(0 - -128), exec("byte x = 0; x -= -128; return x;"));
-        assertEquals((byte)(0 - 129), exec("byte x = 0; x -= 129; return x;"));
-        
-        // short
-        assertEquals((short)(0 - -32768), exec("short x = 0; x -= -32768; return x;"));
-        assertEquals((short)(0 - 32769), exec("short x = 0; x -= 32769; return x;"));
-        
-        // char
-        assertEquals((char)(0 - -65536), exec("char x = 0; x -= -65536; return x;"));
-        assertEquals((char)(0 - 65536), exec("char x = 0; x -= 65536; return x;"));
-        
+    public void testAssignmentSubtractionOverflow() {        
         // int
         assertEquals(1 - -2147483647, exec("int x = 1; x -= -2147483647; return x;"));
         assertEquals(-2 - 2147483647, exec("int x = -2; x -= 2147483647; return x;"));
@@ -77,14 +53,6 @@ public class IntegerOverflowEnabledTests extends ScriptTestCase {
     }
     
     public void testAssignmentMultiplicationOverflow() {
-        // byte
-        assertEquals((byte) (2 * 128), exec("byte x = 2; x *= 128; return x;"));
-        assertEquals((byte) (2 * -128), exec("byte x = 2; x *= -128; return x;"));
-        
-        // char
-        assertEquals((char) (2 * 65536), exec("char x = 2; x *= 65536; return x;"));
-        assertEquals((char) (2 * -65536), exec("char x = 2; x *= -65536; return x;"));
-        
         // int
         assertEquals(2 * 2147483647, exec("int x = 2; x *= 2147483647; return x;"));
         assertEquals(2 * -2147483647, exec("int x = 2; x *= -2147483647; return x;"));
@@ -95,14 +63,6 @@ public class IntegerOverflowEnabledTests extends ScriptTestCase {
     }
     
     public void testAssignmentDivisionOverflow() {
-        // byte
-        assertEquals((byte) (-128 / -1), exec("byte x = (byte) -128; x /= -1; return x;"));
-
-        // short
-        assertEquals((short) (-32768 / -1), exec("short x = (short) -32768; x /= -1; return x;"));
-        
-        // cannot happen for char: unsigned
-        
         // int
         assertEquals((-2147483647 - 1) / -1, exec("int x = -2147483647 - 1; x /= -1; return x;"));
         
@@ -111,24 +71,6 @@ public class IntegerOverflowEnabledTests extends ScriptTestCase {
     }
     
     public void testIncrementOverFlow() throws Exception {
-        // byte
-        assertEquals((byte) 128, exec("byte x = 127; ++x; return x;"));
-        assertEquals((byte) 128, exec("byte x = 127; x++; return x;"));
-        assertEquals((byte) -129, exec("byte x = (byte) -128; --x; return x;"));
-        assertEquals((byte) -129, exec("byte x = (byte) -128; x--; return x;"));
-        
-        // short
-        assertEquals((short) 32768, exec("short x = 32767; ++x; return x;"));
-        assertEquals((short) 32768, exec("short x = 32767; x++; return x;"));
-        assertEquals((short) -32769, exec("short x = (short) -32768; --x; return x;"));
-        assertEquals((short) -32769, exec("short x = (short) -32768; x--; return x;"));
-        
-        // char
-        assertEquals((char) 65536, exec("char x = 65535; ++x; return x;"));
-        assertEquals((char) 65536, exec("char x = 65535; x++; return x;"));
-        assertEquals((char) -1, exec("char x = (char) 0; --x; return x;"));
-        assertEquals((char) -1, exec("char x = (char) 0; x--; return x;"));
-        
         // int
         assertEquals(2147483647 + 1, exec("int x = 2147483647; ++x; return x;"));        
         assertEquals(2147483647 + 1, exec("int x = 2147483647; x++; return x;"));

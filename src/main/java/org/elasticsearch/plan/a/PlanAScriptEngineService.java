@@ -42,12 +42,12 @@ public class PlanAScriptEngineService extends AbstractComponent implements Scrip
     // TODO: this should really be per-script since scripts do so many different things?
     private static final CompilerSettings compilerSettings = new CompilerSettings();
     
-    public static final String INTEGER_OVERFLOW = "plan-a.integer_overflow";
+    public static final String NUMERIC_OVERFLOW = "plan-a.numeric_overflow";
 
     @Inject
     public PlanAScriptEngineService(Settings settings) {
         super(settings);
-        compilerSettings.setIntegerOverflow(settings.getAsBoolean(INTEGER_OVERFLOW, compilerSettings.getIntegerOverflow()));
+        compilerSettings.setNumericOverflow(settings.getAsBoolean(NUMERIC_OVERFLOW, compilerSettings.getNumericOverflow()));
     }
 
     @Override

@@ -734,13 +734,13 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     }
                 } else if (ctx.SUB() != null) {
                     if (tmd == TypeMetadata.INT) {
-                        if (settings.getIntegerOverflow()) {
+                        if (settings.getNumericOverflow()) {
                             unaryemd.preConst = -(int)expremd.postConst;
                         } else {
                             unaryemd.preConst = Math.negateExact((int)expremd.postConst);
                         }
                     } else if (tmd == TypeMetadata.LONG) {
-                        if (settings.getIntegerOverflow()) {
+                        if (settings.getNumericOverflow()) {
                             unaryemd.preConst = -(long)expremd.postConst;
                         } else {
                             unaryemd.preConst = Math.negateExact((long)expremd.postConst);
@@ -841,13 +841,13 @@ class Analyzer extends PlanABaseVisitor<Void> {
             
             if (ctx.MUL() != null) {
                 if (tmd == TypeMetadata.INT) {
-                    if (settings.getIntegerOverflow()) {
+                    if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (int)expremd0.postConst * (int)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.multiplyExact((int)expremd0.postConst, (int)expremd1.postConst);
                     }
                 } else if (tmd == TypeMetadata.LONG) {
-                    if (settings.getIntegerOverflow()) {
+                    if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (long)expremd0.postConst * (long)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.multiplyExact((long)expremd0.postConst, (long)expremd1.postConst);
@@ -861,13 +861,13 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 }
             } else if (ctx.DIV() != null) {
                 if (tmd == TypeMetadata.INT) {
-                    if (settings.getIntegerOverflow()) {
+                    if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (int)expremd0.postConst / (int)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Utility.divideWithoutOverflow((int)expremd0.postConst, (int)expremd1.postConst);
                     }
                 } else if (tmd == TypeMetadata.LONG) {
-                    if (settings.getIntegerOverflow()) {
+                    if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (long)expremd0.postConst / (long)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Utility.divideWithoutOverflow((long)expremd0.postConst, (long)expremd1.postConst);
@@ -893,13 +893,13 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 }
             } else if (ctx.ADD() != null) {
                 if (tmd == TypeMetadata.INT) {
-                    if (settings.getIntegerOverflow()) {
+                    if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (int)expremd0.postConst + (int)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.addExact((int)expremd0.postConst, (int)expremd1.postConst);
                     }
                 } else if (tmd == TypeMetadata.LONG) {
-                    if (settings.getIntegerOverflow()) {
+                    if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (long)expremd0.postConst + (long)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.addExact((long)expremd0.postConst, (long)expremd1.postConst);
@@ -913,13 +913,13 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 }
             } else if (ctx.SUB() != null) {
                 if (tmd == TypeMetadata.INT) {
-                    if (settings.getIntegerOverflow()) {
+                    if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (int)expremd0.postConst - (int)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.subtractExact((int)expremd0.postConst, (int)expremd1.postConst);
                     }
                 } else if (tmd == TypeMetadata.LONG) {
-                    if (settings.getIntegerOverflow()) {
+                    if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (long)expremd0.postConst - (long)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.subtractExact((long)expremd0.postConst, (long)expremd1.postConst);

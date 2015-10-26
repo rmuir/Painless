@@ -38,7 +38,7 @@ public abstract class ScriptTestCase extends ESTestCase {
     /** Override to provide different compiler settings */
     protected Settings getSettings() {
         Settings.Builder builder = Settings.builder();
-        builder.put(PlanAScriptEngineService.INTEGER_OVERFLOW, random().nextBoolean());
+        builder.put(PlanAScriptEngineService.NUMERIC_OVERFLOW, random().nextBoolean());
         return builder.build();
     }
 
