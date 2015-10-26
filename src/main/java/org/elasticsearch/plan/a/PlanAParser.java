@@ -868,17 +868,6 @@ class PlanAParser extends Parser {
       super.copyFrom(ctx);
     }
   }
-  public static class ExtContext extends ExpressionContext {
-    public ExtstartContext extstart() {
-      return getRuleContext(ExtstartContext.class,0);
-    }
-    public ExtContext(ExpressionContext ctx) { copyFrom(ctx); }
-    @Override
-    public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-      if ( visitor instanceof PlanAVisitor ) return ((PlanAVisitor<? extends T>)visitor).visitExt(this);
-      else return visitor.visitChildren(this);
-    }
-  }
   public static class CompContext extends ExpressionContext {
     public List<ExpressionContext> expression() {
       return getRuleContexts(ExpressionContext.class);
@@ -1059,6 +1048,17 @@ class PlanAParser extends Parser {
     @Override
     public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
       if ( visitor instanceof PlanAVisitor ) return ((PlanAVisitor<? extends T>)visitor).visitCast(this);
+      else return visitor.visitChildren(this);
+    }
+  }
+  public static class ExternalContext extends ExpressionContext {
+    public ExtstartContext extstart() {
+      return getRuleContext(ExtstartContext.class,0);
+    }
+    public ExternalContext(ExpressionContext ctx) { copyFrom(ctx); }
+    @Override
+    public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
+      if ( visitor instanceof PlanAVisitor ) return ((PlanAVisitor<? extends T>)visitor).visitExternal(this);
       else return visitor.visitChildren(this);
     }
   }
@@ -1272,7 +1272,7 @@ class PlanAParser extends Parser {
         break;
       case 11:
         {
-        _localctx = new ExtContext(_localctx);
+        _localctx = new ExternalContext(_localctx);
         _ctx = _localctx;
         _prevctx = _localctx;
         setState(161);

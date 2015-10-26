@@ -121,13 +121,6 @@ interface PlanAVisitor<T> extends ParseTreeVisitor<T> {
    */
   T visitDeclvar(PlanAParser.DeclvarContext ctx);
   /**
-   * Visit a parse tree produced by the {@code ext}
-   * labeled alternative in {@link PlanAParser#expression}.
-   * @param ctx the parse tree
-   * @return the visitor result
-   */
-  T visitExt(PlanAParser.ExtContext ctx);
-  /**
    * Visit a parse tree produced by the {@code comp}
    * labeled alternative in {@link PlanAParser#expression}.
    * @param ctx the parse tree
@@ -211,6 +204,13 @@ interface PlanAVisitor<T> extends ParseTreeVisitor<T> {
    * @return the visitor result
    */
   T visitCast(PlanAParser.CastContext ctx);
+  /**
+   * Visit a parse tree produced by the {@code external}
+   * labeled alternative in {@link PlanAParser#expression}.
+   * @param ctx the parse tree
+   * @return the visitor result
+   */
+  T visitExternal(PlanAParser.ExternalContext ctx);
   /**
    * Visit a parse tree produced by the {@code null}
    * labeled alternative in {@link PlanAParser#expression}.

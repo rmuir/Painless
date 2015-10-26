@@ -1,11 +1,3 @@
-package org.elasticsearch.plan.a;
-
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.security.CodeSource;
-import java.security.SecureClassLoader;
-import java.security.cert.Certificate;
-
 /*
  * Licensed to Elasticsearch under one or more contributor
  * license agreements. See the NOTICE file distributed with
@@ -25,6 +17,13 @@ import java.security.cert.Certificate;
  * under the License.
  */
 
+package org.elasticsearch.plan.a;
+
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.security.CodeSource;
+import java.security.SecureClassLoader;
+import java.security.cert.Certificate;
 import java.util.Properties;
 
 import org.antlr.v4.runtime.ANTLRInputStream;

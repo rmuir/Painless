@@ -19,9 +19,17 @@ package org.elasticsearch.plan.a;
  * under the License.
  */
 
+import com.sun.xml.internal.bind.v2.runtime.reflect.opt.Const;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
-import org.objectweb.asm.*;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+
+import java.lang.annotation.Target;
+import java.util.Arrays;
+import java.util.List;
 
 import static org.elasticsearch.plan.a.Adapter.*;
 import static org.elasticsearch.plan.a.Definition.*;
@@ -326,8 +334,9 @@ class Writer extends PlanABaseVisitor<Void> {
 
     @Override
     public Void visitDeclvar(final DeclvarContext ctx) {
-        final ExpressionMetadata declemd = adapter.getExpressionMetadata(ctx);
-        final Variable variable = (Variable)declemd.postConst;
+        final ExpressionMetadata declvaremd = adapter.getExpressionMetadata(ctx);
+        final TypeMetadata metadata = declvaremd.to.metadata;
+        final int slot = (int)declvaremd.postConst;
 
         final ExpressionContext exprctx = ctx.expression();
         final boolean initialize = exprctx == null;
@@ -336,22 +345,22 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(exprctx);
         }
 
-        switch (variable.type.metadata) {
+        switch (metadata) {
             case VOID:   throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
             case BOOL:
             case BYTE:
             case SHORT:
             case CHAR:
-            case INT:    if (initialize) writeNumeric(ctx, 0);    execute.visitVarInsn(Opcodes.ISTORE, variable.slot); break;
-            case LONG:   if (initialize) writeNumeric(ctx, 0L);   execute.visitVarInsn(Opcodes.LSTORE, variable.slot); break;
-            case FLOAT:  if (initialize) writeNumeric(ctx, 0.0F); execute.visitVarInsn(Opcodes.FSTORE, variable.slot); break;
-            case DOUBLE: if (initialize) writeNumeric(ctx, 0.0);  execute.visitVarInsn(Opcodes.DSTORE, variable.slot); break;
+            case INT:    if (initialize) writeNumeric(ctx, 0);    execute.visitVarInsn(Opcodes.ISTORE, slot); break;
+            case LONG:   if (initialize) writeNumeric(ctx, 0L);   execute.visitVarInsn(Opcodes.LSTORE, slot); break;
+            case FLOAT:  if (initialize) writeNumeric(ctx, 0.0F); execute.visitVarInsn(Opcodes.FSTORE, slot); break;
+            case DOUBLE: if (initialize) writeNumeric(ctx, 0.0);  execute.visitVarInsn(Opcodes.DSTORE, slot); break;
             default:
                 if (initialize) {
                     execute.visitInsn(Opcodes.ACONST_NULL);
                 }
 
-                execute.visitVarInsn(Opcodes.ASTORE, variable.slot);
+                execute.visitVarInsn(Opcodes.ASTORE, slot);
         }
 
         return null;
@@ -511,10 +520,11 @@ class Writer extends PlanABaseVisitor<Void> {
     }
 
     @Override
-    public Void visitExt(final ExtContext ctx) {
-        final External external = adapter.getExternal(ctx);
-        external.setWriter(this, execute);
-        external.write(ctx);
+    public Void visitExternal(final ExternalContext ctx) {
+        final ExpressionMetadata expremd = adapter.getExpressionMetadata(ctx);
+        visit(ctx.extstart());
+        caster.checkWriteCast(execute, expremd);
+        adapter.checkWriteBranch(execute, ctx);
 
         return null;
     }
@@ -522,18 +532,20 @@ class Writer extends PlanABaseVisitor<Void> {
 
     @Override
     public Void visitPostinc(final PostincContext ctx) {
-        final External external = adapter.getExternal(ctx);
-        external.setWriter(this, execute);
-        external.write(ctx);
+        final ExpressionMetadata expremd = adapter.getExpressionMetadata(ctx);
+        visit(ctx.extstart());
+        caster.checkWriteCast(execute, expremd);
+        adapter.checkWriteBranch(execute, ctx);
 
         return null;
     }
 
     @Override
     public Void visitPreinc(final PreincContext ctx) {
-        final External external = adapter.getExternal(ctx);
-        external.setWriter(this, execute);
-        external.write(ctx);
+        final ExpressionMetadata expremd = adapter.getExpressionMetadata(ctx);
+        visit(ctx.extstart());
+        caster.checkWriteCast(execute, expremd);
+        adapter.checkWriteBranch(execute, ctx);
 
         return null;
     }
@@ -678,11 +690,7 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(expr0);
             visit(expr1);
 
-            // Promote any boolean metadata to int metadata for the
-            // purpose of writing binary instructions.
-
-            final TypeMetadata metadata = binaryemd.from.metadata == TypeMetadata.BOOL ?
-                    TypeMetadata.INT : binaryemd.from.metadata;
+            final TypeMetadata metadata = binaryemd.from.metadata;
 
             if      (ctx.MUL()   != null) writeBinaryInstruction(ctx, metadata, MUL);
             else if (ctx.DIV()   != null) writeBinaryInstruction(ctx, metadata, DIV);
@@ -1005,51 +1013,168 @@ class Writer extends PlanABaseVisitor<Void> {
 
     @Override
     public Void visitAssignment(final AssignmentContext ctx) {
-        final External external = adapter.getExternal(ctx);
-        external.setWriter(this, execute);
-        external.write(ctx);
+        final ExpressionMetadata expremd = adapter.getExpressionMetadata(ctx);
+        visit(ctx.extstart());
+        caster.checkWriteCast(execute, expremd);
+        adapter.checkWriteBranch(execute, ctx);
 
         return null;
     }
 
     @Override
     public Void visitExtstart(ExtstartContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
+        final ExternalMetadata startenmd = adapter.getExternalMetadata(ctx);
+
+        if (startenmd.token == CAT) {
+            writeNewStrings();
+            adapter.markStrings(startenmd.storeExpr);
+        }
+
+        final ExtprecContext precctx = ctx.extprec();
+        final ExtcastContext castctx = ctx.extcast();
+        final ExttypeContext typectx = ctx.exttype();
+        final ExtmemberContext memberctx = ctx.extmember();
+
+        if (precctx != null) {
+            visit(precctx);
+        } else if (castctx != null) {
+            visit(castctx);
+        } else if (typectx != null) {
+            visit(typectx);
+        } else if (memberctx != null) {
+            visit(memberctx);
+        } else {
+            throw new IllegalStateException();
+        }
+
+        return null;
     }
 
     @Override
     public Void visitExtprec(final ExtprecContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
+        final ExtprecContext precctx = ctx.extprec();
+        final ExtcastContext castctx = ctx.extcast();
+        final ExttypeContext typectx = ctx.exttype();
+        final ExtmemberContext memberctx = ctx.extmember();
+
+        if (precctx != null) {
+            visit(precctx);
+        } else if (castctx != null) {
+            visit(castctx);
+        } else if (typectx != null) {
+            visit(typectx);
+        } else if (memberctx != null) {
+            visit(memberctx);
+        } else {
+            throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+        }
+
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        if (dotctx != null) {
+            visit(dotctx);
+        } else if (bracectx != null) {
+            visit(bracectx);
+        }
+
+        return null;
     }
 
     @Override
     public Void visitExtcast(final ExtcastContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
+        ExtNodeMetadata castenmd = adapter.getExtNodeMetadata(ctx);
+
+        final ExtprecContext precctx = ctx.extprec();
+        final ExtcastContext castctx = ctx.extcast();
+        final ExttypeContext typectx = ctx.exttype();
+        final ExtmemberContext memberctx = ctx.extmember();
+
+        if (precctx != null) {
+            visit(precctx);
+        } else if (castctx != null) {
+            visit(castctx);
+        } else if (typectx != null) {
+            visit(typectx);
+        } else if (memberctx != null) {
+            visit(memberctx);
+        }
+
+        caster.checkWriteCast(execute, ctx, castenmd.castTo);
+
+        return null;
     }
 
     @Override
     public Void visitExtbrace(final ExtbraceContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
+        final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
+
+        visit(exprctx);
+        writeLoadStoreExternal(ctx);
+
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        if (dotctx != null) {
+            visit(dotctx);
+        } else if (bracectx != null) {
+            visit(bracectx);
+        }
+
+        return null;
     }
 
     @Override
     public Void visitExtdot(final ExtdotContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
+        final ExtcallContext callctx = ctx.extcall();
+        final ExtmemberContext memberctx = ctx.extmember();
+
+        if (callctx != null) {
+            visit(callctx);
+        } else if (memberctx != null) {
+            visit(memberctx);
+        }
+
+        return null;
     }
 
     @Override
     public Void visitExttype(final ExttypeContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
+        visit(ctx.extdot());
+
+        return null;
     }
 
     @Override
     public Void visitExtcall(final ExtcallContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
+        writeCallExternal(ctx);
+
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        if (dotctx != null) {
+            visit(dotctx);
+        } else if (bracectx != null) {
+            visit(bracectx);
+        }
+
+        return null;
     }
 
     @Override
     public Void visitExtmember(final ExtmemberContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
+        writeLoadStoreExternal(ctx);
+
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        if (dotctx != null) {
+            visit(dotctx);
+        } else if (bracectx != null) {
+            visit(bracectx);
+        }
+
+        return null;
     }
 
     @Override
@@ -1242,6 +1367,22 @@ class Writer extends PlanABaseVisitor<Void> {
         }
 
         switch (metadata) {
+
+            // Testing against boolean is necessary for
+            // compound assignments involving boolean values.
+            // Integer instructions are used as booleans are not
+            // native to the JVM.
+
+            case BOOL:
+                switch (token) {
+                    case BWAND: execute.visitInsn(Opcodes.IAND);  break;
+                    case BWXOR: execute.visitInsn(Opcodes.IXOR);  break;
+                    case BWOR:  execute.visitInsn(Opcodes.IOR);   break;
+                    default:
+                        throw new IllegalStateException(error(source) + "Unexpected writer state.");
+                }
+
+                break;
             case INT:
                 switch (token) {
                     case MUL:   
@@ -1352,6 +1493,248 @@ class Writer extends PlanABaseVisitor<Void> {
                 break;
             default:
                 throw new IllegalStateException(error(source) + "Unexpected writer state.");
+        }
+    }
+
+    private void writeLoadStoreExternal(final ParserRuleContext source) {
+        final ExtNodeMetadata sourceemd = adapter.getExtNodeMetadata(source);
+        final ExternalMetadata parentemd = adapter.getExternalMetadata(sourceemd.parent);
+
+        final boolean length = "#length".equals(sourceemd.target);
+        final boolean variable = sourceemd.target instanceof Integer;
+        final boolean field = sourceemd.target instanceof Field;
+        final boolean array = "#brace".equals(sourceemd.target);
+
+        if (!length && !variable && !field && !array) {
+            throw new IllegalStateException(error(source) + "Target not found for load/store.");
+        }
+
+        if (length) {
+            execute.visitInsn(Opcodes.ARRAYLENGTH);
+        } else if (sourceemd.last && parentemd.storeExpr != null) {
+            final ExpressionMetadata expremd = adapter.getExpressionMetadata(parentemd.storeExpr);
+
+            if (parentemd.token == CAT) {
+                if (field) {
+                    execute.visitInsn(Opcodes.DUP_X1);
+                } else if (array) {
+                    execute.visitInsn(Opcodes.DUP2_X1);
+                }
+
+                writeLoadStoreInstruction(source, false, variable, field, array);
+                writeAppendStrings(source, sourceemd.type.metadata);
+                visit(parentemd.storeExpr);
+
+                if (adapter.getStrings(parentemd.storeExpr)) {
+                    writeAppendStrings(parentemd.storeExpr, expremd.to.metadata);
+                    adapter.unmarkStrings(parentemd.storeExpr);
+                }
+
+                writeToStrings();
+                caster.checkWriteCast(execute, source, sourceemd.castTo);
+
+                if (parentemd.read) {
+                    writeDup(sourceemd.type.metadata.size, field, array);
+                }
+
+                writeLoadStoreInstruction(source, true, variable, field, array);
+            } else if (parentemd.token > 0) {
+                if (field) {
+                    execute.visitInsn(Opcodes.DUP);
+                } else if (array) {
+                    execute.visitInsn(Opcodes.DUP2);
+                }
+
+                writeLoadStoreInstruction(source, false, variable, field, array);
+
+                if (parentemd.read && parentemd.post) {
+                    writeDup(sourceemd.type.metadata.size, field, array);
+                }
+
+                caster.checkWriteCast(execute, source, sourceemd.castFrom);
+                visit(parentemd.storeExpr);
+                writeCompoundAssignmentInstruction(
+                        source, sourceemd.type.metadata, sourceemd.promote.metadata, parentemd.token);
+                caster.checkWriteCast(execute, source, sourceemd.castTo);
+
+                if (parentemd.read && !parentemd.post) {
+                    writeDup(sourceemd.type.metadata.size, field, array);
+                }
+
+                writeLoadStoreInstruction(source, true, variable, field, array);
+            } else {
+                visit(parentemd.storeExpr);
+
+                if (parentemd.read) {
+                    writeDup(sourceemd.type.metadata.size, field, array);
+                }
+
+                writeLoadStoreInstruction(source, true, variable, field, array);
+            }
+        } else {
+            writeLoadStoreInstruction(source, false, variable, field, array);
+        }
+    }
+
+    private void writeLoadStoreInstruction(final ParserRuleContext source, final boolean store,
+                                           final boolean variable, final boolean field, final boolean array) {
+        final ExtNodeMetadata sourceemd = adapter.getExtNodeMetadata(source);
+
+        if (variable) {
+            writeLoadStoreVariable(source, store, sourceemd.type, (int)sourceemd.target);
+        } else if (field) {
+            writeLoadStoreField(store, (Field)sourceemd.target);
+        } else if (array) {
+            writeLoadStoreArray(source, store, sourceemd.type);
+        } else {
+            throw new IllegalStateException(error(source) + "Load/Store requires a variable, field, or array.");
+        }
+    }
+
+    private void writeLoadStoreVariable(final ParserRuleContext source, final boolean store,
+                                        final Type type, final int slot) {
+        final TypeMetadata metadata = type.metadata;
+
+        switch (metadata) {
+            case VOID:   throw new IllegalStateException(error(source) + "Cannot load/store void type.");
+            case BOOL:
+            case BYTE:
+            case SHORT:
+            case CHAR:
+            case INT:    execute.visitVarInsn(store ? Opcodes.ISTORE : Opcodes.ILOAD, slot); break;
+            case LONG:   execute.visitVarInsn(store ? Opcodes.LSTORE : Opcodes.LLOAD, slot); break;
+            case FLOAT:  execute.visitVarInsn(store ? Opcodes.FSTORE : Opcodes.FLOAD, slot); break;
+            case DOUBLE: execute.visitVarInsn(store ? Opcodes.DSTORE : Opcodes.DLOAD, slot); break;
+            default:     execute.visitVarInsn(store ? Opcodes.ASTORE : Opcodes.ALOAD, slot);
+        }
+    }
+
+    private void writeLoadStoreField(final boolean store, final Field field) {
+        final String internal = field.owner.internal;
+        final String name = field.field.getName();
+        final String descriptor = field.type.descriptor;
+
+        int opcode;
+
+        if (java.lang.reflect.Modifier.isStatic(field.field.getModifiers())) {
+            opcode = store ? Opcodes.PUTSTATIC : Opcodes.GETSTATIC;
+        } else {
+            opcode = store ? Opcodes.PUTFIELD : Opcodes.GETFIELD;
+        }
+
+        execute.visitFieldInsn(opcode, internal, name, descriptor);
+    }
+
+    private void writeLoadStoreArray(final ParserRuleContext source, final boolean store, final Type type) {
+        switch (type.metadata) {
+            case VOID:   throw new IllegalStateException(error(source) + "Cannot load/store void type.");
+            case BOOL:
+            case BYTE:   execute.visitInsn(store ? Opcodes.BASTORE : Opcodes.BALOAD); break;
+            case SHORT:  execute.visitInsn(store ? Opcodes.SASTORE : Opcodes.SALOAD); break;
+            case CHAR:   execute.visitInsn(store ? Opcodes.CASTORE : Opcodes.CALOAD); break;
+            case INT:    execute.visitInsn(store ? Opcodes.IASTORE : Opcodes.IALOAD); break;
+            case LONG:   execute.visitInsn(store ? Opcodes.LASTORE : Opcodes.LALOAD); break;
+            case FLOAT:  execute.visitInsn(store ? Opcodes.FASTORE : Opcodes.FALOAD); break;
+            case DOUBLE: execute.visitInsn(store ? Opcodes.DASTORE : Opcodes.DALOAD); break;
+            default:     execute.visitInsn(store ? Opcodes.AASTORE : Opcodes.AALOAD); break;
+        }
+    }
+
+    private void writeDup(final int size, final boolean x1, final boolean x2) {
+        int dup = x1 ? Opcodes.DUP_X1 : x2 ? Opcodes.DUP_X2 : Opcodes.DUP;
+        int dup2 = x1 ? Opcodes.DUP2_X1 : x2 ? Opcodes.DUP2_X2 : Opcodes.DUP2;
+
+        if (size == 1) {
+            execute.visitInsn(dup);
+        } else if (size == 2) {
+            execute.visitInsn(dup2);
+        }
+    }
+
+    private void writeCallExternal(final ExtcallContext source) {
+        final ExtNodeMetadata sourceemd = adapter.getExtNodeMetadata(source);
+        final ExternalMetadata parentemd = adapter.getExternalMetadata(sourceemd.parent);
+
+        final boolean makearray = "#makearray".equals(sourceemd.target);
+        final boolean constructor = sourceemd.target instanceof Constructor;
+        final boolean method = sourceemd.target instanceof Method;
+
+        if (!makearray && !constructor && !method) {
+            throw new IllegalStateException(error(source) + "Target not found for call.");
+        }
+
+        if (makearray) {
+            for (final ExpressionContext exprctx : source.arguments().expression()) {
+                visit(exprctx);
+            }
+
+            writeNewArray(source, sourceemd.type);
+        } else if (constructor) {
+            execute.visitTypeInsn(Opcodes.NEW, sourceemd.type.internal);
+
+            if (parentemd.read) {
+                execute.visitInsn(Opcodes.DUP);
+            }
+
+            for (final ExpressionContext exprctx : source.arguments().expression()) {
+                visit(exprctx);
+            }
+
+            final Constructor target = (Constructor)sourceemd.target;
+            final String internal = target.owner.internal;
+            final String descriptor = target.descriptor;
+
+            execute.visitMethodInsn(Opcodes.INVOKESPECIAL, internal, "<init>", descriptor, false);
+        } else if (method) {
+            for (final ExpressionContext exprctx : source.arguments().expression()) {
+                visit(exprctx);
+            }
+
+            final Method target = (Method)sourceemd.target;
+            final String internal = target.owner.internal;
+            final String name = target.method.getName();
+            final String descriptor = target.descriptor;
+            final boolean statik = java.lang.reflect.Modifier.isStatic(target.method.getModifiers());
+            final boolean iface = java.lang.reflect.Modifier.isInterface(target.owner.clazz.getModifiers());
+
+            if (statik) {
+                execute.visitMethodInsn(Opcodes.INVOKESTATIC, internal, name, descriptor, false);
+            } else if (iface) {
+                execute.visitMethodInsn(Opcodes.INVOKEINTERFACE, internal, name, descriptor, true);
+            } else {
+                execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, name, descriptor, false);
+            }
+
+            if (!parentemd.read) {
+                writePop(sourceemd.type.metadata.size);
+            }
+        }
+    }
+
+    void writeNewArray(ParserRuleContext source, final Type type) {
+        if (type.dimensions > 1) {
+            execute.visitMultiANewArrayInsn(type.descriptor, type.dimensions);
+        } else {
+            switch (type.metadata) {
+                case VOID:   throw new IllegalStateException(error(source) + "Cannot create a new array of type void.");
+                case BOOL:   execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_BOOLEAN); break;
+                case BYTE:   execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_BYTE);    break;
+                case SHORT:  execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_SHORT);   break;
+                case CHAR:   execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_CHAR);    break;
+                case INT:    execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_INT);     break;
+                case LONG:   execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_LONG);    break;
+                case FLOAT:  execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_FLOAT);   break;
+                case DOUBLE: execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_DOUBLE);  break;
+                default:     execute.visitTypeInsn(Opcodes.ANEWARRAY, type.internal);
+            }
+        }
+    }
+
+    private void writePop(final int size) {
+        if (size == 1) {
+            execute.visitInsn(Opcodes.POP);
+        } else if (size == 2) {
+            execute.visitInsn(Opcodes.POP2);
         }
     }
 
