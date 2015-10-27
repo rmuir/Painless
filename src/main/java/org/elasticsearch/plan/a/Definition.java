@@ -516,7 +516,7 @@ class Definition {
 
     private static void loadStruct(final Definition definition, final String namestr,
                                    final String clazzstr, final boolean generic, final boolean runtime) {
-        if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
+        if (!namestr.matches("^[_a-zA-Z][<>,_a-zA-Z0-9]*$")) {
             throw new IllegalArgumentException("Invalid struct name [" + namestr + "].");
         }
 

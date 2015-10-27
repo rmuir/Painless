@@ -94,45 +94,45 @@ public class EqualsTests extends ScriptTestCase {
     }
 
     public void testEquals() {
-        assertEquals(true, exec("return Long.new(3) == Long.new(3);"));
-        assertEquals(false, exec("return Long.new(3) === Long.new(3);"));
-        assertEquals(true, exec("Integer x = Integer.new(3); Object y = x; return x == y;"));
-        assertEquals(true, exec("Integer x = Integer.new(3); Object y = x; return x === y;"));
-        assertEquals(true, exec("Integer x = Integer.new(3); Object y = Integer.new(3); return x == y;"));
-        assertEquals(false, exec("Integer x = Integer.new(3); Object y = Integer.new(3); return x === y;"));
-        assertEquals(true, exec("Integer x = Integer.new(3); int y = 3; return x == y;"));
-        assertEquals(true, exec("Integer x = Integer.new(3); int y = 3; return x === y;"));
-        assertEquals(true, exec("Integer x = Integer.new(3); double y = 3; return x === y;"));
-        assertEquals(true, exec("int[] x = int.makearray(1); Object y = x; return x == y;"));
-        assertEquals(true, exec("int[] x = int.makearray(1); Object y = x; return x === y;"));
-        assertEquals(false, exec("int[] x = int.makearray(1); Object y = int.makearray(1); return x == y;"));
-        assertEquals(false, exec("int[] x = int.makearray(1); Object y = int.makearray(1); return x === y;"));
-        assertEquals(false, exec("Map x = HashMap.new(); List y = ArrayList.new(); return x == y;"));
-        assertEquals(false, exec("Map x = HashMap.new(); List y = ArrayList.new(); return x === y;"));
+        assertEquals(true, exec("return new Long(3) == new Long(3);"));
+        assertEquals(false, exec("return new Long(3) === new Long(3);"));
+        assertEquals(true, exec("Integer x = new Integer(3); Object y = x; return x == y;"));
+        assertEquals(true, exec("Integer x = new Integer(3); Object y = x; return x === y;"));
+        assertEquals(true, exec("Integer x = new Integer(3); Object y = new Integer(3); return x == y;"));
+        assertEquals(false, exec("Integer x = new Integer(3); Object y = new Integer(3); return x === y;"));
+        assertEquals(true, exec("Integer x = new Integer(3); int y = 3; return x == y;"));
+        assertEquals(true, exec("Integer x = new Integer(3); int y = 3; return x === y;"));
+        assertEquals(true, exec("Integer x = new Integer(3); double y = 3; return x === y;"));
+        assertEquals(true, exec("int[] x = new int[1]; Object y = x; return x == y;"));
+        assertEquals(true, exec("int[] x = new int[1]; Object y = x; return x === y;"));
+        assertEquals(false, exec("int[] x = new int[1]; Object y = new int[1]; return x == y;"));
+        assertEquals(false, exec("int[] x = new int[1]; Object y = new int[1]; return x === y;"));
+        assertEquals(false, exec("Map x = new HashMap(); List y = new ArrayList(); return x == y;"));
+        assertEquals(false, exec("Map x = new HashMap(); List y = new ArrayList(); return x === y;"));
     }
 
     public void testNotEquals() {
-        assertEquals(false, exec("return Long.new(3) != Long.new(3);"));
-        assertEquals(true, exec("return Long.new(3) !== Long.new(3);"));
-        assertEquals(false, exec("Integer x = Integer.new(3); Object y = x; return x != y;"));
-        assertEquals(false, exec("Integer x = Integer.new(3); Object y = x; return x !== y;"));
-        assertEquals(false, exec("Integer x = Integer.new(3); Object y = Integer.new(3); return x != y;"));
-        assertEquals(true, exec("Integer x = Integer.new(3); Object y = Integer.new(3); return x !== y;"));
-        assertEquals(false, exec("Integer x = Integer.new(3); int y = 3; return x !== y;"));
-        assertEquals(false, exec("Integer x = Integer.new(3); double y = 3; return x !== y;"));
-        assertEquals(false, exec("int[] x = int.makearray(1); Object y = x; return x != y;"));
-        assertEquals(false, exec("int[] x = int.makearray(1); Object y = x; return x !== y;"));
-        assertEquals(true, exec("int[] x = int.makearray(1); Object y = int.makearray(1); return x != y;"));
-        assertEquals(true, exec("int[] x = int.makearray(1); Object y = int.makearray(1); return x !== y;"));
-        assertEquals(true, exec("Map x = HashMap.new(); List y = ArrayList.new(); return x != y;"));
-        assertEquals(true, exec("Map x = HashMap.new(); List y = ArrayList.new(); return x !== y;"));
+        assertEquals(false, exec("return new Long(3) != new Long(3);"));
+        assertEquals(true, exec("return new Long(3) !== new Long(3);"));
+        assertEquals(false, exec("Integer x = new Integer(3); Object y = x; return x != y;"));
+        assertEquals(false, exec("Integer x = new Integer(3); Object y = x; return x !== y;"));
+        assertEquals(false, exec("Integer x = new Integer(3); Object y = new Integer(3); return x != y;"));
+        assertEquals(true, exec("Integer x = new Integer(3); Object y = new Integer(3); return x !== y;"));
+        assertEquals(false, exec("Integer x = new Integer(3); int y = 3; return x !== y;"));
+        assertEquals(false, exec("Integer x = new Integer(3); double y = 3; return x !== y;"));
+        assertEquals(false, exec("int[] x = new int[1]; Object y = x; return x != y;"));
+        assertEquals(false, exec("int[] x = new int[1]; Object y = x; return x !== y;"));
+        assertEquals(true, exec("int[] x = new int[1]; Object y = new int[1]; return x != y;"));
+        assertEquals(true, exec("int[] x = new int[1]; Object y = new int[1]; return x !== y;"));
+        assertEquals(true, exec("Map x = new HashMap(); List y = new ArrayList(); return x != y;"));
+        assertEquals(true, exec("Map x = new HashMap(); List y = new ArrayList(); return x !== y;"));
     }
 
     public void testBranchEquals() {
         assertEquals(0, exec("Character a = 'a'; Character b = 'b'; if (a == b) return 1; else return 0;"));
         assertEquals(1, exec("Character a = 'a'; Character b = 'a'; if (a == b) return 1; else return 0;"));
-        assertEquals(0, exec("Integer a = Integer.new(1); Integer b = 1; if (a === b) return 1; else return 0;"));
-        assertEquals(0, exec("Character a = 'a'; Character b = Character.new('a'); if (a === b) return 1; else return 0;"));
+        assertEquals(0, exec("Integer a = new Integer(1); Integer b = 1; if (a === b) return 1; else return 0;"));
+        assertEquals(0, exec("Character a = 'a'; Character b = new Character('a'); if (a === b) return 1; else return 0;"));
         assertEquals(1, exec("Character a = 'a'; Object b = a; if (a === b) return 1; else return 0;"));
         assertEquals(1, exec("Integer a = 1; Number b = a; Number c = a; if (c === b) return 1; else return 0;"));
         assertEquals(0, exec("Integer a = 1; Character b = 'a'; if (a === (Object)b) return 1; else return 0;"));
@@ -141,8 +141,8 @@ public class EqualsTests extends ScriptTestCase {
     public void testBranchNotEquals() {
         assertEquals(1, exec("Character a = 'a'; Character b = 'b'; if (a != b) return 1; else return 0;"));
         assertEquals(0, exec("Character a = 'a'; Character b = 'a'; if (a != b) return 1; else return 0;"));
-        assertEquals(1, exec("Integer a = Integer.new(1); Integer b = 1; if (a !== b) return 1; else return 0;"));
-        assertEquals(1, exec("Character a = 'a'; Character b = Character.new('a'); if (a !== b) return 1; else return 0;"));
+        assertEquals(1, exec("Integer a = new Integer(1); Integer b = 1; if (a !== b) return 1; else return 0;"));
+        assertEquals(1, exec("Character a = 'a'; Character b = new Character('a'); if (a !== b) return 1; else return 0;"));
         assertEquals(0, exec("Character a = 'a'; Object b = a; if (a !== b) return 1; else return 0;"));
         assertEquals(0, exec("Integer a = 1; Number b = a; Number c = a; if (c !== b) return 1; else return 0;"));
         assertEquals(1, exec("Integer a = 1; Character b = 'a'; if (a !== (Object)b) return 1; else return 0;"));

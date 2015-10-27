@@ -34,7 +34,7 @@
                 script_fields:
                     sNum1:
                         script: 
-                            inline: "return ((List)((Map)input.get(\"doc\")).get(\"num1\")).get(0);"
+                            inline: "return ((List)((Map<String,Object>)input.get(\"doc\")).get(\"num1\")).get(0);"
                             lang: plan-a
                 sort:
                     num1:
@@ -51,7 +51,7 @@
                 query:
                     script:
                         script:
-                            inline: "return (Double)((List)((Map)input.get(\"doc\")).get(\"num1\")).get(0) > (Integer)input.get(\"param1\");"
+                            inline: "return (Double)((List)((Map<String,Object>)input.get(\"doc\")).get(\"num1\")).get(0) > (Integer)input.get(\"param1\");"
                             lang: plan-a
                             params:
                                 param1: 1
@@ -59,7 +59,7 @@
                 script_fields:
                     sNum1:
                         script:
-                            inline: "return ((List)((Map)input.get(\"doc\")).get(\"num1\")).get(0);"
+                            inline: "return ((List)((Map<String,Object>)input.get(\"doc\")).get(\"num1\")).get(0);"
                             lang: plan-a
                 sort:
                     num1:
@@ -76,7 +76,7 @@
                 query:
                     script:
                         script:
-                            inline: "return (Double)((List)((Map)input.get(\"doc\")).get(\"num1\")).get(0) > (Integer)input.get(\"param1\");"
+                            inline: "return (Double)((List)((Map<String,Object>)input.get(\"doc\")).get(\"num1\")).get(0) > (Integer)input.get(\"param1\");"
                             lang: plan-a
                             params:
                                 param1: -1
@@ -84,7 +84,7 @@
                 script_fields:
                     sNum1:
                         script: 
-                            inline: "return ((List)((Map)input.get(\"doc\")).get(\"num1\")).get(0);"
+                            inline: "return ((List)((Map<String,Object>)input.get(\"doc\")).get(\"num1\")).get(0);"
                             lang: plan-a
                 sort:
                     num1:

@@ -59,11 +59,20 @@ declaration
     ;
 
 decltype
-    : {isType()}? ID (LBRACE RBRACE)*
+    : type (LBRACE RBRACE)*
     ;
 
 declvar
-    : {!isType()}? ID ( ASSIGN expression )?
+    : id ( ASSIGN expression )?
+    ;
+
+type
+    : {isType()}? ID
+    | {isType()}? GENERIC
+    ;
+
+id
+    : {!isType()}? ID
     ;
 
 expression
@@ -101,15 +110,17 @@ extstart
    | extcast
    | exttype
    | extmember
+   | extnew
    ;
 
-extprec:   LP ( extprec | extcast | exttype | extmember) RP ( extdot | extbrace )?;
-extcast:   LP decltype RP ( extprec | extcast | exttype | extmember );
+extprec:   LP ( extprec | extcast | exttype | extmember | extnew ) RP ( extdot | extbrace )?;
+extcast:   LP decltype RP ( extprec | extcast | exttype | extmember | extnew );
 extbrace:  LBRACE expression RBRACE ( extdot | extbrace )?;
 extdot:    DOT ( extcall | extmember );
-exttype:   {isType()}? ID extdot;
-extcall:   ID arguments ( extdot | extbrace )?;
-extmember: {!isType()}? ID (extdot | extbrace )?;
+exttype:   type extdot;
+extcall:   id arguments ( extdot | extbrace )?;
+extmember: id (extdot | extbrace )?;
+extnew:    NEW type ( ( arguments ( extdot | extbrace)? ) | ( ( LBRACE expression RBRACE )+ extdot? ) );
 
 arguments
     : ( LP ( expression ( COMMA expression )* )? RP )
@@ -121,6 +132,7 @@ increment
     ;
 
 WS: [ \t\n\r]+ -> skip;
+COMMENT: ( '//' .*? '\n' | '/*' .*? '*/' ) -> skip;
 
 LBRACK:    '{';
 RBRACK:    '}';
@@ -139,6 +151,7 @@ FOR:       'for';
 CONTINUE:  'continue';
 BREAK:     'break';
 RETURN:    'return';
+NEW:       'new';
 
 BOOLNOT: '!';
 BWNOT:   '~';
@@ -188,14 +201,13 @@ HEX: '0' [xX] [0-9a-fA-F]+ [lL]?;
 INTEGER: ( '0' | [1-9] [0-9]* ) [lL]?;
 DECIMAL: ( ( '0' | [1-9] [0-9]* ) ( '.' [0-9]* )? | '.' [0-9]+ ) ( [eE] [+\-]? [0-9]+ )? [fF]?;
 
-STRING: '"' ( '\\"' | '\\\\' | ~[\\"] )*? '"';
-CHAR: '\'' . '\'';
+STRING: '"' ( '\\"' | '\\\\' | ~[\\"] )*? '"' {setText(getText().substring(1, getText().length() - 1));};
+CHAR: '\'' . '\''                             {setText(getText().substring(1, getText().length() - 1));};
 
 TRUE:  'true';
 FALSE: 'false';
 
 NULL: 'null';
 
-VOID: 'void';
-
 ID: [_a-zA-Z] [_a-zA-Z0-9]*;
+GENERIC: ID '<' WS? ( ID | GENERIC ) WS? (COMMA WS? ( ID | GENERIC ) )* WS? '>' {setText(getText().replace(" ", ""));};

@@ -19,6 +19,7 @@
 
 package org.elasticsearch.plan.a;
 
+import java.lang.invoke.MethodHandles;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
@@ -640,7 +641,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitDeclvar(final DeclvarContext ctx) {
         final ExpressionMetadata declvaremd = adapter.getExpressionMetadata(ctx);
 
-        final String name = ctx.ID().getText();
+        final String name = ctx.id().getText();
         declvaremd.postConst = adapter.addVariable(ctx, name, declvaremd.to).slot;
 
         final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
@@ -652,6 +653,16 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
 
         return null;
+    }
+
+    @Override
+    public Void visitType(final TypeContext ctx) {
+        throw new UnsupportedOperationException(error(ctx) + "Unexpected parser state.");
+    }
+
+    @Override
+    public Void visitId(final IdContext ctx) {
+        throw new UnsupportedOperationException(error(ctx) + "Unexpected parser state.");
     }
 
     @Override
@@ -744,8 +755,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
         }
 
-        final int length = ctx.STRING().getText().length();
-        stringemd.preConst = ctx.STRING().getText().substring(1, length - 1);
+        stringemd.preConst = ctx.STRING().getText();
         stringemd.from = standard.stringType;
 
         markCast(stringemd);
@@ -761,11 +771,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
         }
 
-        if (ctx.CHAR().getText().length() != 3) {
-            throw new IllegalStateException(error(ctx) + "Invalid character constant.");
-        }
-
-        charemd.preConst = ctx.CHAR().getText().charAt(1);
+        charemd.preConst = ctx.CHAR().getText().charAt(0);
         charemd.from = standard.charType;
 
         markCast(charemd);
@@ -1497,6 +1503,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExtcastContext castctx = ctx.extcast();
         final ExttypeContext typectx = ctx.exttype();
         final ExtmemberContext memberctx = ctx.extmember();
+        final ExtnewContext newctx = ctx.extnew();
 
         if (precctx != null) {
             adapter.createExtNodeMetadata(ctx, precctx);
@@ -1510,6 +1517,9 @@ class Analyzer extends PlanABaseVisitor<Void> {
         } else if (memberctx != null) {
             adapter.createExtNodeMetadata(ctx, memberctx);
             visit(memberctx);
+        } else if (newctx != null) {
+            adapter.createExtNodeMetadata(ctx, newctx);
+            visit(newctx);
         } else {
             throw new IllegalStateException();
         }
@@ -1529,6 +1539,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExtmemberContext memberctx = ctx.extmember();
         final ExtdotContext dotctx = ctx.extdot();
         final ExtbraceContext bracectx = ctx.extbrace();
+        final ExtnewContext newctx = ctx.extnew();
 
         if (dotctx != null || bracectx != null) {
             ++parentemd.scope;
@@ -1546,6 +1557,9 @@ class Analyzer extends PlanABaseVisitor<Void> {
         } else if (memberctx != null) {
             adapter.createExtNodeMetadata(parent, memberctx);
             visit(memberctx);
+        } else if (newctx != null) {
+            adapter.createExtNodeMetadata(parent, newctx);
+            visit(newctx);
         } else {
             throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
         }
@@ -1577,6 +1591,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExtcastContext castctx = ctx.extcast();
         final ExttypeContext typectx = ctx.exttype();
         final ExtmemberContext memberctx = ctx.extmember();
+        final ExtnewContext newctx = ctx.extnew();
 
         if (precctx != null) {
             adapter.createExtNodeMetadata(parent, precctx);
@@ -1590,6 +1605,10 @@ class Analyzer extends PlanABaseVisitor<Void> {
         } else if (memberctx != null) {
             adapter.createExtNodeMetadata(parent, memberctx);
             visit(memberctx);
+
+        } else if (newctx != null) {
+            adapter.createExtNodeMetadata(parent, newctx);
+            visit(newctx);
         } else {
             throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
         }
@@ -1671,7 +1690,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             throw new IllegalArgumentException(error(ctx) + "Unexpected static type.");
         }
 
-        final String typestr = ctx.ID().getText();
+        final String typestr = ctx.type().getText();
         typeenmd.type = getTypeFromCanonicalName(definition, typestr);
         parentemd.current = typeenmd.type;
         parentemd.statik = true;
@@ -1694,7 +1713,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         callenmd.last = parentemd.scope == 0 && dotctx == null && bracectx == null;
 
-        final String name = ctx.ID().getText();
+        final String name = ctx.id().getText();
 
         if (parentemd.current.dimensions > 0) {
             throw new IllegalArgumentException(error(ctx) + "Unexpected call [" + name + "] on an array.");
@@ -1706,61 +1725,24 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final List<ExpressionContext> arguments = ctx.arguments().expression();
         final int size = arguments.size();
 
-        Type[] types;
+        final Method method = parentemd.statik ? struct.functions.get(name) : struct.methods.get(name);
 
-        if (parentemd.statik && "makearray".equals(name)) {
-            if (!parentemd.read) {
-                throw new IllegalArgumentException(error(ctx) + "A newly created array must be assigned.");
-            }
+        if (method == null) {
+            throw new IllegalArgumentException(
+                    error(ctx) + "Unknown call [" + name + "] on type [" + struct.name + "].");
+        }
 
-            types = new Type[size];
-            Arrays.fill(types, standard.intType);
+        final Type[] types = new Type[method.arguments.size()];
+        method.arguments.toArray(types);
 
-            callenmd.target = "#makearray";
+        callenmd.target = method;
+        callenmd.type = method.rtn;
 
-            if (size > 1) {
-                callenmd.type = getTypeWithArrayDimensions(struct, size);
-                parentemd.current = callenmd.type;
-            } else if (size == 1) {
-                callenmd.type = parentemd.current;
-                parentemd.current = getTypeWithArrayDimensions(struct, 1);
-            } else {
-                throw new IllegalArgumentException(error(ctx) + "A newly created array cannot have zeor dimensions.");
-            }
+        if (!parentemd.read) {
+            parentemd.current = standard.voidType;
+            parentemd.statement = true;
         } else {
-            final Constructor constructor = parentemd.statik ? struct.constructors.get(name) : null;
-            final Method method = parentemd.statik ? struct.functions.get(name) : struct.methods.get(name);
-
-            if (constructor != null) {
-                types = new Type[constructor.arguments.size()];
-                constructor.arguments.toArray(types);
-
-                callenmd.target = constructor;
-                callenmd.type = getTypeWithArrayDimensions(struct, 0);
-
-                if (!parentemd.read) {
-                    parentemd.current = standard.voidType;
-                    parentemd.statement = true;
-                } else {
-                    parentemd.current = callenmd.type;
-                }
-            } else if (method != null) {
-                types = new Type[method.arguments.size()];
-                method.arguments.toArray(types);
-
-                callenmd.target = method;
-                callenmd.type = method.rtn;
-
-                if (!parentemd.read) {
-                    parentemd.current = standard.voidType;
-                    parentemd.statement = true;
-                } else {
-                    parentemd.current = method.rtn;
-                }
-            } else {
-                throw new IllegalArgumentException(
-                        error(ctx) + "Unknown call [" + name + "] on type [" + struct.name + "].");
-            }
+            parentemd.current = method.rtn;
         }
 
         if (size != types.length) {
@@ -1795,7 +1777,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ParserRuleContext parent = memberenmd.parent;
         final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
 
-        final String name = ctx.ID().getText();
+        final String name = ctx.id().getText();
 
         final ExtdotContext dotctx = ctx.extdot();
         final ExtbraceContext bracectx = ctx.extbrace();
@@ -1850,6 +1832,103 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
 
         parentemd.statik = false;
+
+        if (dotctx != null) {
+            adapter.createExtNodeMetadata(parent, dotctx);
+            visit(dotctx);
+        } else if (bracectx != null) {
+            adapter.createExtNodeMetadata(parent, bracectx);
+            visit(bracectx);
+        }
+
+        return null;
+    }
+
+    @Override
+    public Void visitExtnew(ExtnewContext ctx) {
+        final ExtNodeMetadata callenmd = adapter.getExtNodeMetadata(ctx);
+        final ParserRuleContext parent = callenmd.parent;
+        final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
+
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        callenmd.last = parentemd.scope == 0 && dotctx == null && bracectx == null;
+
+        final String name = ctx.type().getText();
+        final Struct struct = definition.structs.get(name);
+
+        if (parentemd.current != null) {
+            throw new IllegalArgumentException(error(ctx) + "Unexpected new call.");
+        } else if (struct == null) {
+            throw new IllegalArgumentException(error(ctx) + "Specified type [" + name + "] not found.");
+        } else if (callenmd.last && parentemd.storeExpr != null) {
+            throw new IllegalArgumentException(error(ctx) + "Cannot assign a value to a new call.");
+        }
+
+        final boolean newclass = ctx.arguments() != null;
+        final boolean newarray = !ctx.expression().isEmpty();
+
+        final List<ExpressionContext> arguments = newclass ? ctx.arguments().expression() : ctx.expression();
+        final int size = arguments.size();
+
+        Type[] types;
+
+        if (newarray) {
+            if (!parentemd.read) {
+                throw new IllegalArgumentException(error(ctx) + "A newly created array must be assigned.");
+            }
+
+            types = new Type[size];
+            Arrays.fill(types, standard.intType);
+
+            callenmd.target = "#makearray";
+
+            if (size > 1) {
+                callenmd.type = getTypeWithArrayDimensions(struct, size);
+                parentemd.current = callenmd.type;
+            } else if (size == 1) {
+                callenmd.type = getTypeWithArrayDimensions(struct, 0);
+                parentemd.current = getTypeWithArrayDimensions(struct, 1);
+            } else {
+                throw new IllegalArgumentException(error(ctx) + "A newly created array cannot have zero dimensions.");
+            }
+        } else if (newclass) {
+            final Constructor constructor = struct.constructors.get("new");
+
+            if (constructor != null) {
+                types = new Type[constructor.arguments.size()];
+                constructor.arguments.toArray(types);
+
+                callenmd.target = constructor;
+                callenmd.type = getTypeWithArrayDimensions(struct, 0);
+
+                if (!parentemd.read) {
+                    parentemd.current = standard.voidType;
+                    parentemd.statement = true;
+                } else {
+                    parentemd.current = callenmd.type;
+                }
+            } else {
+                throw new IllegalArgumentException(
+                        error(ctx) + "Unknown new call on type [" + struct.name + "].");
+            }
+        } else {
+            throw new IllegalArgumentException(error(ctx) + "Unknown parser state.");
+        }
+
+        if (size != types.length) {
+            throw new IllegalArgumentException(error(ctx) + "When calling [" + name + "] on type " +
+                    "[" + struct.name + "] expected [" + types.length + "] arguments," +
+                    " but found [" + arguments.size() + "].");
+        }
+
+        for (int argument = 0; argument < size; ++argument) {
+            final ExpressionContext exprctx = adapter.updateExpressionTree(arguments.get(argument));
+            final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
+            expremd.to = types[argument];
+            visit(exprctx);
+        }
 
         if (dotctx != null) {
             adapter.createExtNodeMetadata(parent, dotctx);

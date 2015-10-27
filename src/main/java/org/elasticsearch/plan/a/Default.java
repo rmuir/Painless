@@ -57,7 +57,7 @@ public class Default {
             validateSubclass(definition, "Executable", Executable.class);
             validateSubclass(definition, "List", List.class);
             validateSubclass(definition, "Map", Map.class);
-            validateSubclass(definition, "StringMap", Map.class);
+            validateSubclass(definition, "Map<String,Object>", Map.class);
 
             voidType = getTypeFromCanonicalName(definition, "void");
             boolType = getTypeFromCanonicalName(definition, "boolean");
@@ -73,7 +73,7 @@ public class Default {
             execType = getTypeFromCanonicalName(definition, "Executable");
             listType = getTypeFromCanonicalName(definition, "List");
             mapType = getTypeFromCanonicalName(definition, "Map");
-            smapType = getTypeFromCanonicalName(definition, "StringMap");
+            smapType = getTypeFromCanonicalName(definition, "Map<String,Object>");
         }
 
         private void validateExact(final Definition definition, final String name, final Class clazz) {

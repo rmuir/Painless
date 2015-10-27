@@ -383,6 +383,11 @@ class Writer extends PlanABaseVisitor<Void> {
     }
 
     @Override
+    public Void visitType(final TypeContext ctx) {
+        throw new UnsupportedOperationException(error(ctx) + "Unexpected parser state.");
+    }
+
+    @Override
     public Void visitPrecedence(final PrecedenceContext ctx) {
         throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
     }
@@ -1050,6 +1055,7 @@ class Writer extends PlanABaseVisitor<Void> {
         final ExtcastContext castctx = ctx.extcast();
         final ExttypeContext typectx = ctx.exttype();
         final ExtmemberContext memberctx = ctx.extmember();
+        final ExtnewContext newctx = ctx.extnew();
 
         if (precctx != null) {
             visit(precctx);
@@ -1059,6 +1065,8 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(typectx);
         } else if (memberctx != null) {
             visit(memberctx);
+        } else if (newctx != null) {
+            visit(newctx);
         } else {
             throw new IllegalStateException();
         }
@@ -1072,6 +1080,7 @@ class Writer extends PlanABaseVisitor<Void> {
         final ExtcastContext castctx = ctx.extcast();
         final ExttypeContext typectx = ctx.exttype();
         final ExtmemberContext memberctx = ctx.extmember();
+        final ExtnewContext newctx = ctx.extnew();
 
         if (precctx != null) {
             visit(precctx);
@@ -1081,6 +1090,8 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(typectx);
         } else if (memberctx != null) {
             visit(memberctx);
+        } else if (newctx != null) {
+            visit(newctx);
         } else {
             throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
         }
@@ -1105,6 +1116,7 @@ class Writer extends PlanABaseVisitor<Void> {
         final ExtcastContext castctx = ctx.extcast();
         final ExttypeContext typectx = ctx.exttype();
         final ExtmemberContext memberctx = ctx.extmember();
+        final ExtnewContext newctx = ctx.extnew();
 
         if (precctx != null) {
             visit(precctx);
@@ -1114,6 +1126,10 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(typectx);
         } else if (memberctx != null) {
             visit(memberctx);
+        } else if (newctx != null) {
+            visit(newctx);
+        } else {
+            throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
         }
 
         checkWriteCast(ctx, castenmd.castTo);
@@ -1180,6 +1196,22 @@ class Writer extends PlanABaseVisitor<Void> {
     @Override
     public Void visitExtmember(final ExtmemberContext ctx) {
         writeLoadStoreExternal(ctx);
+
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        if (dotctx != null) {
+            visit(dotctx);
+        } else if (bracectx != null) {
+            visit(bracectx);
+        }
+
+        return null;
+    }
+
+    @Override
+    public Void visitExtnew(ExtnewContext ctx) {
+        writeNewExternal(ctx);
 
         final ExtdotContext dotctx = ctx.extdot();
         final ExtbraceContext bracectx = ctx.extbrace();
@@ -1727,26 +1759,25 @@ class Writer extends PlanABaseVisitor<Void> {
         }
     }
 
-    private void writeCallExternal(final ExtcallContext source) {
-        final ExtNodeMetadata sourceemd = adapter.getExtNodeMetadata(source);
-        final ExternalMetadata parentemd = adapter.getExternalMetadata(sourceemd.parent);
+    private void writeNewExternal(final ExtnewContext source) {
+        final ExtNodeMetadata sourceenmd = adapter.getExtNodeMetadata(source);
+        final ExternalMetadata parentemd = adapter.getExternalMetadata(sourceenmd.parent);
 
-        final boolean makearray = "#makearray".equals(sourceemd.target);
-        final boolean constructor = sourceemd.target instanceof Constructor;
-        final boolean method = sourceemd.target instanceof Method;
+        final boolean makearray = "#makearray".equals(sourceenmd.target);
+        final boolean constructor = sourceenmd.target instanceof Constructor;
 
-        if (!makearray && !constructor && !method) {
-            throw new IllegalStateException(error(source) + "Target not found for call.");
+        if (!makearray && !constructor) {
+            throw new IllegalStateException(error(source) + "Target not found for new call.");
         }
 
         if (makearray) {
-            for (final ExpressionContext exprctx : source.arguments().expression()) {
+            for (final ExpressionContext exprctx : source.expression()) {
                 visit(exprctx);
             }
 
-            writeNewArray(source, sourceemd.type);
+            writeNewArray(source, sourceenmd.type);
         } else if (constructor) {
-            execute.visitTypeInsn(Opcodes.NEW, sourceemd.type.internal);
+            execute.visitTypeInsn(Opcodes.NEW, sourceenmd.type.internal);
 
             if (parentemd.read) {
                 execute.visitInsn(Opcodes.DUP);
@@ -1756,34 +1787,11 @@ class Writer extends PlanABaseVisitor<Void> {
                 visit(exprctx);
             }
 
-            final Constructor target = (Constructor)sourceemd.target;
+            final Constructor target = (Constructor)sourceenmd.target;
             final String internal = target.owner.internal;
             final String descriptor = target.descriptor;
 
             execute.visitMethodInsn(Opcodes.INVOKESPECIAL, internal, "<init>", descriptor, false);
-        } else if (method) {
-            for (final ExpressionContext exprctx : source.arguments().expression()) {
-                visit(exprctx);
-            }
-
-            final Method target = (Method)sourceemd.target;
-            final String internal = target.owner.internal;
-            final String name = target.method.getName();
-            final String descriptor = target.descriptor;
-            final boolean statik = java.lang.reflect.Modifier.isStatic(target.method.getModifiers());
-            final boolean iface = java.lang.reflect.Modifier.isInterface(target.owner.clazz.getModifiers());
-
-            if (statik) {
-                execute.visitMethodInsn(Opcodes.INVOKESTATIC, internal, name, descriptor, false);
-            } else if (iface) {
-                execute.visitMethodInsn(Opcodes.INVOKEINTERFACE, internal, name, descriptor, true);
-            } else {
-                execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, name, descriptor, false);
-            }
-
-            if (!parentemd.read) {
-                writePop(sourceemd.type.metadata.size);
-            }
         }
     }
 
@@ -1803,6 +1811,40 @@ class Writer extends PlanABaseVisitor<Void> {
                 case DOUBLE: execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_DOUBLE);  break;
                 default:     execute.visitTypeInsn(Opcodes.ANEWARRAY, type.internal);
             }
+        }
+    }
+
+    private void writeCallExternal(final ExtcallContext source) {
+        final ExtNodeMetadata sourceenmd = adapter.getExtNodeMetadata(source);
+        final ExternalMetadata parentemd = adapter.getExternalMetadata(sourceenmd.parent);
+
+        final boolean method = sourceenmd.target instanceof Method;
+
+        if (!method) {
+            throw new IllegalStateException(error(source) + "Target not found for call.");
+        }
+
+        for (final ExpressionContext exprctx : source.arguments().expression()) {
+            visit(exprctx);
+        }
+
+        final Method target = (Method)sourceenmd.target;
+        final String internal = target.owner.internal;
+        final String name = target.method.getName();
+        final String descriptor = target.descriptor;
+        final boolean statik = java.lang.reflect.Modifier.isStatic(target.method.getModifiers());
+        final boolean iface = java.lang.reflect.Modifier.isInterface(target.owner.clazz.getModifiers());
+
+        if (statik) {
+            execute.visitMethodInsn(Opcodes.INVOKESTATIC, internal, name, descriptor, false);
+        } else if (iface) {
+            execute.visitMethodInsn(Opcodes.INVOKEINTERFACE, internal, name, descriptor, true);
+        } else {
+            execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, name, descriptor, false);
+        }
+
+        if (!parentemd.read) {
+            writePop(sourceenmd.type.metadata.size);
         }
     }
 
