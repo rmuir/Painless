@@ -103,6 +103,18 @@ interface PlanAVisitor<T> extends ParseTreeVisitor<T> {
    */
   T visitEmpty(PlanAParser.EmptyContext ctx);
   /**
+   * Visit a parse tree produced by {@link PlanAParser#initializer}.
+   * @param ctx the parse tree
+   * @return the visitor result
+   */
+  T visitInitializer(PlanAParser.InitializerContext ctx);
+  /**
+   * Visit a parse tree produced by {@link PlanAParser#afterthought}.
+   * @param ctx the parse tree
+   * @return the visitor result
+   */
+  T visitAfterthought(PlanAParser.AfterthoughtContext ctx);
+  /**
    * Visit a parse tree produced by {@link PlanAParser#declaration}.
    * @param ctx the parse tree
    * @return the visitor result

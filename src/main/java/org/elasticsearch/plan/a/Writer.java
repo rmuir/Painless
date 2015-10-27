@@ -1,5 +1,3 @@
-package org.elasticsearch.plan.a;
-
 /*
  * Licensed to Elasticsearch under one or more contributor
  * license agreements. See the NOTICE file distributed with
@@ -18,6 +16,8 @@ package org.elasticsearch.plan.a;
  * specific language governing permissions and limitations
  * under the License.
  */
+
+package org.elasticsearch.plan.a;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -208,24 +208,24 @@ class Writer extends PlanABaseVisitor<Void> {
 
     @Override
     public Void visitFor(final ForContext ctx) {
-        final ExpressionContext exprctx0 = ctx.expression(0);
-        final ExpressionContext exprctx1 = ctx.expression(1);
-        final Branch branch = adapter.markBranch(ctx, exprctx0);
+        final ExpressionContext exprctx = ctx.expression();
+        final AfterthoughtContext atctx = ctx.afterthought();
+        final Branch branch = adapter.markBranch(ctx, exprctx);
         final Label start = new Label();
-        branch.begin = exprctx1 == null ? start : new Label();
+        branch.begin = atctx == null ? start : new Label();
         branch.end = new Label();
         branch.fals = branch.end;
 
         adapter.pushJump(branch);
 
-        if (ctx.declaration() != null) {
-            visit(ctx.declaration());
+        if (ctx.initializer() != null) {
+            visit(ctx.initializer());
         }
 
         execute.visitLabel(start);
 
-        if (exprctx0 != null) {
-            visit(exprctx0);
+        if (exprctx != null) {
+            visit(exprctx);
         }
 
         final BlockContext blockctx = ctx.block();
@@ -237,12 +237,12 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(blockctx);
         }
 
-        if (exprctx1 != null) {
+        if (atctx != null) {
             execute.visitLabel(branch.begin);
-            visit(exprctx1);
+            visit(atctx);
         }
 
-        if (exprctx1 != null || !allexit) {
+        if (atctx != null || !allexit) {
             execute.visitJumpInsn(Opcodes.GOTO, start);
         }
 
@@ -309,6 +309,29 @@ class Writer extends PlanABaseVisitor<Void> {
     @Override
     public Void visitEmpty(final EmptyContext ctx) {
         throw new UnsupportedOperationException(error(ctx) + "Unexpected writer state.");
+    }
+
+    @Override
+    public Void visitInitializer(InitializerContext ctx) {
+        final DeclarationContext declctx = ctx.declaration();
+        final ExpressionContext exprctx = ctx.expression();
+
+        if (declctx != null) {
+            visit(declctx);
+        } else if (exprctx != null) {
+            visit(exprctx);
+        } else {
+            throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
+        }
+
+        return null;
+    }
+
+    @Override
+    public Void visitAfterthought(AfterthoughtContext ctx) {
+        visit(ctx.expression());
+
+        return null;
     }
 
     @Override
@@ -570,7 +593,7 @@ class Writer extends PlanABaseVisitor<Void> {
                 writeConstant(ctx, preConst);
                 checkWriteCast(unaryemd);
             } else {
-                throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+                throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
             }
         } else {
             final ExpressionContext exprctx = ctx.expression();
@@ -673,7 +696,7 @@ class Writer extends PlanABaseVisitor<Void> {
                 writeConstant(ctx, preConst);
                 checkWriteCast(binaryemd);
             } else {
-                throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+                throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
             }
         } else {
             writeConstant(ctx, postConst);
@@ -730,7 +753,7 @@ class Writer extends PlanABaseVisitor<Void> {
                 writeConstant(ctx, preConst);
                 checkWriteCast(compemd);
             } else {
-                throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+                throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
             }
         } else {
             final ExpressionContext exprctx0 = ctx.expression(0);
@@ -896,7 +919,7 @@ class Writer extends PlanABaseVisitor<Void> {
                 writeConstant(ctx, preConst);
                 checkWriteCast(boolemd);
             } else {
-                throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+                throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
             }
         } else {
             final ExpressionContext exprctx0 = ctx.expression(0);
@@ -1059,7 +1082,7 @@ class Writer extends PlanABaseVisitor<Void> {
         } else if (memberctx != null) {
             visit(memberctx);
         } else {
-            throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+            throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
         }
 
         final ExtdotContext dotctx = ctx.extdot();

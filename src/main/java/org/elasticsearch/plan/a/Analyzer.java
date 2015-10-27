@@ -373,22 +373,22 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         adapter.incrementScope();
 
-        final DeclarationContext declctx = ctx.declaration();
+        final InitializerContext initctx = ctx.initializer();
 
-        if (declctx != null) {
-            adapter.createStatementMetadata(declctx);
-            visit(declctx);
+        if (initctx != null) {
+            adapter.createStatementMetadata(initctx);
+            visit(initctx);
         }
 
-        final ExpressionContext exprctx0 = adapter.updateExpressionTree(ctx.expression(0));
+        final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
 
-        if (exprctx0 != null) {
-            final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
-            expremd0.to = standard.boolType;
-            visit(exprctx0);
+        if (exprctx != null) {
+            final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
+            expremd.to = standard.boolType;
+            visit(exprctx);
 
-            if (expremd0.postConst != null) {
-                boolean constant = (boolean)expremd0.postConst;
+            if (expremd.postConst != null) {
+                boolean constant = (boolean)expremd.postConst;
 
                 if (!constant) {
                     throw new IllegalArgumentException(error(ctx) + "The loop will never be executed.");
@@ -400,24 +400,11 @@ class Analyzer extends PlanABaseVisitor<Void> {
             exitrequired = true;
         }
 
-        final ExpressionContext exprctx1 = adapter.updateExpressionTree(ctx.expression(1));
+        final AfterthoughtContext atctx = ctx.afterthought();
 
-        if (exprctx1 != null) {
-            final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
-            expremd1.to = standard.voidType;
-
-            try {
-                visit(exprctx1);
-            } catch (ClassCastException exception) {
-                if (expremd1.statement) {
-                    throw exception;
-                }
-            }
-
-            if (!expremd1.statement) {
-                throw new IllegalArgumentException(error(exprctx1) +
-                        "The afterthought of a for loop must be a statement.");
-            }
+        if (atctx != null) {
+            adapter.createStatementMetadata(atctx);
+            visit(atctx);
         }
 
         final BlockContext blockctx = ctx.block();
@@ -569,6 +556,62 @@ class Analyzer extends PlanABaseVisitor<Void> {
     }
 
     @Override
+    public Void visitInitializer(InitializerContext ctx) {
+        final DeclarationContext declctx = ctx.declaration();
+        final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
+
+        if (declctx != null) {
+            adapter.createStatementMetadata(declctx);
+            visit(declctx);
+        } else if (exprctx != null) {
+            final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
+            expremd.to = standard.voidType;
+
+            try {
+                visit(exprctx);
+            } catch (ClassCastException exception) {
+                if (expremd.statement) {
+                    throw exception;
+                }
+            }
+
+            if (!expremd.statement) {
+                throw new IllegalArgumentException(error(exprctx) +
+                        "The intializer of a for loop must be a statement.");
+            }
+        } else {
+            throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+        }
+
+        return null;
+    }
+
+    @Override
+    public Void visitAfterthought(AfterthoughtContext ctx) {
+        ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
+
+        if (exprctx != null) {
+            final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx);
+            expremd1.to = standard.voidType;
+
+            try {
+                visit(exprctx);
+            } catch (ClassCastException exception) {
+                if (expremd1.statement) {
+                    throw exception;
+                }
+            }
+
+            if (!expremd1.statement) {
+                throw new IllegalArgumentException(error(exprctx) +
+                        "The afterthought of a for loop must be a statement.");
+            }
+        }
+
+        return null;
+    }
+
+    @Override
     public Void visitDeclaration(final DeclarationContext ctx) {
         final DecltypeContext decltypectx = ctx.decltype();
         final ExpressionMetadata decltypeemd = adapter.createExpressionMetadata(decltypectx);
@@ -619,9 +662,10 @@ class Analyzer extends PlanABaseVisitor<Void> {
     @Override
     public Void visitNumeric(final NumericContext ctx) {
         final ExpressionMetadata numericemd = adapter.getExpressionMetadata(ctx);
+        final boolean negate = ctx.parent instanceof UnaryContext && ((UnaryContext)ctx.parent).SUB() != null;
 
         if (ctx.DECIMAL() != null) {
-            final String svalue = ctx.DECIMAL().getText();
+            final String svalue = (negate ? "-" : "") + ctx.DECIMAL().getText();
 
             if (svalue.endsWith("f") || svalue.endsWith("F")) {
                 try {
@@ -639,17 +683,17 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 }
             }
         } else {
-            String svalue;
+            String svalue = negate ? "-" : "";
             int radix;
 
             if (ctx.OCTAL() != null) {
-                svalue = ctx.OCTAL().getText();
+                svalue += ctx.OCTAL().getText();
                 radix = 8;
             } else if (ctx.INTEGER() != null) {
-                svalue = ctx.INTEGER().getText();
+                svalue += ctx.INTEGER().getText();
                 radix = 10;
             } else if (ctx.HEX() != null) {
-                svalue = ctx.HEX().getText();
+                svalue += ctx.HEX().getText();
                 radix = 16;
             } else {
                 throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
@@ -903,24 +947,28 @@ class Analyzer extends PlanABaseVisitor<Void> {
                         throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                     }
                 } else if (ctx.SUB() != null) {
-                    if (tmd == TypeMetadata.INT) {
-                        if (settings.getNumericOverflow()) {
-                            unaryemd.preConst = -(int)expremd.postConst;
-                        } else {
-                            unaryemd.preConst = Math.negateExact((int)expremd.postConst);
-                        }
-                    } else if (tmd == TypeMetadata.LONG) {
-                        if (settings.getNumericOverflow()) {
-                            unaryemd.preConst = -(long)expremd.postConst;
-                        } else {
-                            unaryemd.preConst = Math.negateExact((long)expremd.postConst);
-                        }
-                    } else if (tmd == TypeMetadata.FLOAT) {
-                        unaryemd.preConst = -(float)expremd.postConst;
-                    } else if (tmd == TypeMetadata.DOUBLE) {
-                        unaryemd.preConst = -(double)expremd.postConst;
+                    if (exprctx instanceof NumericContext) {
+                        unaryemd.preConst = expremd.postConst;
                     } else {
-                        throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+                        if (tmd == TypeMetadata.INT) {
+                            if (settings.getNumericOverflow()) {
+                                unaryemd.preConst = -(int)expremd.postConst;
+                            } else {
+                                unaryemd.preConst = Math.negateExact((int)expremd.postConst);
+                            }
+                        } else if (tmd == TypeMetadata.LONG) {
+                            if (settings.getNumericOverflow()) {
+                                unaryemd.preConst = -(long)expremd.postConst;
+                            } else {
+                                unaryemd.preConst = Math.negateExact((long)expremd.postConst);
+                            }
+                        } else if (tmd == TypeMetadata.FLOAT) {
+                            unaryemd.preConst = -(float)expremd.postConst;
+                        } else if (tmd == TypeMetadata.DOUBLE) {
+                            unaryemd.preConst = -(double)expremd.postConst;
+                        } else {
+                            throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+                        }
                     }
                 } else if (ctx.ADD() != null) {
                     if (tmd == TypeMetadata.INT) {

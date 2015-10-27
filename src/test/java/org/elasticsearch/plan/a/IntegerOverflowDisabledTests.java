@@ -402,43 +402,43 @@ public class IntegerOverflowDisabledTests extends ScriptTestCase {
         } catch (ArithmeticException expected) {}
         
         try {
-            exec("long x = -9223372036854775807L - 1L; long y = -1L; return x / y;");
+            exec("long x = -9223372036854775808L; long y = -1L; return x / y;");
             fail("should have hit exception");
         } catch (ArithmeticException expected) {}
     }
     
     public void testDivisionConst() throws Exception {
         try {
-            exec("return (-2147483647 - 1) / -1;");
+            exec("return (-2147483648) / -1;");
             fail("should have hit exception");
         } catch (ArithmeticException expected) {}
 
         try {
-            exec("return (-9223372036854775807L - 1L) / -1L;");
+            exec("return (-9223372036854775808L) / -1L;");
             fail("should have hit exception");
         } catch (ArithmeticException expected) {}
     }
     
     public void testNegationOverflow() throws Exception {
         try {
-            exec("int x = -2147483647 - 1; x = -x; return x;");
+            exec("int x = -2147483648; x = -x; return x;");
             fail("did not get expected exception");
         } catch (ArithmeticException expected) {}
         
         try {
-            exec("long x = -9223372036854775807L - 1L; x = -x; return x;");
+            exec("long x = -9223372036854775808L; x = -x; return x;");
             fail("did not get expected exception");
         } catch (ArithmeticException expected) {}
     }
     
     public void testNegationOverflowConst() throws Exception {
         try {
-            exec("int x = -(-2147483647 - 1); return x;");
+            exec("int x = -(-2147483648); return x;");
             fail("did not get expected exception");
         } catch (ArithmeticException expected) {}
         
         try {
-            exec("long x = -(-9223372036854775807L - 1L); return x;");
+            exec("long x = -(-9223372036854775808L); return x;");
             fail("did not get expected exception");
         } catch (ArithmeticException expected) {}
     }
