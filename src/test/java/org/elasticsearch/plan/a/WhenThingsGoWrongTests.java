@@ -23,15 +23,6 @@ import java.text.ParseException;
 
 public class WhenThingsGoWrongTests extends ScriptTestCase {
 
-    public void testMissingSemicolon() {
-        try {
-            exec("return 5");
-            fail("should have hit parse exception");
-        } catch (RuntimeException expected) {
-            assertTrue(expected.getCause() instanceof ParseException);
-        }
-    }
-
     public void testMissingReturn() {
         try {
             exec("5;");

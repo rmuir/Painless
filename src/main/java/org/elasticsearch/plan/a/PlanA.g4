@@ -25,15 +25,15 @@ source
     ;
 
 statement
-    : IF LP expression RP block (ELSE block)?                                              # if
-    | WHILE LP expression RP ( block | empty )                                             # while
-    | DO block WHILE LP expression RP SEMICOLON                                            # do
-    | FOR LP declaration? SEMICOLON expression? SEMICOLON expression? RP ( block | empty ) # for
-    | declaration SEMICOLON                                                                # decl
-    | CONTINUE SEMICOLON                                                                   # continue
-    | BREAK SEMICOLON                                                                      # break
-    | RETURN expression SEMICOLON                                                          # return
-    | expression SEMICOLON                                                                 # expr
+    : IF LP expression RP block (ELSE block)?                                                # if
+    | WHILE LP expression RP ( block | empty )                                               # while
+    | DO block WHILE LP expression RP SEMICOLON?                                             # do
+    | FOR LP initializer? SEMICOLON expression? SEMICOLON afterthought? RP ( block | empty ) # for
+    | declaration SEMICOLON?                                                                 # decl
+    | CONTINUE SEMICOLON?                                                                    # continue
+    | BREAK SEMICOLON?                                                                       # break
+    | RETURN expression SEMICOLON?                                                           # return
+    | expression SEMICOLON?                                                                  # expr
     ;
 
 block
@@ -43,6 +43,15 @@ block
 
 empty
     : SEMICOLON
+    ;
+
+initializer
+    : declaration
+    | expression
+    ;
+
+afterthought
+    : expression
     ;
 
 declaration
