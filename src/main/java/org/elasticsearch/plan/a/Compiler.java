@@ -93,7 +93,7 @@ final class Compiler {
 
         Analyzer.analyze(adapter);
         adapter.decrementScope();
-        // System.out.println(root.toStringTree(parser));
+        //System.out.println(root.toStringTree(parser));
 
         //end = System.currentTimeMillis() - start;
         //System.out.println("analyze: " + end);

@@ -63,7 +63,7 @@ public class BasicExpressionTests extends ScriptTestCase {
         assertEquals((byte)100, exec("double x = 100; return (byte)x;"));
 
         assertEquals(3, exec(
-                "Map x = HashMap.new();\n" +
+                "Map x = new HashMap();\n" +
                 "Object y = x;\n" +
                 "((Map)y).put(2, 3);\n" +
                 "return x.get(2);\n"));

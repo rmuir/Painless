@@ -44,20 +44,19 @@ public class StringTests extends ScriptTestCase {
     }
 
     public void testStringAPI() {
-        assertEquals("", exec("return String.new();"));
-        assertEquals("test", exec("return String.fromString(\"test\");"));
-        assertEquals('x', exec("return String.fromString(\"x\").charAt(0);"));
-        assertEquals(120, exec("return String.fromString(\"x\").codePointAt(0);"));
-        assertEquals(0, exec("return String.fromString(\"x\").compareTo(\"x\");"));
-        assertEquals("xx", exec("return String.fromString(\"x\").concat(\"x\");"));
-        assertEquals(true, exec("return String.fromString(\"xy\").endsWith(\"y\");"));
+        assertEquals("", exec("return new String();"));
+        assertEquals('x', exec("String s = \"x\"; return s.charAt(0);"));
+        assertEquals(120, exec("String s = \"x\"; return s.codePointAt(0);"));
+        assertEquals(0, exec("String s = \"x\"; return s.compareTo(\"x\");"));
+        assertEquals("xx", exec("String s = \"x\"; return s.concat(\"x\");"));
+        assertEquals(true, exec("String s = \"xy\"; return s.endsWith(\"y\");"));
         assertEquals(2, exec("String t = \"abcde\"; return t.indexOf(\"cd\", 1);"));
         assertEquals(false, exec("String t = \"abcde\"; return t.isEmpty();"));
         assertEquals(5, exec("String t = \"abcde\"; return t.length();"));
         assertEquals("cdcde", exec("String t = \"abcde\"; return t.replace(\"ab\", \"cd\");"));
-        assertEquals(false, exec("return String.fromString(\"xy\").startsWith(\"y\");"));
+        assertEquals(false, exec("String s = \"xy\"; return s.startsWith(\"y\");"));
         assertEquals("e", exec("String t = \"abcde\"; return t.substring(4, 5);"));
-        assertEquals(97, ((char[])exec("return String.fromString(\"a\").toCharArray();"))[0]);
-        assertEquals("a", exec("return String.fromString(\" a \").trim();"));
+        assertEquals(97, ((char[])exec("String s = \"a\"; return s.toCharArray();"))[0]);
+        assertEquals("a", exec("String s = \" a \"; return s.trim();"));
     }
 }

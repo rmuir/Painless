@@ -19,10 +19,15 @@
 
 package org.elasticsearch.plan.a;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.util.HashMap;
+import java.util.Map;
+
 /** Tests for addition operator across all types */
 //TODO: NaN/Inf/overflow/...
 public class AdditionTests extends ScriptTestCase {
-    
+
     public void testInt() throws Exception {
         assertEquals(1+1, exec("int x = 1; int y = 1; return x+y;"));
         assertEquals(1+2, exec("int x = 1; int y = 2; return x+y;"));

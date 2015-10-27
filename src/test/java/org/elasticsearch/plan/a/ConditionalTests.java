@@ -54,19 +54,19 @@ public class ConditionalTests extends ScriptTestCase {
         assertEquals(4D, exec("boolean x = false; double z = x ? 2 : 4.0F; return z;"));
         assertEquals((byte)7, exec("boolean x = false; int y = 2; byte z = x ? (byte)y : 7; return z;"));
         assertEquals((byte)7, exec("boolean x = false; int y = 2; byte z = (byte)(x ? y : 7); return z;"));
-        assertEquals(ArrayList.class, exec("boolean x = false; Object z = x ? HashMap.new() : ArrayList.new(); return z;").getClass());
+        assertEquals(ArrayList.class, exec("boolean x = false; Object z = x ? new HashMap() : new ArrayList(); return z;").getClass());
     }
 
     public void testNullArguments() {
         assertEquals(null, exec("boolean b = false, c = true; Object x; Map y; return b && c ? x : y;"));
-        assertEquals(HashMap.class, exec("boolean b = false, c = true; Object x; Map y = HashMap.new(); return b && c ? x : y;").getClass());
+        assertEquals(HashMap.class, exec("boolean b = false, c = true; Object x; Map y = new HashMap(); return b && c ? x : y;").getClass());
     }
 
     public void testPromotion() {
         assertEquals(false, exec("boolean x = false; boolean y = true; return (x ? 2 : 4.0F) == (y ? 2 : 4.0F);"));
-        assertEquals(false, exec("boolean x = false; boolean y = true; return (x ? 2 : 4.0F) == (y ? Long.new(2) : Float.new(4.0F));"));
-        assertEquals(false, exec("boolean x = false; boolean y = true; return (x ? HashMap.new() : ArrayList.new()) == (y ? Long.new(2) : Float.new(4.0F));"));
-        assertEquals(false, exec("boolean x = false; boolean y = true; return (x ? 2 : 4.0F) == (y ? HashMap.new() : ArrayList.new());"));
+        assertEquals(false, exec("boolean x = false; boolean y = true; return (x ? 2 : 4.0F) == (y ? new Long(2) : new Float(4.0F));"));
+        assertEquals(false, exec("boolean x = false; boolean y = true; return (x ? new HashMap() : new ArrayList()) == (y ? new Long(2) : new Float(4.0F));"));
+        assertEquals(false, exec("boolean x = false; boolean y = true; return (x ? 2 : 4.0F) == (y ? new HashMap() : new ArrayList());"));
     }
 
     public void testIncompatibleAssignment() {
@@ -81,7 +81,7 @@ public class ConditionalTests extends ScriptTestCase {
         } catch (ClassCastException expected) {}
 
         try {
-            exec("boolean x = false; Map z = x ? HashMap.new() : ArrayList.new(); return z;");
+            exec("boolean x = false; Map z = x ? new HashMap() : new ArrayList(); return z;");
             fail("expected class cast exception");
         } catch (ClassCastException expected) {}
 

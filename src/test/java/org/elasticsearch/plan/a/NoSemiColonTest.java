@@ -49,7 +49,7 @@ public class NoSemiColonTest extends ScriptTestCase {
         assertEquals("aaaaaa", exec("String c = \"a\" int x while (x < 5) { c ..= \"a\" ++x } return c"));
 
         Object value = exec(
-                " byte[][] b = byte.makearray(5, 5) \n" +
+                " byte[][] b = new byte[5][5]       \n" +
                 " byte x = 0, y                     \n" +
                 "                                   \n" +
                 " while (x < 5) {                   \n" +
@@ -78,27 +78,27 @@ public class NoSemiColonTest extends ScriptTestCase {
         assertEquals("aaaaaa", exec("String c = \"a\" int x do { c ..= \"a\" ++x } while (x < 5) return c"));
 
         Object value = exec(
-                " int[][] b = int.makearray(5, 5) \n" +
-                " int x = 0, y                    \n" +
+                " long[][] l = new long[5][5]     \n" +
+                " long x = 0, y                   \n" +
                 "                                 \n" +
                 " do {                            \n" +
                 "     y = 0                       \n" +
                 "                                 \n" +
                 "     do {                        \n" +
-                "         b[x][y] = x*y           \n" +
+                "         l[(int)x][(int)y] = x*y \n" +
                 "         ++y                     \n" +
                 "     } while (y < 5)             \n" +
                 "                                 \n" +
                 "     ++x                         \n" +
                 " } while (x < 5)                 \n" +
                 "                                 \n" +
-                " return b                        \n");
+                " return l                        \n");
 
-        int[][] b = (int[][])value;
+        long[][] l = (long[][])value;
 
-        for (byte x = 0; x < 5; ++x) {
-            for (byte y = 0; y < 5; ++y) {
-                assertEquals(x*y, b[x][y]);
+        for (long x = 0; x < 5; ++x) {
+            for (long y = 0; y < 5; ++y) {
+                assertEquals(x*y, l[(int)x][(int)y]);
             }
         }
     }
@@ -107,20 +107,20 @@ public class NoSemiColonTest extends ScriptTestCase {
         assertEquals("aaaaaa", exec("String c = \"a\" for (int x = 0; x < 5; ++x) c ..= \"a\" return c"));
 
         Object value = exec(
-                " int[][] b = int.makearray(5, 5)   \n" +
+                " int[][] i = new int[5][5]         \n" +
                 " for (int x = 0; x < 5; ++x) {     \n" +
                 "     for (int y = 0; y < 5; ++y) { \n" +
-                "         b[x][y] = x*y             \n" +
+                "         i[x][y] = x*y             \n" +
                 "     }                             \n" +
                 " }                                 \n" +
                 "                                   \n" +
-                " return b                          \n");
+                " return i                          \n");
 
-        int[][] b = (int[][])value;
+        int[][] i = (int[][])value;
 
-        for (byte x = 0; x < 5; ++x) {
-            for (byte y = 0; y < 5; ++y) {
-                assertEquals(x*y, b[x][y]);
+        for (int x = 0; x < 5; ++x) {
+            for (int y = 0; y < 5; ++y) {
+                assertEquals(x*y, i[x][y]);
             }
         }
     }
@@ -135,29 +135,29 @@ public class NoSemiColonTest extends ScriptTestCase {
         assertEquals(2.0, exec("double a = 2 return a"));
         assertEquals(false, exec("boolean a = false return a"));
         assertEquals("string", exec("String a = \"string\" return a"));
-        assertEquals(HashMap.class, exec("StringMap a = StringHashMap.new() return a").getClass());
+        assertEquals(HashMap.class, exec("Map<String, Object> a = new HashMap<String, Object>() return a").getClass());
 
-        assertEquals(byte[].class, exec("byte[] a = byte.makearray(1) return a").getClass());
-        assertEquals(short[].class, exec("short[] a = short.makearray(1) return a").getClass());
-        assertEquals(char[].class, exec("char[] a = char.makearray(1) return a").getClass());
-        assertEquals(int[].class, exec("int[] a = int.makearray(1) return a").getClass());
-        assertEquals(long[].class, exec("long[] a = long.makearray(1) return a").getClass());
-        assertEquals(float[].class, exec("float[] a = float.makearray(1) return a").getClass());
-        assertEquals(double[].class, exec("double[] a = double.makearray(1) return a").getClass());
-        assertEquals(boolean[].class, exec("boolean[] a = boolean.makearray(1) return a").getClass());
-        assertEquals(String[].class, exec("String[] a = String.makearray(1) return a").getClass());
-        assertEquals(Map[].class, exec("StringMap[] a = StringMap.makearray(1) return a").getClass());
+        assertEquals(byte[].class, exec("byte[] a = new byte[1] return a").getClass());
+        assertEquals(short[].class, exec("short[] a = new short[1] return a").getClass());
+        assertEquals(char[].class, exec("char[] a = new char[1] return a").getClass());
+        assertEquals(int[].class, exec("int[] a = new int[1] return a").getClass());
+        assertEquals(long[].class, exec("long[] a = new long[1] return a").getClass());
+        assertEquals(float[].class, exec("float[] a = new float[1] return a").getClass());
+        assertEquals(double[].class, exec("double[] a = new double[1] return a").getClass());
+        assertEquals(boolean[].class, exec("boolean[] a = new boolean[1] return a").getClass());
+        assertEquals(String[].class, exec("String[] a = new String[1] return a").getClass());
+        assertEquals(Map[].class, exec("Map<String,Object>[] a = new Map<String,Object>[1] return a").getClass());
 
-        assertEquals(byte[][].class, exec("byte[][] a = byte.makearray(1, 2) return a").getClass());
-        assertEquals(short[][][].class, exec("short[][][] a = short.makearray(1, 2, 3) return a").getClass());
-        assertEquals(char[][][][].class, exec("char[][][][] a = char.makearray(1, 2, 3, 4) return a").getClass());
-        assertEquals(int[][][][][].class, exec("int[][][][][] a = int.makearray(1, 2, 3, 4, 5) return a").getClass());
-        assertEquals(long[][].class, exec("long[][] a = long.makearray(1, 2) return a").getClass());
-        assertEquals(float[][][].class, exec("float[][][] a = float.makearray(1, 2, 3) return a").getClass());
-        assertEquals(double[][][][].class, exec("double[][][][] a = double.makearray(1, 2, 3, 4) return a").getClass());
-        assertEquals(boolean[][][][][].class, exec("boolean[][][][][] a = boolean.makearray(1, 2, 3, 4, 5) return a").getClass());
-        assertEquals(String[][].class, exec("String[][] a = String.makearray(1, 2) return a").getClass());
-        assertEquals(Map[][][].class, exec("StringMap[][][] a = StringMap.makearray(1, 2, 3) return a").getClass());
+        assertEquals(byte[][].class, exec("byte[][] a = new byte[1][2] return a").getClass());
+        assertEquals(short[][][].class, exec("short[][][] a = new short[1][2][3] return a").getClass());
+        assertEquals(char[][][][].class, exec("char[][][][] a = new char[1][2][3][4] return a").getClass());
+        assertEquals(int[][][][][].class, exec("int[][][][][] a = new int[1][2][3][4][5] return a").getClass());
+        assertEquals(long[][].class, exec("long[][] a = new long[1][2] return a").getClass());
+        assertEquals(float[][][].class, exec("float[][][] a = new float[1][2][3] return a").getClass());
+        assertEquals(double[][][][].class, exec("double[][][][] a = new double[1][2][3][4] return a").getClass());
+        assertEquals(boolean[][][][][].class, exec("boolean[][][][][] a = new boolean[1][2][3][4][5] return a").getClass());
+        assertEquals(String[][].class, exec("String[][] a = new String[1][2] return a").getClass());
+        assertEquals(Map[][][].class, exec("Map<String,Object>[][][] a = new Map<String,Object>[1][2][3] return a").getClass());
     }
 
     public void testContinueStatement() {
@@ -171,8 +171,8 @@ public class NoSemiColonTest extends ScriptTestCase {
     public void testReturnStatement() {
         assertEquals(10, exec("return 10"));
         assertEquals(5, exec("int x = 5 return x"));
-        assertEquals(4, exec("int[] x = int.makearray(2) x[1] = 4 return x[1]"));
-        assertEquals(5, ((short[])exec("short[] s = short.makearray(3) s[1] = 5 return s"))[1]);
-        assertEquals(10, ((Map)exec("StringMap s = StringHashMap.new() s.put(\"x\", 10) return s")).get("x"));
+        assertEquals(4, exec("int[] x = new int[2] x[1] = 4 return x[1]"));
+        assertEquals(5, ((short[])exec("short[] s = new short[3] s[1] = 5 return s"))[1]);
+        assertEquals(10, ((Map)exec("Map<String,Object> s = new HashMap< String,Object>() s.put(\"x\", 10) return s")).get("x"));
     }
 }
