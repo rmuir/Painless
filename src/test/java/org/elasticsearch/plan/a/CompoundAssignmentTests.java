@@ -242,5 +242,42 @@ public class CompoundAssignmentTests extends ScriptTestCase {
         assertEquals(false, exec("Boolean[] x = Boolean.makearray(1); x[0] = true; x[0] &= false; return x[0];"));
         assertEquals(false, exec("Boolean[] x = Boolean.makearray(1); x[0] = false; x[0] &= true; return x[0];"));
         assertEquals(false, exec("Boolean[] x = Boolean.makearray(1); x[0] = false; x[0] &= false; return x[0];"));
+        
+        // byte
+        assertEquals((byte) (13 & 14), exec("byte x = 13; x &= 14; return x;"));
+        // short
+        assertEquals((short) (13 & 14), exec("short x = 13; x &= 14; return x;"));
+        // char
+        assertEquals((char) (13 & 14), exec("char x = 13; x &= 14; return x;"));
+        // int
+        assertEquals(13 & 14, exec("int x = 13; x &= 14; return x;"));
+        // long
+        assertEquals((long) (13 & 14), exec("long x = 13L; x &= 14; return x;"));
+    }
+    
+    public void testOr() {
+        // byte
+        assertEquals((byte) (13 | 14), exec("byte x = 13; x |= 14; return x;"));
+        // short
+        assertEquals((short) (13 | 14), exec("short x = 13; x |= 14; return x;"));
+        // char
+        assertEquals((char) (13 | 14), exec("char x = 13; x |= 14; return x;"));
+        // int
+        assertEquals(13 | 14, exec("int x = 13; x |= 14; return x;"));
+        // long
+        assertEquals((long) (13 | 14), exec("long x = 13L; x |= 14; return x;"));
+    }
+    
+    public void testXor() {
+        // byte
+        assertEquals((byte) (13 ^ 14), exec("byte x = 13; x ^= 14; return x;"));
+        // short
+        assertEquals((short) (13 ^ 14), exec("short x = 13; x ^= 14; return x;"));
+        // char
+        assertEquals((char) (13 ^ 14), exec("char x = 13; x ^= 14; return x;"));
+        // int
+        assertEquals(13 ^ 14, exec("int x = 13; x ^= 14; return x;"));
+        // long
+        assertEquals((long) (13 ^ 14), exec("long x = 13L; x ^= 14; return x;"));
     }
 }
