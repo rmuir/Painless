@@ -173,22 +173,22 @@ public class IntegerOverflowEnabledTests extends ScriptTestCase {
     }
 
     public void testDivision() throws Exception {
-        assertEquals((-2147483647 - 1) / -1, exec("int x = -2147483647 - 1; int y = -1; return x / y;"));        
-        assertEquals((-9223372036854775807L - 1L) / -1L, exec("long x = -9223372036854775807L - 1L; long y = -1L; return x / y;"));
+        assertEquals((-2147483647 - 1) / -1, exec("int x = -2147483648; int y = -1; return x / y;"));
+        assertEquals((-9223372036854775807L - 1L) / -1L, exec("long x = -9223372036854775808L; long y = -1L; return x / y;"));
     }
     
     public void testDivisionConst() throws Exception {
-        assertEquals((-2147483647 - 1) / -1, exec("return (-2147483647 - 1) / -1;"));
-        assertEquals((-9223372036854775807L - 1L) / -1L, exec("return (-9223372036854775807L - 1L) / -1L;"));
+        assertEquals((-2147483647 - 1) / -1, exec("return (-2147483648) / -1;"));
+        assertEquals((-9223372036854775807L - 1L) / -1L, exec("return (-9223372036854775808L) / -1L;"));
     }
     
     public void testNegationOverflow() throws Exception {
-        assertEquals(-(-2147483647 - 1), exec("int x = -2147483647 - 1; x = -x; return x;"));        
-        assertEquals(-(-9223372036854775807L - 1L), exec("long x = -9223372036854775807L - 1L; x = -x; return x;"));
+        assertEquals(-(-2147483647 - 1), exec("int x = -2147483648; x = -x; return x;"));
+        assertEquals(-(-9223372036854775807L - 1L), exec("long x = -9223372036854775808L; x = -x; return x;"));
     }
     
     public void testNegationOverflowConst() throws Exception {
-        assertEquals(-(-2147483647 - 1), exec("int x = -(-2147483647 - 1); return x;"));
-        assertEquals(-(-9223372036854775807L - 1L), exec("long x = -(-9223372036854775807L - 1L); return x;"));
+        assertEquals(-(-2147483647 - 1), exec("int x = -(-2147483648); return x;"));
+        assertEquals(-(-9223372036854775807L - 1L), exec("long x = -(-9223372036854775808L); return x;"));
     }
 }

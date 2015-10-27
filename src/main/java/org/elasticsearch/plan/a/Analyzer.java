@@ -619,9 +619,10 @@ class Analyzer extends PlanABaseVisitor<Void> {
     @Override
     public Void visitNumeric(final NumericContext ctx) {
         final ExpressionMetadata numericemd = adapter.getExpressionMetadata(ctx);
+        final boolean negate = ctx.parent instanceof UnaryContext && ((UnaryContext)ctx.parent).SUB() != null;
 
         if (ctx.DECIMAL() != null) {
-            final String svalue = ctx.DECIMAL().getText();
+            final String svalue = (negate ? "-" : "") + ctx.DECIMAL().getText();
 
             if (svalue.endsWith("f") || svalue.endsWith("F")) {
                 try {
@@ -639,17 +640,17 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 }
             }
         } else {
-            String svalue;
+            String svalue = negate ? "-" : "";
             int radix;
 
             if (ctx.OCTAL() != null) {
-                svalue = ctx.OCTAL().getText();
+                svalue += ctx.OCTAL().getText();
                 radix = 8;
             } else if (ctx.INTEGER() != null) {
-                svalue = ctx.INTEGER().getText();
+                svalue += ctx.INTEGER().getText();
                 radix = 10;
             } else if (ctx.HEX() != null) {
-                svalue = ctx.HEX().getText();
+                svalue += ctx.HEX().getText();
                 radix = 16;
             } else {
                 throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
@@ -903,24 +904,28 @@ class Analyzer extends PlanABaseVisitor<Void> {
                         throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                     }
                 } else if (ctx.SUB() != null) {
-                    if (tmd == TypeMetadata.INT) {
-                        if (settings.getNumericOverflow()) {
-                            unaryemd.preConst = -(int)expremd.postConst;
-                        } else {
-                            unaryemd.preConst = Math.negateExact((int)expremd.postConst);
-                        }
-                    } else if (tmd == TypeMetadata.LONG) {
-                        if (settings.getNumericOverflow()) {
-                            unaryemd.preConst = -(long)expremd.postConst;
-                        } else {
-                            unaryemd.preConst = Math.negateExact((long)expremd.postConst);
-                        }
-                    } else if (tmd == TypeMetadata.FLOAT) {
-                        unaryemd.preConst = -(float)expremd.postConst;
-                    } else if (tmd == TypeMetadata.DOUBLE) {
-                        unaryemd.preConst = -(double)expremd.postConst;
+                    if (exprctx instanceof NumericContext) {
+                        unaryemd.preConst = expremd.postConst;
                     } else {
-                        throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+                        if (tmd == TypeMetadata.INT) {
+                            if (settings.getNumericOverflow()) {
+                                unaryemd.preConst = -(int)expremd.postConst;
+                            } else {
+                                unaryemd.preConst = Math.negateExact((int)expremd.postConst);
+                            }
+                        } else if (tmd == TypeMetadata.LONG) {
+                            if (settings.getNumericOverflow()) {
+                                unaryemd.preConst = -(long)expremd.postConst;
+                            } else {
+                                unaryemd.preConst = Math.negateExact((long)expremd.postConst);
+                            }
+                        } else if (tmd == TypeMetadata.FLOAT) {
+                            unaryemd.preConst = -(float)expremd.postConst;
+                        } else if (tmd == TypeMetadata.DOUBLE) {
+                            unaryemd.preConst = -(double)expremd.postConst;
+                        } else {
+                            throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+                        }
                     }
                 } else if (ctx.ADD() != null) {
                     if (tmd == TypeMetadata.INT) {
