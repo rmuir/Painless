@@ -23,8 +23,8 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
-import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.commons.GeneratorAdapter;
 
 import static org.elasticsearch.plan.a.Adapter.*;
 import static org.elasticsearch.plan.a.Definition.*;
@@ -47,7 +47,7 @@ class Writer extends PlanABaseVisitor<Void> {
     private final String source;
 
     private ClassWriter writer;
-    private MethodVisitor execute;
+    private GeneratorAdapter execute;
     
     private final CompilerSettings settings;
 
@@ -77,31 +77,26 @@ class Writer extends PlanABaseVisitor<Void> {
 
     private void writeConstructor() {
         final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
-        final String aname = "<init>";
-        final String adescriptor = "(Ljava/lang/String;Ljava/lang/String;)V";
+        final org.objectweb.asm.commons.Method method =
+                org.objectweb.asm.commons.Method.getMethod("void <init>(java.lang.String, java.lang.String)");
 
-        final MethodVisitor constructor = writer.visitMethod(access, aname, adescriptor, null, null);
-        constructor.visitCode();
-        constructor.visitVarInsn(Opcodes.ALOAD, 0);
-        constructor.visitVarInsn(Opcodes.ALOAD, 1);
-        constructor.visitVarInsn(Opcodes.ALOAD, 2);
-        constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, BASE_CLASS_INTERNAL, aname, adescriptor, false);
-        constructor.visitInsn(Opcodes.RETURN);
-        constructor.visitMaxs(0, 0);
-        constructor.visitEnd();
+        final GeneratorAdapter constructor = new GeneratorAdapter(access, method, null, null, writer);
+        constructor.loadThis();
+        constructor.loadArgs();
+        constructor.invokeConstructor(org.objectweb.asm.Type.getType(Executable.class), method);
+        constructor.returnValue();
+        constructor.endMethod();
     }
 
     private void writeExecute() {
         final int access = Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
-        final String name = "execute";
-        final String descriptor = "(Ljava/util/Map;)Ljava/lang/Object;";
+        final org.objectweb.asm.commons.Method method =
+                org.objectweb.asm.commons.Method.getMethod("java.lang.Object execute(java.util.Map)");
         final String signature = "(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)Ljava/lang/Object;";
 
-        execute = writer.visitMethod(access, name, descriptor, signature, null);
-        execute.visitCode();
+        execute = new GeneratorAdapter(access, method, signature, null, writer);
         visit(root);
-        execute.visitMaxs(0, 0);
-        execute.visitEnd();
+        execute.endMethod();
     }
 
     @Override
@@ -351,7 +346,7 @@ class Writer extends PlanABaseVisitor<Void> {
     @Override
     public Void visitDeclvar(final DeclvarContext ctx) {
         final ExpressionMetadata declvaremd = adapter.getExpressionMetadata(ctx);
-        final TypeMetadata metadata = declvaremd.to.metadata;
+        final Sort sort = declvaremd.to.sort;
         final int slot = (int)declvaremd.postConst;
 
         final ExpressionContext exprctx = ctx.expression();
@@ -361,7 +356,7 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(exprctx);
         }
 
-        switch (metadata) {
+        switch (sort) {
             case VOID:   throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
             case BOOL:
             case BYTE:
@@ -512,7 +507,7 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(exprctx0);
 
             if (adapter.getStrings(exprctx0)) {
-                writeAppendStrings(ctx, expremd0.to.metadata);
+                writeAppendStrings(ctx, expremd0.to.sort);
                 adapter.unmarkStrings(exprctx0);
             }
 
@@ -522,7 +517,7 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(exprctx1);
 
             if (adapter.getStrings(exprctx1)) {
-                writeAppendStrings(ctx, expremd1.to.metadata);
+                writeAppendStrings(ctx, expremd1.to.sort);
                 adapter.unmarkStrings(exprctx1);
             }
 
@@ -626,34 +621,34 @@ class Writer extends PlanABaseVisitor<Void> {
                     visit(exprctx);
                 }
             } else {
-                final TypeMetadata metadata = unaryemd.from.metadata;
+                final Sort sort = unaryemd.from.sort;
 
                 visit(exprctx);
 
                 if (ctx.BWNOT() != null) {
-                    if (metadata == TypeMetadata.INT)  { 
+                    if (sort == Sort.INT)  { 
                         writeConstant(ctx, -1);  execute.visitInsn(Opcodes.IXOR);
-                    } else if (metadata == TypeMetadata.LONG) { 
+                    } else if (sort == Sort.LONG) { 
                         writeConstant(ctx, -1L); execute.visitInsn(Opcodes.LXOR);
                     } else {
                         throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
                     }
                 } else if (ctx.SUB() != null) {
-                    if (metadata == TypeMetadata.INT) {
+                    if (sort == Sort.INT) {
                         if (settings.getNumericOverflow()) {
                             execute.visitInsn(Opcodes.INEG);
                         } else {
                             execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "negateExact", "(I)I", false);
                         }
-                    } else if (metadata == TypeMetadata.LONG) {
+                    } else if (sort == Sort.LONG) {
                         if (settings.getNumericOverflow()) {
                             execute.visitInsn(Opcodes.LNEG);
                         } else {
                             execute.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Math", "negateExact", "(J)J", false);
                         }
-                    } else if (metadata == TypeMetadata.FLOAT) {
+                    } else if (sort == Sort.FLOAT) {
                         execute.visitInsn(Opcodes.FNEG);
-                    } else if (metadata == TypeMetadata.DOUBLE) {
+                    } else if (sort == Sort.DOUBLE) {
                         execute.visitInsn(Opcodes.DNEG);
                     } else {
                         throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
@@ -711,19 +706,19 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(expr0);
             visit(expr1);
 
-            final TypeMetadata metadata = binaryemd.from.metadata;
+            final Sort sort = binaryemd.from.sort;
 
-            if      (ctx.MUL()   != null) writeBinaryInstruction(ctx, metadata, MUL);
-            else if (ctx.DIV()   != null) writeBinaryInstruction(ctx, metadata, DIV);
-            else if (ctx.REM()   != null) writeBinaryInstruction(ctx, metadata, REM);
-            else if (ctx.SUB()   != null) writeBinaryInstruction(ctx, metadata, SUB);
-            else if (ctx.LSH()   != null) writeBinaryInstruction(ctx, metadata, LSH);
-            else if (ctx.USH()   != null) writeBinaryInstruction(ctx, metadata, USH);
-            else if (ctx.RSH()   != null) writeBinaryInstruction(ctx, metadata, RSH);
-            else if (ctx.BWAND() != null) writeBinaryInstruction(ctx, metadata, BWAND);
-            else if (ctx.BWXOR() != null) writeBinaryInstruction(ctx, metadata, BWXOR);
-            else if (ctx.BWOR()  != null) writeBinaryInstruction(ctx, metadata, BWOR);
-            else if (ctx.ADD()   != null) writeBinaryInstruction(ctx, metadata, ADD);
+            if      (ctx.MUL()   != null) writeBinaryInstruction(ctx, sort, MUL);
+            else if (ctx.DIV()   != null) writeBinaryInstruction(ctx, sort, DIV);
+            else if (ctx.REM()   != null) writeBinaryInstruction(ctx, sort, REM);
+            else if (ctx.SUB()   != null) writeBinaryInstruction(ctx, sort, SUB);
+            else if (ctx.LSH()   != null) writeBinaryInstruction(ctx, sort, LSH);
+            else if (ctx.USH()   != null) writeBinaryInstruction(ctx, sort, USH);
+            else if (ctx.RSH()   != null) writeBinaryInstruction(ctx, sort, RSH);
+            else if (ctx.BWAND() != null) writeBinaryInstruction(ctx, sort, BWAND);
+            else if (ctx.BWXOR() != null) writeBinaryInstruction(ctx, sort, BWXOR);
+            else if (ctx.BWOR()  != null) writeBinaryInstruction(ctx, sort, BWOR);
+            else if (ctx.ADD()   != null) writeBinaryInstruction(ctx, sort, ADD);
             else {
                 throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
             }
@@ -766,7 +761,7 @@ class Writer extends PlanABaseVisitor<Void> {
 
             final ExpressionContext exprctx1 = ctx.expression(1);
             final ExpressionMetadata expremd1 = adapter.getExpressionMetadata(exprctx1);
-            final TypeMetadata tmd1 = expremd1.to.metadata;
+            final Sort tmd1 = expremd1.to.sort;
 
             visit(exprctx0);
 
@@ -860,8 +855,8 @@ class Writer extends PlanABaseVisitor<Void> {
                         if (expremd1.isNull) {
                             execute.visitJumpInsn(Opcodes.IFNULL, jump);
                         } else if (!expremd0.isNull && ctx.EQ() != null) {
-                            execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                                    "java/lang/Object", "equals", "(Ljava/lang/Object;)Z", false);
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility",
+                                    "checkEquals", "(Ljava/lang/Object;Ljava/lang/Object;)Z", false);
 
                             if (branch != null) {
                                 execute.visitJumpInsn(Opcodes.IFNE, jump);
@@ -875,8 +870,8 @@ class Writer extends PlanABaseVisitor<Void> {
                         if (expremd1.isNull) {
                             execute.visitJumpInsn(Opcodes.IFNONNULL, jump);
                         } else if (!expremd0.isNull && ctx.NE() != null) {
-                            execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                                    "java/lang/Object", "equals", "(Ljava/lang/Object;)Z", false);
+                            execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility",
+                                    "checkEquals", "(Ljava/lang/Object;Ljava/lang/Object;)Z", false);
                             execute.visitJumpInsn(Opcodes.IFEQ, jump);
                         } else {
                             execute.visitJumpInsn(Opcodes.IF_ACMPNE, jump);
@@ -1351,13 +1346,13 @@ class Writer extends PlanABaseVisitor<Void> {
         execute.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/StringBuilder", "<init>", "()V", false);
     }
 
-    private void writeAppendStrings(final ParserRuleContext source, final TypeMetadata metadata) {
+    private void writeAppendStrings(final ParserRuleContext source, final Sort sort) {
         final String internal = "java/lang/StringBuilder";
         final String builder = "Ljava/lang/StringBuilder;";
         final String string = "(Ljava/lang/String;)" + builder;
         final String object = "(Ljava/lang/Object;)" + builder;
 
-        switch (metadata) {
+        switch (sort) {
             case BOOL:   execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(Z)" + builder, false); break;
             case BYTE:   execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(I)" + builder, false); break;
             case SHORT:  execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, "append", "(I)" + builder, false); break;
@@ -1383,15 +1378,15 @@ class Writer extends PlanABaseVisitor<Void> {
      * We have to be stricter than writeBinary, and do overflow checks against the original type's size
      * instead of the promoted type's size, since the result will be implicitly cast back.
      */
-    private void writeCompoundAssignmentInstruction(ParserRuleContext source, TypeMetadata original, TypeMetadata promoted, int token) {
+    private void writeCompoundAssignmentInstruction(ParserRuleContext source, Sort original, Sort promoted, int token) {
         writeBinaryInstruction(source, promoted, token);
         if (settings.getNumericOverflow() == false) {
             if (token == ADD || token == SUB || token == MUL || token == DIV) {
-                if (original == TypeMetadata.BYTE) {
+                if (original == Sort.BYTE) {
                     execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "toByteExact", "(I)B", false);
-                } else if (original == TypeMetadata.SHORT) {
+                } else if (original == Sort.SHORT) {
                     execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "toShortExact", "(I)S", false);
-                } else if (original == TypeMetadata.CHAR) {
+                } else if (original == Sort.CHAR) {
                     execute.visitMethodInsn(Opcodes.INVOKESTATIC, "org/elasticsearch/plan/a/Utility", "toCharExact", "(I)C", false);
                 } else {
                     // all other types are never promoted during compound assignment
@@ -1401,7 +1396,7 @@ class Writer extends PlanABaseVisitor<Void> {
         }
     }
     
-    private void writeBinaryInstruction(final ParserRuleContext source, final TypeMetadata metadata, final int token) {
+    private void writeBinaryInstruction(final ParserRuleContext source, final Sort sort, final int token) {
 
         // if its a 64-bit shift, fixup the last argument to truncate to 32-bits
         // note unlike java, this means we still do binary promotion of shifts,
@@ -1409,12 +1404,12 @@ class Writer extends PlanABaseVisitor<Void> {
 
         if (token == LSH || token == RSH || token == USH) {
             // this check works because we promote shifts.
-            if (metadata == TypeMetadata.LONG) {
+            if (sort == Sort.LONG) {
                 execute.visitInsn(Opcodes.L2I);
             }
         }
 
-        switch (metadata) {
+        switch (sort) {
 
             // Testing against boolean is necessary for
             // compound assignments involving boolean values.
@@ -1630,11 +1625,11 @@ class Writer extends PlanABaseVisitor<Void> {
                 }
 
                 writeLoadStoreInstruction(source, false, variable, field, array);
-                writeAppendStrings(source, sourceemd.type.metadata);
+                writeAppendStrings(source, sourceemd.type.sort);
                 visit(parentemd.storeExpr);
 
                 if (adapter.getStrings(parentemd.storeExpr)) {
-                    writeAppendStrings(parentemd.storeExpr, expremd.to.metadata);
+                    writeAppendStrings(parentemd.storeExpr, expremd.to.sort);
                     adapter.unmarkStrings(parentemd.storeExpr);
                 }
 
@@ -1642,7 +1637,7 @@ class Writer extends PlanABaseVisitor<Void> {
                 checkWriteCast(source, sourceemd.castTo);
 
                 if (parentemd.read) {
-                    writeDup(sourceemd.type.metadata.size, field, array);
+                    writeDup(sourceemd.type.sort.size, field, array);
                 }
 
                 writeLoadStoreInstruction(source, true, variable, field, array);
@@ -1656,17 +1651,17 @@ class Writer extends PlanABaseVisitor<Void> {
                 writeLoadStoreInstruction(source, false, variable, field, array);
 
                 if (parentemd.read && parentemd.post) {
-                    writeDup(sourceemd.type.metadata.size, field, array);
+                    writeDup(sourceemd.type.sort.size, field, array);
                 }
 
                 checkWriteCast(source, sourceemd.castFrom);
                 visit(parentemd.storeExpr);
                 writeCompoundAssignmentInstruction(
-                        source, sourceemd.type.metadata, sourceemd.promote.metadata, parentemd.token);
+                        source, sourceemd.type.sort, sourceemd.promote.sort, parentemd.token);
                 checkWriteCast(source, sourceemd.castTo);
 
                 if (parentemd.read && !parentemd.post) {
-                    writeDup(sourceemd.type.metadata.size, field, array);
+                    writeDup(sourceemd.type.sort.size, field, array);
                 }
 
                 writeLoadStoreInstruction(source, true, variable, field, array);
@@ -1674,7 +1669,7 @@ class Writer extends PlanABaseVisitor<Void> {
                 visit(parentemd.storeExpr);
 
                 if (parentemd.read) {
-                    writeDup(sourceemd.type.metadata.size, field, array);
+                    writeDup(sourceemd.type.sort.size, field, array);
                 }
 
                 writeLoadStoreInstruction(source, true, variable, field, array);
@@ -1701,9 +1696,9 @@ class Writer extends PlanABaseVisitor<Void> {
 
     private void writeLoadStoreVariable(final ParserRuleContext source, final boolean store,
                                         final Type type, final int slot) {
-        final TypeMetadata metadata = type.metadata;
+        final Sort sort = type.sort;
 
-        switch (metadata) {
+        switch (sort) {
             case VOID:   throw new IllegalStateException(error(source) + "Cannot load/store void type.");
             case BOOL:
             case BYTE:
@@ -1718,23 +1713,23 @@ class Writer extends PlanABaseVisitor<Void> {
     }
 
     private void writeLoadStoreField(final boolean store, final Field field) {
-        final String internal = field.owner.internal;
-        final String name = field.field.getName();
-        final String descriptor = field.type.descriptor;
-
-        int opcode;
-
-        if (java.lang.reflect.Modifier.isStatic(field.field.getModifiers())) {
-            opcode = store ? Opcodes.PUTSTATIC : Opcodes.GETSTATIC;
+        if (java.lang.reflect.Modifier.isStatic(field.reflect.getModifiers())) {
+            if (store) {
+                execute.putStatic(field.owner.type, field.reflect.getName(), field.type.type);
+            } else {
+                execute.getStatic(field.owner.type, field.reflect.getName(), field.type.type);
+            }
         } else {
-            opcode = store ? Opcodes.PUTFIELD : Opcodes.GETFIELD;
+            if (store) {
+                execute.putField(field.owner.type, field.reflect.getName(), field.type.type);
+            } else {
+                execute.getField(field.owner.type, field.reflect.getName(), field.type.type);
+            }
         }
-
-        execute.visitFieldInsn(opcode, internal, name, descriptor);
     }
 
     private void writeLoadStoreArray(final ParserRuleContext source, final boolean store, final Type type) {
-        switch (type.metadata) {
+        switch (type.sort) {
             case VOID:   throw new IllegalStateException(error(source) + "Cannot load/store void type.");
             case BOOL:
             case BYTE:   execute.visitInsn(store ? Opcodes.BASTORE : Opcodes.BALOAD); break;
@@ -1775,12 +1770,16 @@ class Writer extends PlanABaseVisitor<Void> {
                 visit(exprctx);
             }
 
-            writeNewArray(source, sourceenmd.type);
+            if (sourceenmd.type.sort == Sort.ARRAY) {
+                execute.visitMultiANewArrayInsn(sourceenmd.type.type.getDescriptor(), sourceenmd.type.type.getDimensions());
+            } else {
+                execute.newArray(sourceenmd.type.type);
+            }
         } else if (constructor) {
-            execute.visitTypeInsn(Opcodes.NEW, sourceenmd.type.internal);
+            execute.newInstance(sourceenmd.type.type);
 
             if (parentemd.read) {
-                execute.visitInsn(Opcodes.DUP);
+                execute.dup();
             }
 
             for (final ExpressionContext exprctx : source.arguments().expression()) {
@@ -1788,29 +1787,7 @@ class Writer extends PlanABaseVisitor<Void> {
             }
 
             final Constructor target = (Constructor)sourceenmd.target;
-            final String internal = target.owner.internal;
-            final String descriptor = target.descriptor;
-
-            execute.visitMethodInsn(Opcodes.INVOKESPECIAL, internal, "<init>", descriptor, false);
-        }
-    }
-
-    private void writeNewArray(ParserRuleContext source, final Type type) {
-        if (type.dimensions > 1) {
-            execute.visitMultiANewArrayInsn(type.descriptor, type.dimensions);
-        } else {
-            switch (type.metadata) {
-                case VOID:   throw new IllegalStateException(error(source) + "Cannot create a new array of type void.");
-                case BOOL:   execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_BOOLEAN); break;
-                case BYTE:   execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_BYTE);    break;
-                case SHORT:  execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_SHORT);   break;
-                case CHAR:   execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_CHAR);    break;
-                case INT:    execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_INT);     break;
-                case LONG:   execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_LONG);    break;
-                case FLOAT:  execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_FLOAT);   break;
-                case DOUBLE: execute.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_DOUBLE);  break;
-                default:     execute.visitTypeInsn(Opcodes.ANEWARRAY, type.internal);
-            }
+            execute.invokeConstructor(target.owner.type, target.method);
         }
     }
 
@@ -1829,22 +1806,17 @@ class Writer extends PlanABaseVisitor<Void> {
         }
 
         final Method target = (Method)sourceenmd.target;
-        final String internal = target.owner.internal;
-        final String name = target.method.getName();
-        final String descriptor = target.descriptor;
-        final boolean statik = java.lang.reflect.Modifier.isStatic(target.method.getModifiers());
-        final boolean iface = java.lang.reflect.Modifier.isInterface(target.owner.clazz.getModifiers());
 
-        if (statik) {
-            execute.visitMethodInsn(Opcodes.INVOKESTATIC, internal, name, descriptor, false);
-        } else if (iface) {
-            execute.visitMethodInsn(Opcodes.INVOKEINTERFACE, internal, name, descriptor, true);
+        if (java.lang.reflect.Modifier.isStatic(target.reflect.getModifiers())) {
+            execute.invokeStatic(target.owner.type, target.method);
+        } else if (java.lang.reflect.Modifier.isInterface(target.owner.clazz.getModifiers())) {
+            execute.invokeInterface(target.owner.type, target.method);
         } else {
-            execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, name, descriptor, false);
+            execute.invokeVirtual(target.owner.type, target.method);
         }
 
         if (!parentemd.read) {
-            writePop(sourceenmd.type.metadata.size);
+            writePop(sourceenmd.type.sort.size);
         }
     }
 
@@ -1856,8 +1828,8 @@ class Writer extends PlanABaseVisitor<Void> {
         }
     }
 
-    private void checkWriteCast(final ExpressionMetadata metadata) {
-        checkWriteCast(metadata.source, metadata.cast);
+    private void checkWriteCast(final ExpressionMetadata sort) {
+        checkWriteCast(sort.source, sort.cast);
     }
 
     private void checkWriteCast(final ParserRuleContext source, final Cast cast) {
@@ -1878,110 +1850,32 @@ class Writer extends PlanABaseVisitor<Void> {
             return;
         }
 
-        if (from.metadata.numeric && to.metadata.numeric) {
-            switch (from.metadata) {
-                case BYTE:
-                    switch (to.metadata) {
-                        case SHORT:  execute.visitInsn(Opcodes.I2S); break;
-                        case CHAR:   execute.visitInsn(Opcodes.I2C); break;
-                        case LONG:   execute.visitInsn(Opcodes.I2L); break;
-                        case FLOAT:  execute.visitInsn(Opcodes.I2F); break;
-                        case DOUBLE: execute.visitInsn(Opcodes.I2D); break;
-                    }
-                    break;
-                case SHORT:
-                    switch (to.metadata) {
-                        case BYTE:   execute.visitInsn(Opcodes.I2B); break;
-                        case CHAR:   execute.visitInsn(Opcodes.I2C); break;
-                        case LONG:   execute.visitInsn(Opcodes.I2L); break;
-                        case FLOAT:  execute.visitInsn(Opcodes.I2F); break;
-                        case DOUBLE: execute.visitInsn(Opcodes.I2D); break;
-                    }
-                    break;
-                case CHAR:
-                    switch (to.metadata) {
-                        case BYTE:   execute.visitInsn(Opcodes.I2B); break;
-                        case SHORT:  execute.visitInsn(Opcodes.I2S); break;
-                        case LONG:   execute.visitInsn(Opcodes.I2L); break;
-                        case FLOAT:  execute.visitInsn(Opcodes.I2F); break;
-                        case DOUBLE: execute.visitInsn(Opcodes.I2D); break;
-                    }
-                    break;
-                case INT:
-                    switch (to.metadata) {
-                        case BYTE:   execute.visitInsn(Opcodes.I2B); break;
-                        case SHORT:  execute.visitInsn(Opcodes.I2S); break;
-                        case CHAR:   execute.visitInsn(Opcodes.I2C); break;
-                        case LONG:   execute.visitInsn(Opcodes.I2L); break;
-                        case FLOAT:  execute.visitInsn(Opcodes.I2F); break;
-                        case DOUBLE: execute.visitInsn(Opcodes.I2D); break;
-                    }
-                    break;
-                case LONG:
-                    switch (to.metadata) {
-                        case BYTE:   execute.visitInsn(Opcodes.L2I); execute.visitInsn(Opcodes.I2B); break;
-                        case SHORT:  execute.visitInsn(Opcodes.L2I); execute.visitInsn(Opcodes.I2S); break;
-                        case CHAR:   execute.visitInsn(Opcodes.L2I); execute.visitInsn(Opcodes.I2C); break;
-                        case INT:    execute.visitInsn(Opcodes.L2I); break;
-                        case FLOAT:  execute.visitInsn(Opcodes.L2F); break;
-                        case DOUBLE: execute.visitInsn(Opcodes.L2D); break;
-                    }
-                    break;
-                case FLOAT:
-                    switch (to.metadata) {
-                        case BYTE:   execute.visitInsn(Opcodes.F2I); execute.visitInsn(Opcodes.I2B); break;
-                        case SHORT:  execute.visitInsn(Opcodes.F2I); execute.visitInsn(Opcodes.I2S); break;
-                        case CHAR:   execute.visitInsn(Opcodes.F2I); execute.visitInsn(Opcodes.I2C); break;
-                        case INT:    execute.visitInsn(Opcodes.F2I); break;
-                        case LONG:   execute.visitInsn(Opcodes.F2L); break;
-                        case DOUBLE: execute.visitInsn(Opcodes.F2D); break;
-                    }
-                    break;
-                case DOUBLE:
-                    switch (to.metadata) {
-                        case BYTE:  execute.visitInsn(Opcodes.D2I); execute.visitInsn(Opcodes.I2B); break;
-                        case SHORT: execute.visitInsn(Opcodes.D2I); execute.visitInsn(Opcodes.I2S); break;
-                        case CHAR:  execute.visitInsn(Opcodes.D2I); execute.visitInsn(Opcodes.I2C); break;
-                        case INT:   execute.visitInsn(Opcodes.D2I); break;
-                        case LONG:  execute.visitInsn(Opcodes.D2L); break;
-                        case FLOAT: execute.visitInsn(Opcodes.D2F); break;
-                    }
-                    break;
-            }
+        if (from.sort.numeric && from.sort.primitive && to.sort.numeric && to.sort.primitive) {
+            execute.cast(from.type, to.type);
         } else {
             try {
                 from.clazz.asSubclass(to.clazz);
             } catch (ClassCastException exception) {
-                execute.visitTypeInsn(Opcodes.CHECKCAST, to.internal);
+                execute.checkCast(to.type);
             }
         }
     }
 
     private void writeTransform(final Transform transform) {
-        final Class clazz = transform.method.owner.clazz;
-        final java.lang.reflect.Method method = transform.method.method;
-
-        final String name = method.getName();
-        final String internal = transform.method.owner.internal;
-        final String descriptor = transform.method.descriptor;
-
-        final Type upcast = transform.upcast;
-        final Type downcast = transform.downcast;
-
-        if (upcast != null) {
-            execute.visitTypeInsn(Opcodes.CHECKCAST, upcast.internal);
+        if (transform.upcast != null) {
+            execute.checkCast(transform.upcast.type);
         }
 
-        if (java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
-            execute.visitMethodInsn(Opcodes.INVOKESTATIC, internal, name, descriptor, false);
-        } else if (java.lang.reflect.Modifier.isInterface(clazz.getModifiers())) {
-            execute.visitMethodInsn(Opcodes.INVOKEINTERFACE, internal, name, descriptor, true);
+        if (java.lang.reflect.Modifier.isStatic(transform.method.reflect.getModifiers())) {
+            execute.invokeStatic(transform.method.owner.type, transform.method.method);
+        } else if (java.lang.reflect.Modifier.isInterface(transform.method.owner.clazz.getModifiers())) {
+            execute.invokeInterface(transform.method.owner.type, transform.method.method);
         } else {
-            execute.visitMethodInsn(Opcodes.INVOKEVIRTUAL, internal, name, descriptor, false);
+            execute.invokeVirtual(transform.method.owner.type, transform.method.method);
         }
 
-        if (downcast != null) {
-            execute.visitTypeInsn(Opcodes.CHECKCAST, downcast.internal);
+        if (transform.downcast != null) {
+            execute.checkCast(transform.downcast.type);
         }
     }
 

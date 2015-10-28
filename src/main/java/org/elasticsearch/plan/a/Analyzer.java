@@ -19,24 +19,35 @@
 
 package org.elasticsearch.plan.a;
 
-import java.lang.invoke.MethodHandles;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 
 import static org.elasticsearch.plan.a.Adapter.*;
-import static org.elasticsearch.plan.a.Default.*;
 import static org.elasticsearch.plan.a.Definition.*;
 import static org.elasticsearch.plan.a.PlanAParser.*;
 
 class Analyzer extends PlanABaseVisitor<Void> {
+    private static class Variable {
+        final String name;
+        final Type type;
+        final int slot;
+
+        private Variable(final String name, final Type type, final int slot) {
+            this.name = name;
+            this.type = type;
+            this.slot = slot;
+        }
+    }
+
     private abstract static class Promotion {
         protected final ParserRuleContext source;
 
-        protected Promotion(final ParserRuleContext source) {
+        Promotion(final ParserRuleContext source) {
             this.source = source;
         }
 
@@ -46,7 +57,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         abstract Type promote(final Type from0, final Type from1);
 
-        protected void exception(final Type from0, final Type from1) {
+        void exception(final Type from0, final Type from1) {
             if (from1 == null) {
                 throw new ClassCastException(error(source) +
                         "Cannot find valid promotion for type [" + from0.name + "].");
@@ -89,48 +100,16 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
     }
 
-    private class BinaryPromotion extends Promotion {
-        BinaryPromotion(final ParserRuleContext source) {
+    private class BiBooleanPromotion extends Promotion {
+        BiBooleanPromotion(final ParserRuleContext source) {
             super(source);
         }
 
         Type promote(final Type from0, final Type from1) {
-            Type promote = promoteToType(source, from0, from1, standard.boolType);
+            Type promote = promoteToNumeric(from0, from1, false);
 
             if (promote == null) {
-                promote = promoteToNumeric(from0, from1, false);
-            }
-
-            if (promote == null) {
-                exception(from0, from1);
-            }
-
-            return promote;
-        }
-    }
-
-    private class CatPromotion extends Promotion {
-        CatPromotion(final ParserRuleContext source) {
-            super(source);
-        }
-
-        Type promote(final Type from0, final Type from1) {
-            Type promote = promoteSameType(from0, from1);
-
-            if (promote == null) {
-                promote = promoteAnyType(source, from0, from1, standard.boolType);
-            }
-
-            if (promote == null) {
-                promote = promoteAnyNumeric(from0, from1, true);
-            }
-
-            if (promote == null) {
-                promote = promoteToSubclass(from0, from1);
-            }
-
-            if (promote == null) {
-                promote = promoteToImplicit(from0, from1);
+                promote = promoteToType(source, from0, from1, definition.booleanType);
             }
 
             if (promote == null) {
@@ -147,25 +126,54 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
 
         Type promote(final Type from0, final Type from1) {
-            Type promote = promoteAnyType(source, from0, from1, standard.boolType);
-
-            if (promote == null) {
-                promote = promoteAnyNumeric(from0, from1, true);
+            if (from1 == null) {
+                return from0;
             }
 
-            if (promote == null) {
-                promote = promoteToSubclass(from0, from1);
+            final Sort sort0 = from0.sort;
+            final Sort sort1 = from1.sort;
+
+            if (sort0.primitive && sort1.primitive) {
+                if (sort0.numeric && sort1.numeric) {
+                    return promoteToNumeric(from0, from1, true);
+                }
+
+                if (sort0 == Sort.BOOL && sort1 == Sort.BOOL) {
+                    return definition.booleanType;
+                }
             }
 
-            if (promote == null) {
-                promote = promoteToImplicit(from0, from1);
+            return promoteToType(source, from0, from1, definition.objectType);
+        }
+    }
+
+    private class ReferencePromotion extends Promotion {
+        ReferencePromotion(final ParserRuleContext source) {
+            super(source);
+        }
+
+        Type promote(final Type from0, final Type from1) {
+            if (from1 == null) {
+                return from0;
             }
 
-            if (promote == null) {
-                exception(from0, from1);
+            final Sort sort0 = from0.sort;
+            final Sort sort1 = from1.sort;
+
+            if (sort0.primitive && sort1.primitive) {
+                final Type numeric0 =  promoteToNumeric(from0, null, true);
+                final Type numeric1 =  promoteToNumeric(from1, null, true);
+
+                if (numeric0 != null && numeric0.equals(numeric1)) {
+                    return numeric0;
+                }
+
+                if (sort0 == Sort.BOOL && sort1 == Sort.BOOL) {
+                    return definition.booleanType;
+                }
             }
 
-            return promote;
+            return promoteToType(source, from0, from1, definition.objectType);
         }
     }
 
@@ -175,24 +183,87 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
     private final Adapter adapter;
     private final Definition definition;
-    private final Standard standard;
     private final CompilerSettings settings;
+
+    private final Deque<Integer> scopes;
+    private final Deque<Variable> variables;
 
     private Analyzer(final Adapter adapter) {
         this.adapter = adapter;
         definition = adapter.definition;
-        standard = adapter.standard;
         settings = adapter.settings;
+
+        scopes = new ArrayDeque<>();
+        variables = new ArrayDeque<>();
+
+        incrementScope();
+        addVariable(null, "this", definition.execType);
+        addVariable(null, "input", definition.smapType);
 
         adapter.createStatementMetadata(adapter.root);
         visit(adapter.root);
+
+        decrementScope();
+    }
+
+    void incrementScope() {
+        scopes.push(0);
+    }
+
+    void decrementScope() {
+        int remove = scopes.pop();
+
+        while (remove > 0) {
+            variables.pop();
+            --remove;
+        }
+    }
+
+    Variable getVariable(final String name) {
+        final Iterator<Variable> itr = variables.iterator();
+
+        while (itr.hasNext()) {
+            final Variable variable = itr.next();
+
+            if (variable.name.equals(name)) {
+                return variable;
+            }
+        }
+
+        return null;
+    }
+
+    Variable addVariable(final ParserRuleContext source, final String name, final Type type) {
+        if (getVariable(name) != null) {
+            if (source == null) {
+                throw new IllegalArgumentException("Argument name [" + name + "] already defined within the scope.");
+            } else {
+                throw new IllegalArgumentException(
+                        error(source) + "Variable name [" + name + "] already defined within the scope.");
+            }
+        }
+
+        final Variable previous = variables.peekFirst();
+        int slot = 0;
+
+        if (previous != null) {
+            slot += previous.slot + previous.type.type.getSize();
+        }
+
+        final Variable variable = new Variable(name, type, slot);
+        variables.push(variable);
+
+        final int update = scopes.pop() + 1;
+        scopes.push(update);
+
+        return variable;
     }
 
     @Override
     public Void visitSource(final SourceContext ctx) {
         final StatementMetadata sourcesmd = adapter.getStatementMetadata(ctx);
 
-        adapter.incrementScope();
+        incrementScope();
 
         for (final StatementContext statectx : ctx.statement()) {
             if (sourcesmd.allExit) {
@@ -217,7 +288,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             sourcesmd.allReturn = statesmd.allReturn;
         }
 
-        adapter.decrementScope();
+        decrementScope();
 
         return null;
     }
@@ -226,11 +297,11 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitIf(final IfContext ctx) {
         final StatementMetadata ifsmd = adapter.getStatementMetadata(ctx);
 
-        adapter.incrementScope();
+        incrementScope();
 
         final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
-        expremd.to = standard.boolType;
+        expremd.to = definition.booleanType;
         visit(exprctx);
 
         if (expremd.postConst != null) {
@@ -259,7 +330,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             ifsmd.anyContinue |= blocksmd1.anyContinue;
         }
 
-        adapter.decrementScope();
+        decrementScope();
 
         return null;
     }
@@ -268,11 +339,11 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitWhile(final WhileContext ctx) {
         final StatementMetadata whilesmd = adapter.getStatementMetadata(ctx);
 
-        adapter.incrementScope();
+        incrementScope();
 
         final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
-        expremd.to = standard.boolType;
+        expremd.to = definition.booleanType;
         visit(exprctx);
 
         boolean exitrequired = false;
@@ -313,7 +384,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             throw new IllegalArgumentException(error(ctx) + "The loop will never exit.");
         }
 
-        adapter.decrementScope();
+        decrementScope();
 
         return null;
     }
@@ -322,7 +393,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitDo(final DoContext ctx) {
         final StatementMetadata dosmd = adapter.getStatementMetadata(ctx);
 
-        adapter.incrementScope();
+        incrementScope();
 
         final BlockContext blockctx = ctx.block();
         final StatementMetadata blocksmd = adapter.createStatementMetadata(blockctx);
@@ -342,7 +413,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
-        expremd.to = standard.boolType;
+        expremd.to = definition.booleanType;
         visit(exprctx);
 
         if (expremd.postConst != null) {
@@ -362,7 +433,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             }
         }
 
-        adapter.decrementScope();
+        decrementScope();
 
         return null;
     }
@@ -372,7 +443,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final StatementMetadata forsmd = adapter.getStatementMetadata(ctx);
         boolean exitrequired = false;
 
-        adapter.incrementScope();
+        incrementScope();
 
         final InitializerContext initctx = ctx.initializer();
 
@@ -385,7 +456,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         if (exprctx != null) {
             final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
-            expremd.to = standard.boolType;
+            expremd.to = definition.booleanType;
             visit(exprctx);
 
             if (expremd.postConst != null) {
@@ -434,7 +505,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             throw new IllegalArgumentException(error(ctx) + "The loop will never exit.");
         }
 
-        adapter.decrementScope();
+        decrementScope();
 
         return null;
     }
@@ -476,7 +547,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
-        expremd.to = standard.objectType;
+        expremd.to = definition.objectType;
         visit(exprctx);
 
         returnsmd.allExit = true;
@@ -490,7 +561,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitExpr(final ExprContext ctx) {
         final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
-        expremd.to = standard.voidType;
+        expremd.to = definition.voidType;
 
         try {
             visit(exprctx);
@@ -566,7 +637,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             visit(declctx);
         } else if (exprctx != null) {
             final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
-            expremd.to = standard.voidType;
+            expremd.to = definition.voidType;
 
             try {
                 visit(exprctx);
@@ -593,7 +664,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         if (exprctx != null) {
             final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx);
-            expremd1.to = standard.voidType;
+            expremd1.to = definition.voidType;
 
             try {
                 visit(exprctx);
@@ -631,8 +702,8 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitDecltype(final DecltypeContext ctx) {
         final ExpressionMetadata decltypeemd = adapter.getExpressionMetadata(ctx);
 
-        final String pnamestr = ctx.getText();
-        decltypeemd.from = getTypeFromCanonicalName(definition, pnamestr);
+        final String name = ctx.getText();
+        decltypeemd.from = definition.getType(name);
 
         return null;
     }
@@ -642,7 +713,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExpressionMetadata declvaremd = adapter.getExpressionMetadata(ctx);
 
         final String name = ctx.id().getText();
-        declvaremd.postConst = adapter.addVariable(ctx, name, declvaremd.to).slot;
+        declvaremd.postConst = addVariable(ctx, name, declvaremd.to).slot;
 
         final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
 
@@ -680,14 +751,14 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
             if (svalue.endsWith("f") || svalue.endsWith("F")) {
                 try {
-                    numericemd.from = standard.floatType;
+                    numericemd.from = definition.floatType;
                     numericemd.preConst = Float.parseFloat(svalue.substring(0, svalue.length() - 1));
                 } catch (NumberFormatException exception) {
                     throw new IllegalArgumentException(error(ctx) + "Invalid float constant.");
                 }
             } else {
                 try {
-                    numericemd.from = standard.doubleType;
+                    numericemd.from = definition.doubleType;
                     numericemd.preConst = Double.parseDouble(svalue);
                 } catch (NumberFormatException exception) {
                     throw new IllegalArgumentException(error(ctx) + "Invalid double constant.");
@@ -712,7 +783,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
             if (svalue.endsWith("l") || svalue.endsWith("L")) {
                 try {
-                    numericemd.from = standard.longType;
+                    numericemd.from = definition.longType;
                     numericemd.preConst = Long.parseLong(svalue.substring(0, svalue.length() - 1), radix);
                 } catch (NumberFormatException exception) {
                     throw new IllegalArgumentException(error(ctx) + "Invalid long constant.");
@@ -720,20 +791,20 @@ class Analyzer extends PlanABaseVisitor<Void> {
             } else {
                 try {
                     final Type type = numericemd.to;
-                    final TypeMetadata tmd = type == null ? TypeMetadata.INT : type.metadata;
+                    final Sort sort = type == null ? Sort.INT : type.sort;
                     final int value = Integer.parseInt(svalue, radix);
 
-                    if (tmd == TypeMetadata.BYTE && value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
-                        numericemd.from = standard.byteType;
+                    if (sort == Sort.BYTE && value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
+                        numericemd.from = definition.byteType;
                         numericemd.preConst = (byte)value;
-                    } else if (tmd == TypeMetadata.CHAR && value >= Character.MIN_VALUE && value <= Character.MAX_VALUE) {
-                        numericemd.from = standard.charType;
+                    } else if (sort == Sort.CHAR && value >= Character.MIN_VALUE && value <= Character.MAX_VALUE) {
+                        numericemd.from = definition.charType;
                         numericemd.preConst = (char)value;
-                    } else if (tmd == TypeMetadata.SHORT && value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
-                        numericemd.from = standard.shortType;
+                    } else if (sort == Sort.SHORT && value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
+                        numericemd.from = definition.shortType;
                         numericemd.preConst = (short)value;
                     } else {
-                        numericemd.from = standard.intType;
+                        numericemd.from = definition.intType;
                         numericemd.preConst = value;
                     }
                 } catch (NumberFormatException exception) {
@@ -756,7 +827,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
 
         stringemd.preConst = ctx.STRING().getText();
-        stringemd.from = standard.stringType;
+        stringemd.from = definition.stringType;
 
         markCast(stringemd);
 
@@ -772,7 +843,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
 
         charemd.preConst = ctx.CHAR().getText().charAt(0);
-        charemd.from = standard.charType;
+        charemd.from = definition.charType;
 
         markCast(charemd);
 
@@ -788,7 +859,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
 
         trueemd.preConst = true;
-        trueemd.from = standard.boolType;
+        trueemd.from = definition.booleanType;
 
         markCast(trueemd);
 
@@ -804,7 +875,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
 
         falseemd.preConst = false;
-        falseemd.from = standard.boolType;
+        falseemd.from = definition.booleanType;
 
         markCast(falseemd);
 
@@ -821,10 +892,10 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         nullemd.isNull = true;
 
-        if (nullemd.to != null && nullemd.to.metadata.object) {
+        if (nullemd.to != null && nullemd.to.sort.object) {
             nullemd.from = nullemd.to;
         } else {
-            nullemd.from = standard.objectType;
+            nullemd.from = definition.objectType;
         }
 
         markCast(nullemd);
@@ -835,7 +906,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
     @Override
     public Void visitCat(CatContext ctx) {
         final ExpressionMetadata catemd = adapter.getExpressionMetadata(ctx);
-        final Promotion promotion = new CatPromotion(ctx);
+        final Promotion promotion = new EqualityPromotion(ctx);
 
         final ExpressionContext exprctx0 = adapter.updateExpressionTree(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
@@ -855,7 +926,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             catemd.postConst = expremd0.postConst.toString() + expremd1.postConst.toString();
         }
 
-        catemd.from = standard.stringType;
+        catemd.from = definition.stringType;
         markCast(catemd);
 
         return null;
@@ -867,7 +938,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         final ExtstartContext extstartctx = ctx.extstart();
         final ExternalMetadata extstartemd = adapter.createExternalMetadata(extstartctx);
-        extstartemd.read = extemd.promotion != null || extemd.to.metadata != TypeMetadata.VOID;
+        extstartemd.read = extemd.promotion != null || extemd.to.sort != Sort.VOID;
         visit(extstartctx);
 
         extemd.statement = extstartemd.statement;
@@ -883,7 +954,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         final ExtstartContext extstartctx = ctx.extstart();
         final ExternalMetadata extstartemd = adapter.createExternalMetadata(extstartctx);
-        extstartemd.read = postincemd.promotion != null || postincemd.to.metadata != TypeMetadata.VOID;
+        extstartemd.read = postincemd.promotion != null || postincemd.to.sort != Sort.VOID;
         extstartemd.storeExpr = ctx.increment();
         extstartemd.token = ADD;
         extstartemd.post = true;
@@ -902,7 +973,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         final ExtstartContext extstartctx = ctx.extstart();
         final ExternalMetadata extstartemd = adapter.createExternalMetadata(extstartctx);
-        extstartemd.read = preincemd.promotion != null || preincemd.to.metadata != TypeMetadata.VOID;
+        extstartemd.read = preincemd.promotion != null || preincemd.to.sort != Sort.VOID;
         extstartemd.storeExpr = ctx.increment();
         extstartemd.token = ADD;
         extstartemd.pre = true;
@@ -923,14 +994,14 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
 
         if (ctx.BOOLNOT() != null) {
-            expremd.to = standard.boolType;
+            expremd.to = definition.booleanType;
             visit(exprctx);
 
             if (expremd.postConst != null) {
                 unaryemd.preConst = !(boolean)expremd.postConst;
             }
 
-            unaryemd.from = standard.boolType;
+            unaryemd.from = definition.booleanType;
         } else if (ctx.BWNOT() != null || ctx.ADD() != null || ctx.SUB() != null) {
             final Promotion promotion = ctx.BWNOT() != null ? new NumericPromotion(ctx) : new DecimalPromotion(ctx);
             expremd.promotion = promotion;
@@ -942,12 +1013,12 @@ class Analyzer extends PlanABaseVisitor<Void> {
             markCast(expremd);
 
             if (expremd.postConst != null) {
-                final TypeMetadata tmd = promote.metadata;
+                final Sort tmd = promote.sort;
 
                 if (ctx.BWNOT() != null) {
-                    if (tmd == TypeMetadata.INT) {
+                    if (tmd == Sort.INT) {
                         unaryemd.preConst = ~(int)expremd.postConst;
-                    } else if (tmd == TypeMetadata.LONG) {
+                    } else if (tmd == Sort.LONG) {
                         unaryemd.preConst = ~(long)expremd.postConst;
                     } else {
                         throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
@@ -956,34 +1027,34 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     if (exprctx instanceof NumericContext) {
                         unaryemd.preConst = expremd.postConst;
                     } else {
-                        if (tmd == TypeMetadata.INT) {
+                        if (tmd == Sort.INT) {
                             if (settings.getNumericOverflow()) {
                                 unaryemd.preConst = -(int)expremd.postConst;
                             } else {
                                 unaryemd.preConst = Math.negateExact((int)expremd.postConst);
                             }
-                        } else if (tmd == TypeMetadata.LONG) {
+                        } else if (tmd == Sort.LONG) {
                             if (settings.getNumericOverflow()) {
                                 unaryemd.preConst = -(long)expremd.postConst;
                             } else {
                                 unaryemd.preConst = Math.negateExact((long)expremd.postConst);
                             }
-                        } else if (tmd == TypeMetadata.FLOAT) {
+                        } else if (tmd == Sort.FLOAT) {
                             unaryemd.preConst = -(float)expremd.postConst;
-                        } else if (tmd == TypeMetadata.DOUBLE) {
+                        } else if (tmd == Sort.DOUBLE) {
                             unaryemd.preConst = -(double)expremd.postConst;
                         } else {
                             throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                         }
                     }
                 } else if (ctx.ADD() != null) {
-                    if (tmd == TypeMetadata.INT) {
+                    if (tmd == Sort.INT) {
                         unaryemd.preConst = +(int)expremd.postConst;
-                    } else if (tmd == TypeMetadata.LONG) {
+                    } else if (tmd == Sort.LONG) {
                         unaryemd.preConst = +(long)expremd.postConst;
-                    } else if (tmd == TypeMetadata.FLOAT) {
+                    } else if (tmd == Sort.FLOAT) {
                         unaryemd.preConst = +(float)expremd.postConst;
-                    } else if (tmd == TypeMetadata.DOUBLE) {
+                    } else if (tmd == Sort.DOUBLE) {
                         unaryemd.preConst = +(double)expremd.postConst;
                     } else {
                         throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
@@ -1038,7 +1109,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         if (ctx.ADD() != null || ctx.SUB() != null || ctx.DIV() != null || ctx.MUL() != null || ctx.REM() != null) {
             promotion = new DecimalPromotion(ctx);
         } else if (ctx.BWXOR() != null) {
-            promotion = new BinaryPromotion(ctx);
+            promotion = new BiBooleanPromotion(ctx);
         } else {
             promotion = new NumericPromotion(ctx);
         }
@@ -1061,28 +1132,28 @@ class Analyzer extends PlanABaseVisitor<Void> {
         markCast(expremd1);
 
         if (expremd0.postConst != null && expremd1.postConst != null) {
-            final TypeMetadata tmd = promote.metadata;
-            
+            final Sort tmd = promote.sort;
+
             if (ctx.MUL() != null) {
-                if (tmd == TypeMetadata.INT) {
+                if (tmd == Sort.INT) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (int)expremd0.postConst * (int)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.multiplyExact((int)expremd0.postConst, (int)expremd1.postConst);
                     }
-                } else if (tmd == TypeMetadata.LONG) {
+                } else if (tmd == Sort.LONG) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (long)expremd0.postConst * (long)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.multiplyExact((long)expremd0.postConst, (long)expremd1.postConst);
                     }
-                } else if (tmd == TypeMetadata.FLOAT) {
+                } else if (tmd == Sort.FLOAT) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (float)expremd0.postConst * (float)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Utility.multiplyWithoutOverflow((float)expremd0.postConst, (float)expremd1.postConst);
                     }
-                } else if (tmd == TypeMetadata.DOUBLE) {
+                } else if (tmd == Sort.DOUBLE) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (double)expremd0.postConst * (double)expremd1.postConst;
                     } else {
@@ -1092,25 +1163,25 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                 }
             } else if (ctx.DIV() != null) {
-                if (tmd == TypeMetadata.INT) {
+                if (tmd == Sort.INT) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (int)expremd0.postConst / (int)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Utility.divideWithoutOverflow((int)expremd0.postConst, (int)expremd1.postConst);
                     }
-                } else if (tmd == TypeMetadata.LONG) {
+                } else if (tmd == Sort.LONG) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (long)expremd0.postConst / (long)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Utility.divideWithoutOverflow((long)expremd0.postConst, (long)expremd1.postConst);
                     }
-                } else if (tmd == TypeMetadata.FLOAT) {
+                } else if (tmd == Sort.FLOAT) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (float)expremd0.postConst / (float)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Utility.divideWithoutOverflow((float)expremd0.postConst, (float)expremd1.postConst);
                     }
-                } else if (tmd == TypeMetadata.DOUBLE) {
+                } else if (tmd == Sort.DOUBLE) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (double)expremd0.postConst / (double)expremd1.postConst;
                     } else {
@@ -1120,17 +1191,17 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                 }
             } else if (ctx.REM() != null) {
-                if (tmd == TypeMetadata.INT) {
+                if (tmd == Sort.INT) {
                     binaryemd.preConst = (int)expremd0.postConst % (int)expremd1.postConst;
-                } else if (tmd == TypeMetadata.LONG) {
+                } else if (tmd == Sort.LONG) {
                     binaryemd.preConst = (long)expremd0.postConst % (long)expremd1.postConst;
-                } else if (tmd == TypeMetadata.FLOAT) {
+                } else if (tmd == Sort.FLOAT) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (float)expremd0.postConst % (float)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Utility.remainderWithoutOverflow((float)expremd0.postConst, (float)expremd1.postConst);
                     }
-                } else if (tmd == TypeMetadata.DOUBLE) {
+                } else if (tmd == Sort.DOUBLE) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (double)expremd0.postConst % (double)expremd1.postConst;
                     } else {
@@ -1140,25 +1211,25 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                 }
             } else if (ctx.ADD() != null) {
-                if (tmd == TypeMetadata.INT) {
+                if (tmd == Sort.INT) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (int)expremd0.postConst + (int)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.addExact((int)expremd0.postConst, (int)expremd1.postConst);
                     }
-                } else if (tmd == TypeMetadata.LONG) {
+                } else if (tmd == Sort.LONG) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (long)expremd0.postConst + (long)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.addExact((long)expremd0.postConst, (long)expremd1.postConst);
                     }
-                } else if (tmd == TypeMetadata.FLOAT) {
+                } else if (tmd == Sort.FLOAT) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (float)expremd0.postConst + (float)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Utility.addWithoutOverflow((float)expremd0.postConst, (float)expremd1.postConst);
                     }
-                } else if (tmd == TypeMetadata.DOUBLE) {
+                } else if (tmd == Sort.DOUBLE) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (double)expremd0.postConst + (double)expremd1.postConst;
                     } else {
@@ -1168,25 +1239,25 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                 }
             } else if (ctx.SUB() != null) {
-                if (tmd == TypeMetadata.INT) {
+                if (tmd == Sort.INT) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (int)expremd0.postConst - (int)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.subtractExact((int)expremd0.postConst, (int)expremd1.postConst);
                     }
-                } else if (tmd == TypeMetadata.LONG) {
+                } else if (tmd == Sort.LONG) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (long)expremd0.postConst - (long)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Math.subtractExact((long)expremd0.postConst, (long)expremd1.postConst);
                     }
-                } else if (tmd == TypeMetadata.FLOAT) {
+                } else if (tmd == Sort.FLOAT) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (float)expremd0.postConst - (float)expremd1.postConst;
                     } else {
                         binaryemd.preConst = Utility.subtractWithoutOverflow((float)expremd0.postConst, (float)expremd1.postConst);
                     }
-                } else if (tmd == TypeMetadata.DOUBLE) {
+                } else if (tmd == Sort.DOUBLE) {
                     if (settings.getNumericOverflow()) {
                         binaryemd.preConst = (double)expremd0.postConst - (double)expremd1.postConst;
                     } else {
@@ -1196,51 +1267,51 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                 }
             } else if (ctx.LSH() != null) {
-                if (tmd == TypeMetadata.INT) {
+                if (tmd == Sort.INT) {
                     binaryemd.preConst = (int)expremd0.postConst << (int)expremd1.postConst;
-                } else if (tmd == TypeMetadata.LONG) {
+                } else if (tmd == Sort.LONG) {
                     binaryemd.preConst = (long)expremd0.postConst << (long)expremd1.postConst;
                 } else {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                 }
             } else if (ctx.RSH() != null) {
-                if (tmd == TypeMetadata.INT) {
+                if (tmd == Sort.INT) {
                     binaryemd.preConst = (int)expremd0.postConst >> (int)expremd1.postConst;
-                } else if (tmd == TypeMetadata.LONG) {
+                } else if (tmd == Sort.LONG) {
                     binaryemd.preConst = (long)expremd0.postConst >> (long)expremd1.postConst;
                 } else {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                 }
             } else if (ctx.USH() != null) {
-                if (tmd == TypeMetadata.INT) {
+                if (tmd == Sort.INT) {
                     binaryemd.preConst = (int)expremd0.postConst >>> (int)expremd1.postConst;
-                } else if (tmd == TypeMetadata.LONG) {
+                } else if (tmd == Sort.LONG) {
                     binaryemd.preConst = (long)expremd0.postConst >>> (long)expremd1.postConst;
                 } else {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                 }
             } else if (ctx.BWAND() != null) {
-                if (tmd == TypeMetadata.INT) {
+                if (tmd == Sort.INT) {
                     binaryemd.preConst = (int)expremd0.postConst & (int)expremd1.postConst;
-                } else if (tmd == TypeMetadata.LONG) {
+                } else if (tmd == Sort.LONG) {
                     binaryemd.preConst = (long)expremd0.postConst & (long)expremd1.postConst;
                 } else {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                 }
             } else if (ctx.BWXOR() != null) {
-                if (tmd == TypeMetadata.BOOL) {
+                if (tmd == Sort.BOOL) {
                     binaryemd.preConst = (boolean)expremd0.postConst ^ (boolean)expremd1.postConst;
-                } else if (tmd == TypeMetadata.INT) {
+                } else if (tmd == Sort.INT) {
                     binaryemd.preConst = (int)expremd0.postConst ^ (int)expremd1.postConst;
-                } else if (tmd == TypeMetadata.LONG) {
+                } else if (tmd == Sort.LONG) {
                     binaryemd.preConst = (long)expremd0.postConst ^ (long)expremd1.postConst;
                 } else {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
                 }
             } else if (ctx.BWOR() != null) {
-                if (tmd == TypeMetadata.INT) {
+                if (tmd == Sort.INT) {
                     binaryemd.preConst = (int)expremd0.postConst | (int)expremd1.postConst;
-                } else if (tmd == TypeMetadata.LONG) {
+                } else if (tmd == Sort.LONG) {
                     binaryemd.preConst = (long)expremd0.postConst | (long)expremd1.postConst;
                 } else {
                     throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
@@ -1259,9 +1330,11 @@ class Analyzer extends PlanABaseVisitor<Void> {
     @Override
     public Void visitComp(final CompContext ctx) {
         final ExpressionMetadata compemd = adapter.getExpressionMetadata(ctx);
-        final Promotion promotion =
-                ctx.EQ() != null || ctx.EQR() != null || ctx.NE() != null || ctx.NER() != null ?
-                new EqualityPromotion(ctx) : new DecimalPromotion(ctx);
+
+        final boolean equality = ctx.EQ() != null || ctx.NE() != null;
+        final boolean reference = ctx.EQR() != null || ctx.NER() != null;
+        final Promotion promotion = equality ? new EqualityPromotion(ctx) :
+                reference ? new ReferencePromotion(ctx) : new DecimalPromotion(ctx);
 
         final ExpressionContext exprctx0 = adapter.updateExpressionTree(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
@@ -1273,11 +1346,11 @@ class Analyzer extends PlanABaseVisitor<Void> {
         expremd1.promotion = promotion;
         visit(exprctx1);
 
-        final Type promote = promotion.promote(expremd0.from, expremd1.from);
-
         if (expremd0.isNull && expremd1.isNull) {
             throw new IllegalArgumentException(error(ctx) + "Unnecessary comparison of null constants.");
         }
+
+        final Type promote = promotion.promote(expremd0.from, expremd1.from);
 
         expremd0.to = promote;
         markCast(expremd0);
@@ -1285,18 +1358,18 @@ class Analyzer extends PlanABaseVisitor<Void> {
         markCast(expremd1);
 
         if (expremd0.postConst != null && expremd1.postConst != null) {
-            final TypeMetadata metadata = promote.metadata;
+            final Sort sort = promote.sort;
 
             if (ctx.EQ() != null || ctx.EQR() != null) {
-                if (metadata == TypeMetadata.BOOL) {
+                if (sort == Sort.BOOL) {
                     compemd.preConst = (boolean)expremd0.postConst == (boolean)expremd1.postConst;
-                } else if (metadata == TypeMetadata.INT) {
+                } else if (sort == Sort.INT) {
                     compemd.preConst = (int)expremd0.postConst == (int)expremd1.postConst;
-                } else if (metadata == TypeMetadata.LONG) {
+                } else if (sort == Sort.LONG) {
                     compemd.preConst = (long)expremd0.postConst == (long)expremd1.postConst;
-                } else if (metadata == TypeMetadata.FLOAT) {
+                } else if (sort == Sort.FLOAT) {
                     compemd.preConst = (float)expremd0.postConst == (float)expremd1.postConst;
-                } else if (metadata == TypeMetadata.DOUBLE) {
+                } else if (sort == Sort.DOUBLE) {
                     compemd.preConst = (double)expremd0.postConst == (double)expremd1.postConst;
                 } else {
                     if (ctx.EQ() != null && !expremd0.isNull && !expremd1.isNull) {
@@ -1306,15 +1379,15 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     }
                 }
             } else if (ctx.NE() != null || ctx.NER() != null) {
-                if (metadata == TypeMetadata.BOOL) {
+                if (sort == Sort.BOOL) {
                     compemd.preConst = (boolean)expremd0.postConst != (boolean)expremd1.postConst;
-                } else if (metadata == TypeMetadata.INT) {
+                } else if (sort == Sort.INT) {
                     compemd.preConst = (int)expremd0.postConst != (int)expremd1.postConst;
-                } else if (metadata == TypeMetadata.LONG) {
+                } else if (sort == Sort.LONG) {
                     compemd.preConst = (long)expremd0.postConst != (long)expremd1.postConst;
-                } else if (metadata == TypeMetadata.FLOAT) {
+                } else if (sort == Sort.FLOAT) {
                     compemd.preConst = (float)expremd0.postConst != (float)expremd1.postConst;
-                } else if (metadata == TypeMetadata.DOUBLE) {
+                } else if (sort == Sort.DOUBLE) {
                     compemd.preConst = (double)expremd0.postConst != (double)expremd1.postConst;
                 } else {
                     if (ctx.NE() != null && !expremd0.isNull && !expremd1.isNull) {
@@ -1324,43 +1397,43 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     }
                 }
             } else if (ctx.GTE() != null) {
-                if (metadata == TypeMetadata.INT) {
+                if (sort == Sort.INT) {
                     compemd.preConst = (int)expremd0.postConst >= (int)expremd1.postConst;
-                } else if (metadata == TypeMetadata.LONG) {
+                } else if (sort == Sort.LONG) {
                     compemd.preConst = (long)expremd0.postConst >= (long)expremd1.postConst;
-                } else if (metadata == TypeMetadata.FLOAT) {
+                } else if (sort == Sort.FLOAT) {
                     compemd.preConst = (float)expremd0.postConst >= (float)expremd1.postConst;
-                } else if (metadata == TypeMetadata.DOUBLE) {
+                } else if (sort == Sort.DOUBLE) {
                     compemd.preConst = (double)expremd0.postConst >= (double)expremd1.postConst;
                 }
             } else if (ctx.GT() != null) {
-                if (metadata == TypeMetadata.INT) {
+                if (sort == Sort.INT) {
                     compemd.preConst = (int)expremd0.postConst > (int)expremd1.postConst;
-                } else if (metadata == TypeMetadata.LONG) {
+                } else if (sort == Sort.LONG) {
                     compemd.preConst = (long)expremd0.postConst > (long)expremd1.postConst;
-                } else if (metadata == TypeMetadata.FLOAT) {
+                } else if (sort == Sort.FLOAT) {
                     compemd.preConst = (float)expremd0.postConst > (float)expremd1.postConst;
-                } else if (metadata == TypeMetadata.DOUBLE) {
+                } else if (sort == Sort.DOUBLE) {
                     compemd.preConst = (double)expremd0.postConst > (double)expremd1.postConst;
                 }
             } else if (ctx.LTE() != null) {
-                if (metadata == TypeMetadata.INT) {
+                if (sort == Sort.INT) {
                     compemd.preConst = (int)expremd0.postConst <= (int)expremd1.postConst;
-                } else if (metadata == TypeMetadata.LONG) {
+                } else if (sort == Sort.LONG) {
                     compemd.preConst = (long)expremd0.postConst <= (long)expremd1.postConst;
-                } else if (metadata == TypeMetadata.FLOAT) {
+                } else if (sort == Sort.FLOAT) {
                     compemd.preConst = (float)expremd0.postConst <= (float)expremd1.postConst;
-                } else if (metadata == TypeMetadata.DOUBLE) {
+                } else if (sort == Sort.DOUBLE) {
                     compemd.preConst = (double)expremd0.postConst <= (double)expremd1.postConst;
                 }
             } else if (ctx.LT() != null) {
-                if (metadata == TypeMetadata.INT) {
+                if (sort == Sort.INT) {
                     compemd.preConst = (int)expremd0.postConst < (int)expremd1.postConst;
-                } else if (metadata == TypeMetadata.LONG) {
+                } else if (sort == Sort.LONG) {
                     compemd.preConst = (long)expremd0.postConst < (long)expremd1.postConst;
-                } else if (metadata == TypeMetadata.FLOAT) {
+                } else if (sort == Sort.FLOAT) {
                     compemd.preConst = (float)expremd0.postConst < (float)expremd1.postConst;
-                } else if (metadata == TypeMetadata.DOUBLE) {
+                } else if (sort == Sort.DOUBLE) {
                     compemd.preConst = (double)expremd0.postConst < (double)expremd1.postConst;
                 }
             } else {
@@ -1368,7 +1441,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             }
         }
 
-        compemd.from = standard.boolType;
+        compemd.from = definition.booleanType;
         markCast(compemd);
 
         return null;
@@ -1380,12 +1453,12 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         final ExpressionContext exprctx0 = adapter.updateExpressionTree(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
-        expremd0.to = standard.boolType;
+        expremd0.to = definition.booleanType;
         visit(exprctx0);
 
         final ExpressionContext exprctx1 = adapter.updateExpressionTree(ctx.expression(1));
         final ExpressionMetadata expremd1 = adapter.createExpressionMetadata(exprctx1);
-        expremd1.to = standard.boolType;
+        expremd1.to = definition.booleanType;
         visit(exprctx1);
 
         if (expremd0.postConst != null && expremd1.postConst != null) {
@@ -1398,7 +1471,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             }
         }
 
-        boolemd.from = standard.boolType;
+        boolemd.from = definition.booleanType;
         markCast(boolemd);
 
         return null;
@@ -1410,7 +1483,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         final ExpressionContext exprctx0 = adapter.updateExpressionTree(ctx.expression(0));
         final ExpressionMetadata expremd0 = adapter.createExpressionMetadata(exprctx0);
-        expremd0.to = standard.boolType;
+        expremd0.to = definition.booleanType;
         visit(exprctx0);
 
         if (expremd0.postConst != null) {
@@ -1458,7 +1531,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExtstartContext extstartctx = ctx.extstart();
         final ExternalMetadata extstartemd = adapter.createExternalMetadata(extstartctx);
 
-        extstartemd.read = assignemd.promotion != null || assignemd.to.metadata != TypeMetadata.VOID;
+        extstartemd.read = assignemd.promotion != null || assignemd.to.sort != Sort.VOID;
         extstartemd.storeExpr = adapter.updateExpressionTree(ctx.expression());
 
         if (ctx.AMUL() != null) {
@@ -1631,7 +1704,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ParserRuleContext parent = braceenmd.parent;
         final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
 
-        if (parentemd.current.dimensions == 0) {
+        if (parentemd.current.sort != Sort.ARRAY) {
             throw new IllegalArgumentException(error(ctx) +
                     "Attempting to address a non-array type [" + parentemd.current.name + "] as an array.");
         }
@@ -1643,11 +1716,11 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
-        expremd.to = standard.intType;
+        expremd.to = definition.intType;
         visit(exprctx);
 
         braceenmd.target = "#brace";
-        braceenmd.type = getTypeWithArrayDimensions(parentemd.current.struct, parentemd.current.dimensions - 1);
+        braceenmd.type = definition.getType(parentemd.current.struct, parentemd.current.type.getDimensions() - 1);
         parentemd.current = analyzeLoadStoreExternal(ctx);
 
         if (dotctx != null) {
@@ -1691,7 +1764,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
 
         final String typestr = ctx.type().getText();
-        typeenmd.type = getTypeFromCanonicalName(definition, typestr);
+        typeenmd.type = definition.getType(typestr);
         parentemd.current = typeenmd.type;
         parentemd.statik = true;
 
@@ -1715,7 +1788,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         final String name = ctx.id().getText();
 
-        if (parentemd.current.dimensions > 0) {
+        if (parentemd.current.sort == Sort.ARRAY) {
             throw new IllegalArgumentException(error(ctx) + "Unexpected call [" + name + "] on an array.");
         } else if (callenmd.last && parentemd.storeExpr != null) {
             throw new IllegalArgumentException(error(ctx) + "Cannot assign a value to a call [" + name + "].");
@@ -1739,7 +1812,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         callenmd.type = method.rtn;
 
         if (!parentemd.read) {
-            parentemd.current = standard.voidType;
+            parentemd.current = definition.voidType;
             parentemd.statement = true;
         } else {
             parentemd.current = method.rtn;
@@ -1786,7 +1859,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final boolean store = memberenmd.last && parentemd.storeExpr != null;
 
         if (parentemd.current == null) {
-            final Variable variable = adapter.getVariable(name);
+            final Variable variable = getVariable(name);
 
             if (variable == null) {
                 throw new IllegalArgumentException(error(ctx) + "Unknown variable [" + name + "].");
@@ -1796,7 +1869,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             memberenmd.type = variable.type;
             parentemd.current = analyzeLoadStoreExternal(ctx);
         } else {
-            if (parentemd.current.dimensions > 0) {
+            if (parentemd.current.sort == Sort.ARRAY) {
                 if ("length".equals(name)) {
                     if (!parentemd.read) {
                         throw new IllegalArgumentException(error(ctx) + "Must read array field [length].");
@@ -1806,8 +1879,8 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     }
 
                     memberenmd.target = "#length";
-                    memberenmd.type = standard.intType;
-                    parentemd.current = standard.intType;
+                    memberenmd.type = definition.intType;
+                    parentemd.current = definition.intType;
                 } else {
                     throw new IllegalArgumentException(error(ctx) + "Unexpected array field [" + name + "].");
                 }
@@ -1820,7 +1893,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                             error(ctx) + "Unknown field [" + name + "] for type [" + struct.name + "].");
                 }
 
-                if (store && java.lang.reflect.Modifier.isFinal(field.field.getModifiers())) {
+                if (store && java.lang.reflect.Modifier.isFinal(field.reflect.getModifiers())) {
                         throw new IllegalArgumentException(error(ctx) + "Cannot write to read-only" +
                                 " field [" + name + "] for type [" + struct.name + "].");
                 }
@@ -1880,16 +1953,16 @@ class Analyzer extends PlanABaseVisitor<Void> {
             }
 
             types = new Type[size];
-            Arrays.fill(types, standard.intType);
+            Arrays.fill(types, definition.intType);
 
             callenmd.target = "#makearray";
 
             if (size > 1) {
-                callenmd.type = getTypeWithArrayDimensions(struct, size);
+                callenmd.type = definition.getType(struct, size);
                 parentemd.current = callenmd.type;
             } else if (size == 1) {
-                callenmd.type = getTypeWithArrayDimensions(struct, 0);
-                parentemd.current = getTypeWithArrayDimensions(struct, 1);
+                callenmd.type = definition.getType(struct, 0);
+                parentemd.current = definition.getType(struct, 1);
             } else {
                 throw new IllegalArgumentException(error(ctx) + "A newly created array cannot have zero dimensions.");
             }
@@ -1901,10 +1974,10 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 constructor.arguments.toArray(types);
 
                 callenmd.target = constructor;
-                callenmd.type = getTypeWithArrayDimensions(struct, 0);
+                callenmd.type = definition.getType(struct, 0);
 
                 if (!parentemd.read) {
-                    parentemd.current = standard.voidType;
+                    parentemd.current = definition.voidType;
                     parentemd.statement = true;
                 } else {
                     parentemd.current = callenmd.type;
@@ -1949,26 +2022,26 @@ class Analyzer extends PlanABaseVisitor<Void> {
     @Override
     public Void visitIncrement(IncrementContext ctx) {
         final ExpressionMetadata incremd = adapter.getExpressionMetadata(ctx);
-        final TypeMetadata metadata = incremd.to == null ? null : incremd.to.metadata;
+        final Sort sort = incremd.to == null ? null : incremd.to.sort;
         final boolean positive = ctx.INCR() != null;
 
         if (incremd.to == null) {
             incremd.preConst = positive ? 1 : -1;
-            incremd.from = standard.intType;
+            incremd.from = definition.intType;
         } else {
-            switch (metadata) {
+            switch (sort) {
                 case LONG:
                     incremd.preConst = positive ? 1L : -1L;
-                    incremd.from = standard.longType;
+                    incremd.from = definition.longType;
                 case FLOAT:
                     incremd.preConst = positive ? 1.0F : -1.0F;
-                    incremd.from = standard.floatType;
+                    incremd.from = definition.floatType;
                 case DOUBLE:
                     incremd.preConst = positive ? 1.0 : -1.0;
-                    incremd.from = standard.doubleType;
+                    incremd.from = definition.doubleType;
                 default:
                     incremd.preConst = positive ? 1 : -1;
-                    incremd.from = standard.intType;
+                    incremd.from = definition.intType;
             }
         }
 
@@ -1988,16 +2061,16 @@ class Analyzer extends PlanABaseVisitor<Void> {
             final int token = parentemd.token;
 
             if (token == CAT) {
-                storeemd.promotion = new CatPromotion(source);
+                storeemd.promotion = new EqualityPromotion(source);
                 visit(store);
                 storeemd.to = storeemd.from;
                 markCast(storeemd);
 
-                extenmd.castTo = getLegalCast(source, standard.stringType, extenmd.type, false);
+                extenmd.castTo = getLegalCast(source, definition.stringType, extenmd.type, false);
             } else if (token > 0) {
                 final boolean binary = token == BWAND || token == BWXOR || token == BWOR;
                 final boolean decimal = token == MUL || token == DIV || token == REM || token == ADD || token == SUB;
-                Promotion promotion = binary ? new BinaryPromotion(source) :
+                Promotion promotion = binary ? new BiBooleanPromotion(source) :
                         decimal ? new DecimalPromotion(source) : new NumericPromotion(source);
                 extenmd.promote = promotion.promote(extenmd.type);
 
@@ -2011,7 +2084,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 visit(store);
             }
 
-            return parentemd.read ? extenmd.type : standard.voidType;
+            return parentemd.read ? extenmd.type : definition.voidType;
         } else {
             return extenmd.type;
         }
@@ -2025,7 +2098,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         if (emd.to != null) {
             emd.cast = getLegalCast(emd.source, emd.from, emd.to, emd.explicit);
 
-            if (emd.preConst != null && emd.to.metadata.constant) {
+            if (emd.preConst != null && emd.to.sort.constant) {
                 emd.postConst = constCast(emd.source, emd.preConst, emd.cast);
             }
         } else if (emd.promotion == null) {
@@ -2033,31 +2106,416 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
     }
 
-    private Cast getLegalCast(final ParserRuleContext source, final Type from, final Type to, final boolean force) {
+    private Cast getLegalCast(final ParserRuleContext source, final Type from, final Type to, final boolean explicit) {
         final Cast cast = new Cast(from, to);
 
         if (from.equals(to)) {
             return cast;
         }
 
-        final Transform explicit = definition.explicits.get(cast);
+        switch (from.sort) {
+            case BOOL:
+                switch (to.sort) {
+                    case OBJECT:
+                    case BOOL_OBJ:
+                        return checkTransform(source, cast);
+                }
 
-        if (force && explicit != null) {
-            return explicit;
-        }
+                break;
+            case BYTE:
+                switch (to.sort) {
+                    case SHORT:
+                    case INT:
+                    case LONG:
+                    case FLOAT:
+                    case DOUBLE:
+                        return cast;
+                    case CHAR:
+                        if (explicit)
+                            return cast;
 
-        final Transform implicit = definition.implicits.get(cast);
+                        break;
+                    case OBJECT:
+                    case NUMBER:
+                    case BYTE_OBJ:
+                    case SHORT_OBJ:
+                    case INT_OBJ:
+                    case LONG_OBJ:
+                    case FLOAT_OBJ:
+                    case DOUBLE_OBJ:
+                        return checkTransform(source, cast);
+                    case CHAR_OBJ:
+                        if (explicit)
+                            return checkTransform(source, cast);
 
-        if (implicit != null) {
-            return implicit;
-        }
+                        break;
+                }
 
-        if (definition.upcasts.contains(cast)) {
-            return cast;
-        }
+                break;
+            case SHORT:
+                switch (to.sort) {
+                    case INT:
+                    case LONG:
+                    case FLOAT:
+                    case DOUBLE:
+                        return cast;
+                    case BYTE:
+                    case CHAR:
+                        if (explicit)
+                            return cast;
 
-        if (from.metadata.numeric && to.metadata.numeric && (force || definition.numerics.contains(cast))) {
-            return cast;
+                        break;
+                    case OBJECT:
+                    case NUMBER:
+                    case SHORT_OBJ:
+                    case INT_OBJ:
+                    case LONG_OBJ:
+                    case FLOAT_OBJ:
+                    case DOUBLE_OBJ:
+                        return checkTransform(source, cast);
+                    case BYTE_OBJ:
+                    case CHAR_OBJ:
+                        if (explicit)
+                            return checkTransform(source, cast);
+
+                        break;
+                }
+
+                break;
+            case CHAR:
+                switch (to.sort) {
+                    case INT:
+                    case LONG:
+                    case FLOAT:
+                    case DOUBLE:
+                        return cast;
+                    case BYTE:
+                    case SHORT:
+                        if (explicit)
+                            return cast;
+
+                        break;
+                    case OBJECT:
+                    case NUMBER:
+                    case CHAR_OBJ:
+                    case INT_OBJ:
+                    case LONG_OBJ:
+                    case FLOAT_OBJ:
+                    case DOUBLE_OBJ:
+                        return checkTransform(source, cast);
+                    case BYTE_OBJ:
+                    case SHORT_OBJ:
+                        if (explicit)
+                            return checkTransform(source, cast);
+
+                        break;
+                }
+
+                break;
+            case INT:
+                switch (to.sort) {
+                    case LONG:
+                    case FLOAT:
+                    case DOUBLE:
+                        return cast;
+                    case BYTE:
+                    case SHORT:
+                    case CHAR:
+                        if (explicit)
+                            return cast;
+
+                        break;
+                    case OBJECT:
+                    case NUMBER:
+                    case INT_OBJ:
+                    case LONG_OBJ:
+                    case FLOAT_OBJ:
+                    case DOUBLE_OBJ:
+                        return checkTransform(source, cast);
+                    case BYTE_OBJ:
+                    case SHORT_OBJ:
+                    case CHAR_OBJ:
+                        if (explicit)
+                            return checkTransform(source, cast);
+
+                        break;
+                }
+
+                break;
+            case LONG:
+                switch (to.sort) {
+                    case FLOAT:
+                    case DOUBLE:
+                        return cast;
+                    case BYTE:
+                    case SHORT:
+                    case CHAR:
+                    case INT:
+                        if (explicit)
+                            return cast;
+
+                        break;
+                    case OBJECT:
+                    case NUMBER:
+                    case LONG_OBJ:
+                    case FLOAT_OBJ:
+                    case DOUBLE_OBJ:
+                        return checkTransform(source, cast);
+                    case BYTE_OBJ:
+                    case SHORT_OBJ:
+                    case CHAR_OBJ:
+                    case INT_OBJ:
+                        if (explicit)
+                            return checkTransform(source, cast);
+
+                        break;
+                }
+
+                break;
+            case FLOAT:
+                switch (to.sort) {
+                    case DOUBLE:
+                        return cast;
+                    case BYTE:
+                    case SHORT:
+                    case CHAR:
+                    case INT:
+                    case LONG:
+                        if (explicit)
+                            return cast;
+
+                        break;
+                    case OBJECT:
+                    case NUMBER:
+                    case FLOAT_OBJ:
+                    case DOUBLE_OBJ:
+                        return checkTransform(source, cast);
+                    case BYTE_OBJ:
+                    case SHORT_OBJ:
+                    case CHAR_OBJ:
+                    case INT_OBJ:
+                    case LONG_OBJ:
+                        if (explicit)
+                            return checkTransform(source, cast);
+
+                        break;
+                }
+
+                break;
+            case DOUBLE:
+                switch (to.sort) {
+                    case BYTE:
+                    case SHORT:
+                    case CHAR:
+                    case INT:
+                    case LONG:
+                    case FLOAT:
+                        if (explicit)
+                            return cast;
+
+                        break;
+                    case OBJECT:
+                    case NUMBER:
+                    case DOUBLE_OBJ:
+                        return checkTransform(source, cast);
+                    case BYTE_OBJ:
+                    case SHORT_OBJ:
+                    case CHAR_OBJ:
+                    case INT_OBJ:
+                    case LONG_OBJ:
+                    case FLOAT_OBJ:
+                        if (explicit)
+                            return checkTransform(source, cast);
+
+                        break;
+                }
+
+                break;
+            case OBJECT:
+            case NUMBER:
+                switch (to.sort) {
+                    case BYTE:
+                    case SHORT:
+                    case CHAR:
+                    case INT:
+                    case LONG:
+                    case FLOAT:
+                    case DOUBLE:
+                        if (explicit)
+                            return checkTransform(source, cast);
+
+                        break;
+                }
+
+                break;
+            case BOOL_OBJ:
+                switch (to.sort) {
+                    case BOOL:
+                        return checkTransform(source, cast);
+                }
+
+                break;
+            case BYTE_OBJ:
+                switch (to.sort) {
+                    case BYTE:
+                    case SHORT:
+                    case INT:
+                    case LONG:
+                    case FLOAT:
+                    case DOUBLE:
+                    case SHORT_OBJ:
+                    case INT_OBJ:
+                    case LONG_OBJ:
+                    case FLOAT_OBJ:
+                    case DOUBLE_OBJ:
+                        return checkTransform(source, cast);
+                    case CHAR:
+                    case CHAR_OBJ:
+                        if (explicit)
+                            return checkTransform(source, cast);
+
+                        break;
+                }
+
+                break;
+            case SHORT_OBJ:
+                switch (to.sort) {
+                    case SHORT:
+                    case INT:
+                    case LONG:
+                    case FLOAT:
+                    case DOUBLE:
+                    case INT_OBJ:
+                    case LONG_OBJ:
+                    case FLOAT_OBJ:
+                    case DOUBLE_OBJ:
+                        return checkTransform(source, cast);
+                    case BYTE:
+                    case CHAR:
+                    case BYTE_OBJ:
+                    case CHAR_OBJ:
+                        if (explicit)
+                            return checkTransform(source, cast);
+
+                        break;
+                }
+
+                break;
+            case CHAR_OBJ:
+                switch (to.sort) {
+                    case CHAR:
+                    case INT:
+                    case LONG:
+                    case FLOAT:
+                    case DOUBLE:
+                    case INT_OBJ:
+                    case LONG_OBJ:
+                    case FLOAT_OBJ:
+                    case DOUBLE_OBJ:
+                        return checkTransform(source, cast);
+                    case BYTE:
+                    case SHORT:
+                    case BYTE_OBJ:
+                    case SHORT_OBJ:
+                        if (explicit)
+                            return checkTransform(source, cast);
+
+                        break;
+                }
+
+                break;
+            case INT_OBJ:
+                switch (to.sort) {
+                    case INT:
+                    case LONG:
+                    case FLOAT:
+                    case DOUBLE:
+                    case LONG_OBJ:
+                    case FLOAT_OBJ:
+                    case DOUBLE_OBJ:
+                        return checkTransform(source, cast);
+                    case BYTE:
+                    case SHORT:
+                    case CHAR:
+                    case BYTE_OBJ:
+                    case SHORT_OBJ:
+                    case CHAR_OBJ:
+                        if (explicit)
+                            return checkTransform(source, cast);
+
+                        break;
+                }
+
+                break;
+            case LONG_OBJ:
+                switch (to.sort) {
+                    case LONG:
+                    case FLOAT:
+                    case DOUBLE:
+                    case FLOAT_OBJ:
+                    case DOUBLE_OBJ:
+                        return checkTransform(source, cast);
+                    case BYTE:
+                    case SHORT:
+                    case CHAR:
+                    case INT:
+                    case BYTE_OBJ:
+                    case SHORT_OBJ:
+                    case CHAR_OBJ:
+                    case INT_OBJ:
+                        if (explicit)
+                            return checkTransform(source, cast);
+
+                        break;
+                }
+
+                break;
+            case FLOAT_OBJ:
+                switch (to.sort) {
+                    case FLOAT:
+                    case DOUBLE:
+                    case DOUBLE_OBJ:
+                        return checkTransform(source, cast);
+                    case BYTE:
+                    case SHORT:
+                    case CHAR:
+                    case INT:
+                    case LONG:
+                    case BYTE_OBJ:
+                    case SHORT_OBJ:
+                    case CHAR_OBJ:
+                    case INT_OBJ:
+                    case LONG_OBJ:
+                        if (explicit)
+                            return checkTransform(source, cast);
+
+                        break;
+                }
+
+                break;
+            case DOUBLE_OBJ:
+                switch (to.sort) {
+                    case DOUBLE:
+                        return checkTransform(source, cast);
+                    case BYTE:
+                    case SHORT:
+                    case CHAR:
+                    case INT:
+                    case LONG:
+                    case FLOAT:
+                    case BYTE_OBJ:
+                    case SHORT_OBJ:
+                    case CHAR_OBJ:
+                    case INT_OBJ:
+                    case LONG_OBJ:
+                    case FLOAT_OBJ:
+                        if (explicit)
+                            return checkTransform(source, cast);
+
+                        break;
+                }
+
+                break;
         }
 
         try {
@@ -2066,7 +2524,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             return cast;
         } catch (ClassCastException cce0) {
             try {
-                if (force) {
+                if (explicit) {
                     to.clazz.asSubclass(from.clazz);
 
                     return cast;
@@ -2081,26 +2539,37 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
     }
 
+    private Transform checkTransform(final ParserRuleContext source, final Cast cast) {
+        final Transform transform = definition.transforms.get(cast);
+
+        if (transform == null) {
+            throw new ClassCastException(
+                    error(source) + "Cannot cast from [" + cast.from.name + "] to [" + cast.to.name + "].");
+        }
+
+        return transform;
+    }
+
     private Object constCast(final ParserRuleContext source, final Object constant, final Cast cast) {
         if (cast instanceof Transform) {
             final Transform transform = (Transform)cast;
             return invokeTransform(source, transform, constant);
         } else {
-            final TypeMetadata fromTMD = cast.from.metadata;
-            final TypeMetadata toTMD = cast.to.metadata;
+            final Sort fsort = cast.from.sort;
+            final Sort tsort = cast.to.sort;
 
-            if (fromTMD == toTMD) {
+            if (fsort == tsort) {
                 return constant;
-            } else if (fromTMD.numeric && toTMD.numeric) {
+            } else if (fsort.numeric && tsort.numeric) {
                 Number number;
 
-                if (fromTMD == TypeMetadata.CHAR) {
+                if (fsort == Sort.CHAR) {
                     number = (int)(char)constant;
                 } else {
                     number = (Number)constant;
                 }
 
-                switch (toTMD) {
+                switch (tsort) {
                     case BYTE:   return number.byteValue();
                     case SHORT:  return number.shortValue();
                     case CHAR:   return (char)number.intValue();
@@ -2121,7 +2590,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
     private Object invokeTransform(final ParserRuleContext source, final Transform transform, final Object object) {
         final Method method = transform.method;
-        final java.lang.reflect.Method jmethod = method.method;
+        final java.lang.reflect.Method jmethod = method.reflect;
         final int modifiers = jmethod.getModifiers();
 
         try {
@@ -2138,35 +2607,40 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
     }
 
-    private Type promoteSameType(final Type from0, final Type from1) {
-        if (from1 != null && from0.equals(from1)) {
-            return from0;
+    private Type promoteToNumeric(final Type from0, final Type from1, boolean decimal) {
+        final Sort sort0 = from0.sort;
+        Type promote = null;
+
+        if ((sort0 == Sort.DOUBLE || sort0 == Sort.DOUBLE_OBJ || sort0 == Sort.NUMBER) && decimal) {
+            promote = definition.doubleType;
+        } else if ((sort0 == Sort.FLOAT || sort0 == Sort.FLOAT_OBJ) && decimal) {
+            promote = definition.floatType;
+        } else if (sort0 == Sort.LONG || sort0 == Sort.LONG_OBJ || sort0 == Sort.NUMBER) {
+            promote = definition.longType;
+        } else if (sort0.numeric) {
+            promote = definition.intType;
         }
 
-        return null;
-    }
+        if (promote != null && from1 != null) {
+            final Sort sort1 = from1.sort;
 
-    private Type promoteAnyType(final ParserRuleContext source, final Type from0, final Type from1, final Type to) {
-        final boolean eq0 = from0.equals(to);
-        final boolean eq1 = from1 != null && from1.equals(to);
-
-        if (eq0 && (from1 == null || eq1)) {
-            return to;
-        }
-
-        if (eq0 || eq1) {
-            try {
-                getLegalCast(source, eq0 ? from1 : from0, to, false);
-
-                return to;
-            } catch (ClassCastException exception) {
-                // Do nothing.
+            if (sort1.numeric) {
+                if ((promote.sort == Sort.DOUBLE || sort1 == Sort.DOUBLE || sort1 == Sort.DOUBLE_OBJ || sort1 == Sort.NUMBER) && decimal) {
+                    promote = definition.doubleType;
+                } else if ((promote.sort == Sort.FLOAT || sort1 == Sort.FLOAT || sort1 == Sort.FLOAT_OBJ) && decimal) {
+                    promote = definition.floatType;
+                } else if (promote.sort == Sort.LONG || sort1 == Sort.LONG || sort1 == Sort.LONG_OBJ || sort1 == Sort.NUMBER) {
+                    promote = definition.longType;
+                } else {
+                    promote = definition.intType;
+                }
+            } else {
+                promote = null;
             }
         }
 
-        return null;
+        return promote;
     }
-
 
     private Type promoteToType(final ParserRuleContext source, final Type from0, final Type from1, final Type to) {
         final boolean eq0 = from0.equals(to);
@@ -2186,7 +2660,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             }
         }
 
-        if (!eq1) {
+        if (!eq1 && castable) {
             try {
                 getLegalCast(source, from1, to, false);
             } catch (ClassCastException exception) {
@@ -2196,124 +2670,6 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         if (castable) {
             return to;
-        }
-
-        return null;
-    }
-
-    private Type promoteAnyNumeric(final Type from0, final Type from1, final boolean decimal) {
-        if (from0.metadata.numeric || from1 != null && from1.metadata.numeric) {
-            try {
-                return promoteToNumeric(from0, from1, decimal);
-            } catch (ClassCastException exception) {
-                // Do nothing.
-            }
-        }
-
-        return null;
-    }
-
-    private Type promoteToNumeric(final Type from0, final Type from1, boolean decimal) {
-        final Deque<Type> upcast = new ArrayDeque<>();
-        final Deque<Type> downcast = new ArrayDeque<>();
-
-        if (decimal) {
-            upcast.push(standard.doubleType);
-            upcast.push(standard.floatType);
-        } else {
-            downcast.push(standard.doubleType);
-            downcast.push(standard.floatType);
-        }
-
-        upcast.push(standard.longType);
-        upcast.push(standard.intType);
-
-        while (!upcast.isEmpty()) {
-            final Type to = upcast.pop();
-            final Cast cast0 = new Cast(from0, to);
-
-            if (from0.metadata.numeric && from0.metadata != to.metadata &&
-                    !definition.numerics.contains(cast0))                            continue;
-            if (upcast.contains(from0))                                              continue;
-            if (downcast.contains(from0) && !definition.numerics.contains(cast0) &&
-                    !definition.implicits.containsKey(cast0))                        continue;
-            if (!from0.metadata.numeric && !definition.implicits.containsKey(cast0)) continue;
-
-            if (from1 != null) {
-                final Cast cast1 = new Cast(from1, to);
-
-                if (from1.metadata.numeric && from1.metadata != to.metadata &&
-                        !definition.numerics.contains(cast1))                            continue;
-                if (upcast.contains(from1))                                              continue;
-                if (downcast.contains(from1) && !definition.numerics.contains(cast1) &&
-                        !definition.implicits.containsKey(cast1))                        continue;
-                if (!from1.metadata.numeric && !definition.implicits.containsKey(cast1)) continue;
-            }
-
-            return to;
-        }
-
-        return null;
-    }
-
-    private Type promoteToImplicit(final Type from0, final Type from1) {
-        final Cast cast0 = new Cast(from0, from1);
-        final Cast cast1 = new Cast(from1, from0);
-        final Transform transform0 = definition.implicits.get(cast0);
-        final Transform transform1 = definition.implicits.get(cast1);
-
-        if (!from0.metadata.object && from1.metadata.object && transform0 != null) {
-            return from1;
-        }
-
-        if (from0.metadata.object && !from1.metadata.object && transform1 != null) {
-            return from0;
-        }
-
-        if (transform0 != null && transform1 == null) {
-            return from0;
-        }
-
-        if (transform1 != null && transform0 == null) {
-            return from1;
-        }
-
-        return null;
-    }
-
-    private Type promoteToSubclass(final Type from0, final Type from1) {
-        if (from0.equals(from1)) {
-            return from0;
-        }
-
-        if (from0.metadata.object && from1.metadata.object) {
-            if (from0.clazz.equals(from1.clazz)) {
-                if (from0.struct.generic && !from1.struct.generic) {
-                    return from1;
-                } else if (!from0.struct.generic && from1.struct.generic) {
-                    return from0;
-                }
-
-                return standard.objectType;
-            }
-
-            try {
-                from0.clazz.asSubclass(from1.clazz);
-
-                return from1;
-            } catch (ClassCastException cce0) {
-                // Do nothing.
-            }
-
-            try {
-                from1.clazz.asSubclass(from0.clazz);
-
-                return from0;
-            } catch (ClassCastException cce0) {
-                // Do nothing.
-            }
-
-            return standard.objectType;
         }
 
         return null;

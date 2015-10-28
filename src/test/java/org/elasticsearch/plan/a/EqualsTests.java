@@ -22,7 +22,7 @@ package org.elasticsearch.plan.a;
 // TODO: Figure out a way to test autobox caching properly from methods such as Integer.valueOf(int);
 public class EqualsTests extends ScriptTestCase {
     public void testTypesEquals() {
-        assertEquals(true, exec("return (boolean)3 === (boolean)4;"));
+        assertEquals(true, exec("return false === false;"));
         assertEquals(true, exec("boolean x = false; boolean y = false; return x === y;"));
         assertEquals(false, exec("return (byte)3 === (byte)4;"));
         assertEquals(true, exec("byte x = 3; byte y = 3; return x === y;"));
@@ -39,7 +39,7 @@ public class EqualsTests extends ScriptTestCase {
         assertEquals(false, exec("return (double)3 === (double)4;"));
         assertEquals(true, exec("double x = 3; double y = 3; return x === y;"));
 
-        assertEquals(true, exec("return (boolean)3 == (boolean)4;"));
+        assertEquals(true, exec("return false == false;"));
         assertEquals(true, exec("boolean x = false; boolean y = false; return x == y;"));
         assertEquals(false, exec("return (byte)3 == (byte)4;"));
         assertEquals(true, exec("byte x = 3; byte y = 3; return x == y;"));
@@ -58,7 +58,7 @@ public class EqualsTests extends ScriptTestCase {
     }
 
     public void testTypesNotEquals() {
-        assertEquals(false, exec("return (boolean)3 !== (boolean)4;"));
+        assertEquals(false, exec("return true !== true;"));
         assertEquals(false, exec("boolean x = false; boolean y = false; return x !== y;"));
         assertEquals(true, exec("return (byte)3 !== (byte)4;"));
         assertEquals(false, exec("byte x = 3; byte y = 3; return x !== y;"));
@@ -75,7 +75,7 @@ public class EqualsTests extends ScriptTestCase {
         assertEquals(true, exec("return (double)3 !== (double)4;"));
         assertEquals(false, exec("double x = 3; double y = 3; return x !== y;"));
 
-        assertEquals(false, exec("return (boolean)3 != (boolean)4;"));
+        assertEquals(false, exec("return true != true;"));
         assertEquals(false, exec("boolean x = false; boolean y = false; return x != y;"));
         assertEquals(true, exec("return (byte)3 != (byte)4;"));
         assertEquals(false, exec("byte x = 3; byte y = 3; return x != y;"));
@@ -101,8 +101,8 @@ public class EqualsTests extends ScriptTestCase {
         assertEquals(true, exec("Integer x = new Integer(3); Object y = new Integer(3); return x == y;"));
         assertEquals(false, exec("Integer x = new Integer(3); Object y = new Integer(3); return x === y;"));
         assertEquals(true, exec("Integer x = new Integer(3); int y = 3; return x == y;"));
-        assertEquals(true, exec("Integer x = new Integer(3); int y = 3; return x === y;"));
-        assertEquals(true, exec("Integer x = new Integer(3); double y = 3; return x === y;"));
+        assertEquals(false, exec("Integer x = new Integer(3); int y = 3; return x === y;"));
+        assertEquals(false, exec("Integer x = new Integer(3); double y = 3; return x === y;"));
         assertEquals(true, exec("int[] x = new int[1]; Object y = x; return x == y;"));
         assertEquals(true, exec("int[] x = new int[1]; Object y = x; return x === y;"));
         assertEquals(false, exec("int[] x = new int[1]; Object y = new int[1]; return x == y;"));
@@ -118,8 +118,8 @@ public class EqualsTests extends ScriptTestCase {
         assertEquals(false, exec("Integer x = new Integer(3); Object y = x; return x !== y;"));
         assertEquals(false, exec("Integer x = new Integer(3); Object y = new Integer(3); return x != y;"));
         assertEquals(true, exec("Integer x = new Integer(3); Object y = new Integer(3); return x !== y;"));
-        assertEquals(false, exec("Integer x = new Integer(3); int y = 3; return x !== y;"));
-        assertEquals(false, exec("Integer x = new Integer(3); double y = 3; return x !== y;"));
+        assertEquals(true, exec("Integer x = new Integer(3); int y = 3; return x !== y;"));
+        assertEquals(true, exec("Integer x = new Integer(3); double y = 3; return x !== y;"));
         assertEquals(false, exec("int[] x = new int[1]; Object y = x; return x != y;"));
         assertEquals(false, exec("int[] x = new int[1]; Object y = x; return x !== y;"));
         assertEquals(true, exec("int[] x = new int[1]; Object y = new int[1]; return x != y;"));
@@ -168,7 +168,11 @@ public class EqualsTests extends ScriptTestCase {
         assertEquals(true, exec("Character a = 'a'; return null !== a;"));
         assertEquals(true, exec("Character a = null; return null == a;"));
         assertEquals(false, exec("Character a = null; return null != a;"));
+        assertEquals(false, exec("Character a = null; Character b = 'a'; return a == b;"));
+        assertEquals(true, exec("Character a = null; Character b = null; return a == b;"));
         assertEquals(true, exec("Character a = null; Character b = null; return b === a;"));
+        assertEquals(true, exec("Character a = null; Character b = 'a'; return a != b;"));
+        assertEquals(false, exec("Character a = null; Character b = null; return b != a;"));
         assertEquals(false, exec("Character a = null; Character b = null; return b !== a;"));
     }
 }
