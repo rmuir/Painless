@@ -24,17 +24,15 @@ import java.net.URL;
 import java.security.CodeSource;
 import java.security.SecureClassLoader;
 import java.security.cert.Certificate;
-import java.util.Properties;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.elasticsearch.bootstrap.BootstrapInfo;
 
-import static org.elasticsearch.plan.a.Default.*;
-import static org.elasticsearch.plan.a.Definition.*;
-
 final class Compiler {
+    private static Definition DEFAULT_DEFINITION = new Definition(new Definition());
+
     /** we define the class with lowest privileges */
     private static final CodeSource CODESOURCE;
 
@@ -56,18 +54,16 @@ final class Compiler {
         }
     }
 
-    static Executable compile(final String name, final String source,
-                              final ClassLoader parent, final Properties properties, CompilerSettings settings) {
+    static Executable compile(final String name, final String source, final Definition custom, CompilerSettings settings) {
         long start = System.currentTimeMillis();
 
-        final Definition definition = properties == null ? DEFAULT_DEFINITION : loadFromProperties(properties);
-        final Standard standard = properties == null ? DEFAULT_STANDARD : new Standard(definition);
+        final Definition definition = custom == null ? DEFAULT_DEFINITION : new Definition(custom);
 
         //long end = System.currentTimeMillis() - start;
-        //System.out.println("definition: " + end);
+        //System.out.println("types: " + end);
         //start = System.currentTimeMillis();
 
-        //final ParserRuleContext root = createParseTree(source, definition);
+        //final ParserRuleContext root = createParseTree(source, types);
         final ANTLRInputStream stream = new ANTLRInputStream(source);
         final ErrorHandlingLexer lexer = new ErrorHandlingLexer(stream);
         final PlanAParser parser = new PlanAParser(new CommonTokenStream(lexer));
@@ -84,15 +80,11 @@ final class Compiler {
         //end = System.currentTimeMillis() - start;
         //System.out.println("tree: " + end);
 
-        final Adapter adapter = new Adapter(definition, standard, source, root, settings);
-        adapter.incrementScope();
-        adapter.addVariable(null, "this", adapter.standard.execType);
-        adapter.addVariable(null, "input", adapter.standard.smapType);
+        final Adapter adapter = new Adapter(definition, source, root, settings);
 
         start = System.currentTimeMillis();
 
         Analyzer.analyze(adapter);
-        adapter.decrementScope();
         //System.out.println(root.toStringTree(parser));
 
         //end = System.currentTimeMillis() - start;
@@ -105,7 +97,7 @@ final class Compiler {
         //System.out.println("write: " + end);
         //start = System.currentTimeMillis();
 
-        final Executable executable = createExecutable(name, source, parent, bytes);
+        final Executable executable = createExecutable(name, source, definition.getClass().getClassLoader(), bytes);
 
         //end = System.currentTimeMillis() - start;
         //System.out.println("create: " + end);

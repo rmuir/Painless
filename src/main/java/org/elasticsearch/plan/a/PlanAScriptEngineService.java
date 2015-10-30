@@ -76,7 +76,7 @@ public class PlanAScriptEngineService extends AbstractComponent implements Scrip
             @Override
             public Executable run() {
                 // NOTE: validation is delayed to allow runtime vars, and we don't have access to per index stuff here
-                return Compiler.compile("something", script, getClass().getClassLoader(), null, compilerSettings);
+                return Compiler.compile("something", script, null, compilerSettings);
             }
         });
     }

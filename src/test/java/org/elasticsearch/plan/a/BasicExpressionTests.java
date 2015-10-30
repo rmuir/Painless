@@ -59,7 +59,7 @@ public class BasicExpressionTests extends ScriptTestCase {
     }
 
     public void testCast() {
-        assertEquals(1, exec("return (int)true;"));
+        assertEquals(1, exec("return (int)1.0;"));
         assertEquals((byte)100, exec("double x = 100; return (byte)x;"));
 
         assertEquals(3, exec(

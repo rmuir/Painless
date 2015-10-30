@@ -5,18 +5,18 @@ grammar PlanA;
 }
 
 @parser::members {
-    private Set<String> definition = null;
+    private Set<String> types = null;
 
-    void setTypes(Set<String> definition) {
-        this.definition = definition;
+    void setTypes(Set<String> types) {
+        this.types = types;
     }
 
     boolean isType() {
-        if (definition == null) {
+        if (types == null) {
             throw new IllegalStateException();
         }
 
-        return definition.contains(getCurrentToken().getText());
+        return types.contains(getCurrentToken().getText());
     }
 }
 

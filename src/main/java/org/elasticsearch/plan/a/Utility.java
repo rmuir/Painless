@@ -25,7 +25,39 @@ public class Utility {
     }
 
     public static char NumberTochar(final Number value) {
-        return (char)value.longValue();
+        return (char)value.intValue();
+    }
+
+    public static Boolean NumberToBoolean(final Number value) {
+        return value.longValue() != 0;
+    }
+
+    public static Byte NumberToByte(final Number value) {
+        return value.byteValue();
+    }
+
+    public static Short NumberToShort(final Number value) {
+        return value.shortValue();
+    }
+
+    public static Character NumberToCharacter(final Number value) {
+        return (char)value.intValue();
+    }
+
+    public static Integer NumberToInteger(final Number value) {
+        return value.intValue();
+    }
+
+    public static Long NumberToLong(final Number value) {
+        return value.longValue();
+    }
+
+    public static Float NumberToFloat(final Number value) {
+        return value.floatValue();
+    }
+
+    public static Double NumberToDouble(final Number value) {
+        return value.doubleValue();
     }
 
     public static byte booleanTobyte(final boolean value) {
@@ -88,6 +120,34 @@ public class Utility {
         return value ? 1 : 0;
     }
 
+    public static Byte BooleanToByte(final Boolean value) {
+        return (byte)(value ? 1 : 0);
+    }
+
+    public static Short BooleanToShort(final Boolean value) {
+        return (short)(value ? 1 : 0);
+    }
+
+    public static Character BooleanToCharacter(final Boolean value) {
+        return (char)(value ? 1 : 0);
+    }
+
+    public static Integer BooleanToInteger(final Boolean value) {
+        return value ? 1 : 0;
+    }
+
+    public static Long BooleanToLong(final Boolean value) {
+        return value ? 1L : 0L;
+    }
+
+    public static Float BooleanToFloat(final Boolean value) {
+        return value ? 1F : 0F;
+    }
+
+    public static Double BooleanToDouble(final Boolean value) {
+        return value ? 1D : 0D;
+    }
+
     public static boolean byteToboolean(final byte value) {
         return value != 0;
     }
@@ -145,6 +205,34 @@ public class Utility {
     }
 
     public static double CharacterTodouble(final Character value) {
+        return (double)value;
+    }
+
+    public static Boolean CharacterToBoolean(final Character value) {
+        return value != 0;
+    }
+
+    public static Byte CharacterToByte(final Character value) {
+        return (byte)value.charValue();
+    }
+
+    public static Short CharacterToShort(final Character value) {
+        return (short)value.charValue();
+    }
+
+    public static Integer CharacterToInteger(final Character value) {
+        return (int)value;
+    }
+
+    public static Long CharacterToLong(final Character value) {
+        return (long)value;
+    }
+
+    public static Float CharacterToFloat(final Character value) {
+        return (float)value;
+    }
+
+    public static Double CharacterToDouble(final Character value) {
         return (double)value;
     }
 
@@ -392,6 +480,14 @@ public class Utility {
      */
     public static double remainderWithoutOverflow(double x, double y) {
         return checkNaNDouble(x, y, x % y);
+    }
+
+    public static boolean checkEquals(final Object left, final Object right) {
+        if (left != null && right != null) {
+            return left.equals(right);
+        }
+
+        return left == null && right == null;
     }
 
     private Utility() {}

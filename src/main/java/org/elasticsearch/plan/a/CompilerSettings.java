@@ -31,7 +31,7 @@ final class CompilerSettings {
      * if they should signal an exception.
      * <p>
      * If this value is {@code true} (default), then things behave like java:
-     * overflow for integer types can result in unexpected values / unexpected 
+     * overflow for integer types can result in unexpected values / unexpected
      * signs, and overflow for floating point types can result in infinite or
      * {@code NaN} values.
      */

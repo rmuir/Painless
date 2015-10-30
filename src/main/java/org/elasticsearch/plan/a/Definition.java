@@ -1,5 +1,3 @@
-package org.elasticsearch.plan.a;
-
 /*
  * Licensed to Elasticsearch under one or more contributor
  * license agreements. See the NOTICE file distributed with
@@ -19,44 +17,56 @@ package org.elasticsearch.plan.a;
  * under the License.
  */
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
+package org.elasticsearch.plan.a;
+
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
 
 class Definition {
-    enum TypeMetadata {
-        VOID(    void.class    , 0 , false , false , false ),
-        BOOL(    boolean.class , 1 , false , true  , false ),
-        BYTE(    byte.class    , 1 , true  , true  , false ),
-        SHORT(   short.class   , 1 , true  , true  , false ),
-        CHAR(    char.class    , 1 , true  , true  , false ),
-        INT(     int.class     , 1 , true  , true  , false ),
-        LONG(    long.class    , 2 , true  , true  , false ),
-        FLOAT(   float.class   , 1 , true  , true  , false ),
-        DOUBLE(  double.class  , 2 , true  , true  , false ),
-        OBJECT(  null          , 1 , false , false , true  ),
-        STRING(  String.class  , 1 , false , true  , true  ),
-        ARRAY(   null          , 1 , false , false , true  );
+    enum Sort {
+        VOID(       void.class      , 0 , true  , false , false , false ),
+        BOOL(       boolean.class   , 1 , true  , false , true  , false ),
+        BYTE(       byte.class      , 1 , true  , true  , true  , false ),
+        SHORT(      short.class     , 1 , true  , true  , true  , false ),
+        CHAR(       char.class      , 1 , true  , true  , true  , false ),
+        INT(        int.class       , 1 , true  , true  , true  , false ),
+        LONG(       long.class      , 2 , true  , true  , true  , false ),
+        FLOAT(      float.class     , 1 , true  , true  , true  , false ),
+        DOUBLE(     double.class    , 2 , true  , true  , true  , false ),
+
+        VOID_OBJ(   Void.class      , 1 , true  , false , false , false ),
+        BOOL_OBJ(   Boolean.class   , 1 , false , false , false , true  ),
+        BYTE_OBJ(   Byte.class      , 1 , false , true  , false , true  ),
+        SHORT_OBJ(  Short.class     , 1 , false , true  , false , true  ),
+        CHAR_OBJ(   Character.class , 1 , false , true  , false , true  ),
+        INT_OBJ(    Integer.class   , 1 , false , true  , false , true  ),
+        LONG_OBJ(   Long.class      , 1 , false , true  , false , true  ),
+        FLOAT_OBJ(  Float.class     , 1 , false , true  , false , true  ),
+        DOUBLE_OBJ( Double.class    , 1 , false , true  , false , true  ),
+
+        NUMBER(     Number.class    , 1 , false , true  , false , true  ),
+        STRING(     String.class    , 1 , false , false , true  , true  ),
+
+        OBJECT(     null            , 1 , false , false , false , true  ),
+        GENERIC(    null            , 1 , false , false , false , true  ),
+        ARRAY(      null            , 1 , false , false , false , true  );
 
         final Class<?> clazz;
         final int size;
+        final boolean primitive;
         final boolean numeric;
         final boolean constant;
         final boolean object;
 
-        TypeMetadata(final Class<?> clazz, final int size, final boolean numeric,
-                     final boolean constant, final boolean object) {
+        Sort(final Class<?> clazz, final int size, final boolean primitive,
+             final boolean numeric, final boolean constant, final boolean object) {
             this.clazz = clazz;
             this.size = size;
+            this.primitive = primitive;
             this.numeric = numeric;
             this.constant = constant;
             this.object = object;
@@ -67,20 +77,16 @@ class Definition {
         final String name;
         final Struct struct;
         final Class<?> clazz;
-        final String internal;
-        final String descriptor;
-        final int dimensions;
-        final TypeMetadata metadata;
+        final org.objectweb.asm.Type type;
+        final Sort sort;
 
-        Type(final String name, final Struct struct, final Class<?> clazz, final String internal,
-             final String descriptor, final int dimensions, final TypeMetadata metadata) {
+        private Type(final String name, final Struct struct, final Class<?> clazz,
+                     final org.objectweb.asm.Type type, final Sort sort) {
             this.name = name;
             this.struct = struct;
             this.clazz = clazz;
-            this.internal = internal;
-            this.descriptor = descriptor;
-            this.dimensions = dimensions;
-            this.metadata = metadata;
+            this.type = type;
+            this.sort = sort;
         }
 
         @Override
@@ -95,13 +101,13 @@ class Definition {
 
             final Type type = (Type)object;
 
-            return dimensions == type.dimensions && struct.equals(type.struct);
+            return this.type.equals(type.type) && struct.equals(type.struct);
         }
 
         @Override
         public int hashCode() {
             int result = struct.hashCode();
-            result = 31 * result + dimensions;
+            result = 31 * result + type.hashCode();
 
             return result;
         }
@@ -111,19 +117,16 @@ class Definition {
         final String name;
         final Struct owner;
         final List<Type> arguments;
-        final List<Type> originals;
-        final java.lang.reflect.Constructor constructor;
-        final String descriptor;
+        final org.objectweb.asm.commons.Method method;
+        final java.lang.reflect.Constructor<?> reflect;
 
-        private Constructor(final String name, final Struct owner,
-                            final List<Type> arguments, final List<Type> originals,
-                            final java.lang.reflect.Constructor constructor, final String descriptor) {
+        private Constructor(final String name, final Struct owner, final List<Type> arguments,
+                            final org.objectweb.asm.commons.Method method, final java.lang.reflect.Constructor<?> reflect) {
             this.name = name;
             this.owner = owner;
             this.arguments = Collections.unmodifiableList(arguments);
-            this.originals = Collections.unmodifiableList(originals);
-            this.constructor = constructor;
-            this.descriptor = descriptor;
+            this.method = method;
+            this.reflect = reflect;
         }
     }
 
@@ -131,23 +134,18 @@ class Definition {
         final String name;
         final Struct owner;
         final Type rtn;
-        final Type oreturn;
         final List<Type> arguments;
-        final List<Type> originals;
-        final java.lang.reflect.Method method;
-        final String descriptor;
+        final org.objectweb.asm.commons.Method method;
+        final java.lang.reflect.Method reflect;
 
-        private Method(final String name, final Struct owner, final Type rtn, final Type oreturn,
-                       final List<Type> arguments, final List<Type> originals,
-                       final java.lang.reflect.Method method, final String descriptor) {
+        private Method(final String name, final Struct owner, final Type rtn, final List<Type> arguments,
+               final org.objectweb.asm.commons.Method method, final java.lang.reflect.Method reflect) {
             this.name = name;
             this.owner = owner;
             this.rtn = rtn;
-            this.oreturn = oreturn;
             this.arguments = Collections.unmodifiableList(arguments);
-            this.originals = Collections.unmodifiableList(originals);
             this.method = method;
-            this.descriptor = descriptor;
+            this.reflect = reflect;
         }
     }
 
@@ -155,22 +153,21 @@ class Definition {
         final String name;
         final Struct owner;
         final Type type;
-        final java.lang.reflect.Field field;
+        final java.lang.reflect.Field reflect;
 
-        private Field(final String name, final Struct owner, final Type type, final java.lang.reflect.Field field) {
+        private Field(final String name, final Struct owner, final Type type, final java.lang.reflect.Field reflect) {
             this.name = name;
             this.owner = owner;
             this.type = type;
-            this.field = field;
+            this.reflect = reflect;
         }
     }
 
     static class Struct {
         final String name;
         final Class<?> clazz;
-        final String internal;
+        final org.objectweb.asm.Type type;
         final boolean generic;
-        final boolean runtime;
 
         final Map<String, Constructor> constructors;
         final Map<String, Method> functions;
@@ -179,13 +176,11 @@ class Definition {
         final Map<String, Field> statics;
         final Map<String, Field> members;
 
-        private Struct(final String name, final Class<?> clazz, final String internal,
-                       final boolean generic, final boolean runtime) {
+        private Struct(final String name, final Class<?> clazz, final org.objectweb.asm.Type type, final boolean generic) {
             this.name = name;
             this.clazz = clazz;
-            this.internal = internal;
+            this.type = type;
             this.generic = generic;
-            this.runtime = runtime;
 
             constructors = new HashMap<>();
             functions = new HashMap<>();
@@ -198,9 +193,8 @@ class Definition {
         private Struct(final Struct struct) {
             name = struct.name;
             clazz = struct.clazz;
-            internal = struct.internal;
+            type = struct.type;
             generic = struct.generic;
-            runtime = struct.runtime;
 
             constructors = Collections.unmodifiableMap(struct.constructors);
             functions = Collections.unmodifiableMap(struct.functions);
@@ -280,477 +274,795 @@ class Definition {
         }
     }
 
-    private static final String PROPERTIES_FILE = Definition.class.getSimpleName() + ".properties";
+    final Map<String, Struct> structs;
+    final Map<Cast, Transform> transforms;
 
-    static Definition loadFromProperties() {
-        final Properties properties = new Properties();
+    final Type voidType;
+    final Type booleanType;
+    final Type byteType;
+    final Type shortType;
+    final Type charType;
+    final Type intType;
+    final Type longType;
+    final Type floatType;
+    final Type doubleType;
 
-        try (final InputStream stream = Definition.class.getResourceAsStream(PROPERTIES_FILE)) {
-            properties.load(stream);
-        } catch (IOException exception) {
-            throw new IllegalStateException(
-                    "Unable to load definition properties file [" + PROPERTIES_FILE + "].");
-        }
+    final Type voidobjType;
+    final Type booleanobjType;
+    final Type byteobjType;
+    final Type shortobjType;
+    final Type charobjType;
+    final Type intobjType;
+    final Type longobjType;
+    final Type floatobjType;
+    final Type doubleobjType;
 
-        return loadFromProperties(properties);
+    final Type objectType;
+    final Type numberType;
+    final Type charseqType;
+    final Type stringType;
+    final Type utilityType;
+
+    final Type listType;
+    final Type arraylistType;
+    final Type mapType;
+    final Type hashmapType;
+    final Type smapType;
+
+    final Type execType;
+
+    public Definition() {
+        structs = new HashMap<>();
+        transforms = new HashMap<>();
+
+        addDefaultStructs();
+
+        voidType = getType("void");
+        booleanType = getType("boolean");
+        byteType = getType("byte");
+        shortType = getType("short");
+        charType = getType("char");
+        intType = getType("int");
+        longType = getType("long");
+        floatType = getType("float");
+        doubleType = getType("double");
+
+        voidobjType = getType("Void");
+        booleanobjType = getType("Boolean");
+        byteobjType = getType("Byte");
+        shortobjType = getType("Short");
+        charobjType = getType("Character");
+        intobjType = getType("Integer");
+        longobjType = getType("Long");
+        floatobjType = getType("Float");
+        doubleobjType = getType("Double");
+
+        objectType = getType("Object");
+        numberType = getType("Number");
+        charseqType = getType("CharSequence");
+        stringType = getType("String");
+        utilityType = getType("Utility");
+
+        listType = getType("List");
+        arraylistType = getType("ArrayList");
+        mapType = getType("Map");
+        hashmapType = getType("HashMap");
+        smapType = getType("Map<String,Object>");
+
+        execType = getType("Executable");
+
+        addDefaultElements();
+        copyDefaultStructs();
+        addDefaultTransforms();
     }
 
-    static Definition loadFromProperties(final Properties properties) {
-        final Definition definition = new Definition();
+    Definition(final Definition definition) {
+        final Map<String, Struct> ummodifiable = new HashMap<>();
 
-        for (String key : properties.stringPropertyNames()) {
-            try {
-                final String property = properties.getProperty(key);
-
-                if (key.startsWith("struct")) loadStructFromProperty(definition, property, false, false);
-                else if (key.startsWith("runtime")) loadStructFromProperty(definition, property, false, true);
-                else if (key.startsWith("generic")) loadStructFromProperty(definition, property, true, false);
-                else {
-                    boolean valid = key.startsWith("constructor") || key.startsWith("function") ||
-                            key.startsWith("method") || key.startsWith("copy") ||
-                            key.startsWith("static") || key.startsWith("member") ||
-                            key.startsWith("transform") || key.startsWith("numeric") ||
-                            key.startsWith("upcast");
-
-                    if (!valid) {
-                        throw new IllegalArgumentException("Invalid property key.");
-                    }
-                }
-            } catch (final RuntimeException exception) {
-                throw new RuntimeException("Error loading [" + key + "].", exception);
-            }
+        for (final Struct struct : definition.structs.values()) {
+            ummodifiable.put(struct.name, new Struct(struct));
         }
 
-        for (String key : properties.stringPropertyNames()) {
-            try {
-                final String property = properties.getProperty(key);
+        structs = Collections.unmodifiableMap(ummodifiable);
+        transforms = Collections.unmodifiableMap(definition.transforms);
 
-                if      (key.startsWith("constructor")) loadConstructorFromProperty(definition, property);
-                else if (key.startsWith("function"))    loadMethodFromProperty(definition, property, true);
-                else if (key.startsWith("method"))      loadMethodFromProperty(definition, property, false);
-                else if (key.startsWith("static"))      loadFieldFromProperty(definition, property, true);
-                else if (key.startsWith("member"))      loadFieldFromProperty(definition, property, false);
-            } catch (final RuntimeException exception) {
-                throw new RuntimeException("Error loading [" + key + "].", exception);
-            }
-        }
+        voidType = definition.voidType;
+        booleanType = definition.booleanType;
+        byteType = definition.byteType;
+        shortType = definition.shortType;
+        charType = definition.charType;
+        intType = definition.intType;
+        longType = definition.longType;
+        floatType = definition.floatType;
+        doubleType = definition.doubleType;
 
-        for (String key : properties.stringPropertyNames()) {
-            try {
-                final String property = properties.getProperty(key);
+        voidobjType = definition.voidobjType;
+        booleanobjType = definition.booleanobjType;
+        byteobjType = definition.byteobjType;
+        shortobjType = definition.shortobjType;
+        charobjType = definition.charobjType;
+        intobjType = definition.intobjType;
+        longobjType = definition.longobjType;
+        floatobjType = definition.floatobjType;
+        doubleobjType = definition.doubleobjType;
 
-                if (key.startsWith("copy")) loadCopyFromProperty(definition, property);
-                else if (key.startsWith("transform")) loadTransformFromProperty(definition, property);
-                else if (key.startsWith("numeric")) loadNumericFromProperty(definition, property);
-                else if (key.startsWith("upcast")) loadUpcastFromProperty(definition, property);
-            }  catch (final Exception exception) {
-                throw new RuntimeException("Error loading [" + key + "].", exception);
-            }
-        }
+        objectType = definition.objectType;
+        numberType = definition.numberType;
+        charseqType = definition.charseqType;
+        stringType = definition.stringType;
+        utilityType = definition.utilityType;
 
-        validateMethods(definition);
-        buildRuntimeMap(definition);
+        listType = definition.listType;
+        arraylistType = definition.arraylistType;
+        mapType = definition.mapType;
+        hashmapType = definition.hashmapType;
+        smapType = definition.smapType;
 
-        return new Definition(definition);
+        execType = definition.execType;
     }
 
-    private static void loadStructFromProperty(final Definition definition, final String property,
-                                               final boolean generic, final boolean runtime) {
-        final String[] split = property.split("\\s+");
+    private void addDefaultStructs() {
+        addStruct("void"    , void.class    , false);
+        addStruct("boolean" , boolean.class , false);
+        addStruct("byte"    , byte.class    , false);
+        addStruct("short"   , short.class   , false);
+        addStruct("char"    , char.class    , false);
+        addStruct("int"     , int.class     , false);
+        addStruct("long"    , long.class    , false);
+        addStruct("float"   , float.class   , false);
+        addStruct("double"  , double.class  , false);
 
-        if (split.length != 2) {
-            throw new IllegalArgumentException("Struct must be defined with exactly two arguments (name, Java class).");
-        }
+        addStruct("Void"      , Void.class      , false);
+        addStruct("Boolean"   , Boolean.class   , false);
+        addStruct("Byte"      , Byte.class      , false);
+        addStruct("Short"     , Short.class     , false);
+        addStruct("Character" , Character.class , false);
+        addStruct("Integer"   , Integer.class   , false);
+        addStruct("Long"      , Long.class      , false);
+        addStruct("Float"     , Float.class     , false);
+        addStruct("Double"    , Double.class    , false);
 
-        final String namestr = split[0];
-        final String clazzstr = split[1];
+        addStruct("Object"       , Object.class       , false);
+        addStruct("Number"       , Number.class       , false);
+        addStruct("CharSequence" , CharSequence.class , false);
+        addStruct("String"       , String.class       , false);
+        addStruct("Utility"      , Utility.class      , false);
 
-        loadStruct(definition, namestr, clazzstr, generic, runtime);
+        addStruct("List"                   , List.class      , false);
+        addStruct("ArrayList"              , ArrayList.class , false);
+        addStruct("Map"                    , Map.class       , false);
+        addStruct("HashMap"                , HashMap.class   , false);
+        addStruct("Map<String,Object>"     , Map.class       , true);
+        addStruct("HashMap<String,Object>" , HashMap.class   , true);
+
+        addStruct("Executable" , Executable.class , false);
     }
 
-    private static void loadConstructorFromProperty(final Definition definition, final String property) {
-        String parsed = property;
-        int index = parsed.indexOf(' ');
+    private void addDefaultElements() {
+        addMethod("Object", "toString", null, false, stringType, new Type[] {}, null, null);
+        addMethod("Object", "equals", null, false, booleanType, new Type[] {objectType}, null, null);
+        addMethod("Object", "hashCode", null, false, intType, new Type[] {}, null, null);
 
-        if (index == -1) {
-            throw new IllegalArgumentException("Constructor must be defined as (struct, name," +
-                    " Java constructor name with argument types).");
-        }
+        addConstructor("Boolean", "new", new Type[] {booleanType}, null);
+        addMethod("Boolean", "valueOf", null, true, booleanobjType, new Type[] {booleanType}, null, null);
+        addMethod("Boolean", "booleanValue", null, false, booleanType, new Type[] {}, null, null);
 
-        final String ownerstr = parsed.substring(0, index);
-        parsed = parsed.substring(index).trim();
-        index = parsed.indexOf(' ');
+        addConstructor("Byte", "new", new Type[]{byteType}, null);
+        addMethod("Byte", "valueOf", null, true, byteobjType, new Type[] {byteType}, null, null);
+        addMethod("Byte", "byteValue", null, false, byteType, new Type[] {}, null, null);
+        addField("Byte", "MIN_VALUE", null, true, byteType);
+        addField("Byte", "MAX_VALUE", null, true, byteType);
 
-        if (index == -1) {
-            throw new IllegalArgumentException("Constructor must be defined as (struct, name," +
-                    " Java constructor name with argument types).");
-        }
+        addConstructor("Short", "new", new Type[]{shortType}, null);
+        addMethod("Short", "valueOf", null, true, shortobjType, new Type[] {shortType}, null, null);
+        addMethod("Short", "shortValue", null, false, shortType, new Type[] {}, null, null);
+        addField("Short", "MIN_VALUE", null, true, shortType);
+        addField("Short", "MAX_VALUE", null, true, shortType);
 
-        final String namestr = parsed.substring(0, index);
-        parsed = parsed.substring(index).trim();
+        addConstructor("Character", "new", new Type[]{charType}, null);
+        addMethod("Character", "valueOf", null, true, charobjType, new Type[] {charType}, null, null);
+        addMethod("Character", "charValue", null, false, charType, new Type[] {}, null, null);
+        addField("Character", "MIN_VALUE", null, true, charType);
+        addField("Character", "MAX_VALUE", null, true, charType);
 
-        final String[][] argumentsstrs = parseArgumentsStr(parsed);
+        addConstructor("Integer", "new", new Type[]{intType}, null);
+        addMethod("Integer", "valueOf", null, true, intobjType, new Type[] {intType}, null, null);
+        addMethod("Integer", "intValue", null, false, intType, new Type[] {}, null, null);
+        addField("Integer", "MIN_VALUE", null, true, intType);
+        addField("Integer", "MAX_VALUE", null, true, intType);
 
-        loadConstructor(definition, ownerstr, namestr, argumentsstrs);
+        addConstructor("Long", "new", new Type[]{longType}, null);
+        addMethod("Long", "valueOf", null, true, longobjType, new Type[] {longType}, null, null);
+        addMethod("Long", "longValue", null, false, longType, new Type[] {}, null, null);
+        addField("Long", "MIN_VALUE", null, true, longType);
+        addField("Long", "MAX_VALUE", null, true, longType);
+
+        addConstructor("Float", "new", new Type[]{floatType}, null);
+        addMethod("Float", "valueOf", null, true, floatobjType, new Type[] {floatType}, null, null);
+        addMethod("Float", "floatValue", null, false, floatType, new Type[] {}, null, null);
+        addField("Float", "MIN_VALUE", null, true, floatType);
+        addField("Float", "MAX_VALUE", null, true, floatType);
+
+        addConstructor("Double", "new", new Type[]{doubleType}, null);
+        addMethod("Double", "valueOf", null, true, doubleobjType, new Type[] {doubleType}, null, null);
+        addMethod("Double", "doubleValue", null, false, doubleType, new Type[] {}, null, null);
+        addField("Double", "MIN_VALUE", null, true, doubleType);
+        addField("Double", "MAX_VALUE", null, true, doubleType);
+
+        addMethod("Number", "byteValue", null, false, byteType, new Type[] {}, null, null);
+        addMethod("Number", "shortValue", null, false, shortType, new Type[] {}, null, null);
+        addMethod("Number", "intValue", null, false, intType, new Type[] {}, null, null);
+        addMethod("Number", "longValue", null, false, longType, new Type[] {}, null, null);
+        addMethod("Number", "floatValue", null, false, floatType, new Type[] {}, null, null);
+        addMethod("Number", "doubleValue", null, false, doubleType, new Type[] {}, null, null);
+
+        addMethod("CharSequence", "charAt", null, false, charType, new Type[] {intType}, null, null);
+        addMethod("CharSequence", "length", null, false, intType, new Type[] {}, null, null);
+
+        addConstructor("String", "new", new Type[] {}, null);
+        addMethod("String", "codePointAt", null, false, intType, new Type[] {intType}, null, null);
+        addMethod("String", "compareTo", null, false, intType, new Type[] {stringType}, null, null);
+        addMethod("String", "concat", null, false, stringType, new Type[] {stringType}, null, null);
+        addMethod("String", "endsWith", null, false, booleanType, new Type[] {stringType}, null, null);
+        addMethod("String", "indexOf", null, false, intType, new Type[] {stringType, intType}, null, null);
+        addMethod("String", "isEmpty", null, false, booleanType, new Type[] {}, null, null);
+        addMethod("String", "replace", null, false, stringType, new Type[] {charseqType, charseqType}, null, null);
+        addMethod("String", "startsWith", null, false, booleanType, new Type[] {stringType}, null, null);
+        addMethod("String", "substring", null, false, stringType, new Type[] {intType, intType}, null, null);
+        addMethod("String", "toCharArray", null, false, getType(charType.struct, 1), new Type[] {}, null, null);
+        addMethod("String", "trim", null, false, stringType, new Type[] {}, null, null);
+
+        addMethod("Utility", "NumberToboolean", null, true, booleanType, new Type[] {numberType}, null, null);
+        addMethod("Utility", "NumberTochar", null, true, charType, new Type[] {numberType}, null, null);
+        addMethod("Utility", "NumberToBoolean", null, true, booleanobjType, new Type[] {numberType}, null, null);
+        addMethod("Utility", "NumberToByte", null, true, byteobjType, new Type[] {numberType}, null, null);
+        addMethod("Utility", "NumberToShort", null, true, shortobjType, new Type[] {numberType}, null, null);
+        addMethod("Utility", "NumberToCharacter", null, true, charobjType, new Type[] {numberType}, null, null);
+        addMethod("Utility", "NumberToInteger", null, true, intobjType, new Type[] {numberType}, null, null);
+        addMethod("Utility", "NumberToLong", null, true, longobjType, new Type[] {numberType}, null, null);
+        addMethod("Utility", "NumberToFloat", null, true, floatobjType, new Type[] {numberType}, null, null);
+        addMethod("Utility", "NumberToDouble", null, true, doubleobjType, new Type[] {numberType}, null, null);
+        addMethod("Utility", "booleanTobyte", null, true, byteType, new Type[] {booleanType}, null, null);
+        addMethod("Utility", "booleanToshort", null, true, shortType, new Type[] {booleanType}, null, null);
+        addMethod("Utility", "booleanTochar", null, true, charType, new Type[] {booleanType}, null, null);
+        addMethod("Utility", "booleanToint", null, true, intType, new Type[] {booleanType}, null, null);
+        addMethod("Utility", "booleanTolong", null, true, longType, new Type[] {booleanType}, null, null);
+        addMethod("Utility", "booleanTofloat", null, true, floatType, new Type[] {booleanType}, null, null);
+        addMethod("Utility", "booleanTodouble", null, true, doubleType, new Type[] {booleanType}, null, null);
+        addMethod("Utility", "booleanToInteger", null, true, intobjType, new Type[] {booleanType}, null, null);
+        addMethod("Utility", "BooleanTobyte", null, true, byteType, new Type[] {booleanobjType}, null, null);
+        addMethod("Utility", "BooleanToshort", null, true, shortType, new Type[] {booleanobjType}, null, null);
+        addMethod("Utility", "BooleanTochar", null, true, charType, new Type[] {booleanobjType}, null, null);
+        addMethod("Utility", "BooleanToint", null, true, intType, new Type[] {booleanobjType}, null, null);
+        addMethod("Utility", "BooleanTolong", null, true, longType, new Type[] {booleanobjType}, null, null);
+        addMethod("Utility", "BooleanTofloat", null, true, floatType, new Type[] {booleanobjType}, null, null);
+        addMethod("Utility", "BooleanTodouble", null, true, doubleType, new Type[] {booleanobjType}, null, null);
+        addMethod("Utility", "BooleanToByte", null, true, byteobjType, new Type[] {booleanobjType}, null, null);
+        addMethod("Utility", "BooleanToShort", null, true, shortobjType, new Type[] {booleanobjType}, null, null);
+        addMethod("Utility", "BooleanToCharacter", null, true, charobjType, new Type[] {booleanobjType}, null, null);
+        addMethod("Utility", "BooleanToInteger", null, true, intobjType, new Type[] {booleanobjType}, null, null);
+        addMethod("Utility", "BooleanToLong", null, true, longobjType, new Type[] {booleanobjType}, null, null);
+        addMethod("Utility", "BooleanToFloat", null, true, floatobjType, new Type[] {booleanobjType}, null, null);
+        addMethod("Utility", "BooleanToDouble", null, true, doubleobjType, new Type[] {booleanobjType}, null, null);
+        addMethod("Utility", "byteToboolean", null, true, booleanType, new Type[] {byteType}, null, null);
+        addMethod("Utility", "ByteToboolean", null, true, booleanType, new Type[] {byteobjType}, null, null);
+        addMethod("Utility", "ByteTochar", null, true, charType, new Type[] {byteobjType}, null, null);
+        addMethod("Utility", "shortToboolean", null, true, booleanType, new Type[] {shortType}, null, null);
+        addMethod("Utility", "ShortToboolean", null, true, booleanType, new Type[] {shortobjType}, null, null);
+        addMethod("Utility", "ShortTochar", null, true, charType, new Type[] {shortobjType}, null, null);
+        addMethod("Utility", "charToboolean", null, true, booleanType, new Type[] {charType}, null, null);
+        addMethod("Utility", "charToInteger", null, true, intobjType, new Type[] {charType}, null, null);
+        addMethod("Utility", "CharacterToboolean", null, true, booleanType, new Type[] {charobjType}, null, null);
+        addMethod("Utility", "CharacterTobyte", null, true, byteType, new Type[] {charobjType}, null, null);
+        addMethod("Utility", "CharacterToshort", null, true, shortType, new Type[] {charobjType}, null, null);
+        addMethod("Utility", "CharacterToint", null, true, intType, new Type[] {charobjType}, null, null);
+        addMethod("Utility", "CharacterTolong", null, true, longType, new Type[] {charobjType}, null, null);
+        addMethod("Utility", "CharacterTofloat", null, true, floatType, new Type[] {charobjType}, null, null);
+        addMethod("Utility", "CharacterTodouble", null, true, doubleType, new Type[] {charobjType}, null, null);
+        addMethod("Utility", "CharacterToBoolean", null, true, booleanobjType, new Type[] {charobjType}, null, null);
+        addMethod("Utility", "CharacterToByte", null, true, byteobjType, new Type[] {charobjType}, null, null);
+        addMethod("Utility", "CharacterToShort", null, true, shortobjType, new Type[] {charobjType}, null, null);
+        addMethod("Utility", "CharacterToInteger", null, true, intobjType, new Type[] {charobjType}, null, null);
+        addMethod("Utility", "CharacterToLong", null, true, longobjType, new Type[] {charobjType}, null, null);
+        addMethod("Utility", "CharacterToFloat", null, true, floatobjType, new Type[] {charobjType}, null, null);
+        addMethod("Utility", "CharacterToDouble", null, true, doubleobjType, new Type[] {charobjType}, null, null);
+        addMethod("Utility", "intToboolean", null, true, booleanType, new Type[] {intType}, null, null);
+        addMethod("Utility", "IntegerToboolean", null, true, booleanType, new Type[] {intobjType}, null, null);
+        addMethod("Utility", "IntegerTochar", null, true, charType, new Type[] {intobjType}, null, null);
+        addMethod("Utility", "longToboolean", null, true, booleanType, new Type[] {longType}, null, null);
+        addMethod("Utility", "LongToboolean", null, true, booleanType, new Type[] {longobjType}, null, null);
+        addMethod("Utility", "LongTochar", null, true, charType, new Type[] {longobjType}, null, null);
+        addMethod("Utility", "floatToboolean", null, true, booleanType, new Type[] {floatType}, null, null);
+        addMethod("Utility", "FloatToboolean", null, true, booleanType, new Type[] {floatobjType}, null, null);
+        addMethod("Utility", "FloatTochar", null, true, charType, new Type[] {floatobjType}, null, null);
+        addMethod("Utility", "doubleToboolean", null, true, booleanType, new Type[] {doubleType}, null, null);
+        addMethod("Utility", "DoubleToboolean", null, true, booleanType, new Type[] {doubleobjType}, null, null);
+        addMethod("Utility", "DoubleTochar", null, true, charType, new Type[] {doubleobjType}, null, null);
+
+        addMethod("List", "addLast", "add", false, booleanType, new Type[] {objectType}, null, null);
+        addMethod("List", "add", null, false, voidType, new Type[] {intType, objectType}, null, null);
+        addMethod("List", "get", null, false, objectType, new Type[] {intType}, null, null);
+        addMethod("List", "remove", null, false, objectType, new Type[] {intType}, null, null);
+        addMethod("List", "size", null, false, intType, new Type[] {}, null, null);
+        addMethod("List", "isEmpty", null, false, booleanType, new Type[] {}, null, null);
+
+        addConstructor("ArrayList", "new", new Type[] {}, null);
+
+        addMethod("Map", "put", null, false, objectType, new Type[] {objectType, objectType}, null, null);
+        addMethod("Map", "get", null, false, objectType, new Type[] {objectType}, null, null);
+        addMethod("Map", "remove", null, false, objectType, new Type[] {objectType}, null, null);
+        addMethod("Map", "size", null, false, intType, new Type[] {}, null, null);
+        addMethod("Map", "isEmpty", null, false, booleanType, new Type[] {}, null, null);
+
+        addConstructor("HashMap", "new", new Type[] {}, null);
+
+        addMethod("Map<String,Object>", "put", null, false, objectType, new Type[] {objectType, objectType}, null, new Type[] {stringType, objectType});
+        addMethod("Map<String,Object>", "get", null, false, objectType, new Type[] {objectType}, null, new Type[] {stringType});
+        addMethod("Map<String,Object>", "remove", null, false, objectType, new Type[] {objectType}, null, new Type[] {stringType});
+        addMethod("Map<String,Object>", "size", null, false, intType, new Type[] {}, null, null);
+        addMethod("Map<String,Object>", "isEmpty", null, false, booleanType, new Type[] {}, null, null);
+
+        addConstructor("HashMap<String,Object>", "new", new Type[] {}, null);
     }
 
-    private static void loadMethodFromProperty(final Definition definition, final String property, final boolean statik) {
-        String parsed = property;
-        int index = parsed.indexOf(' ');
+    private void copyDefaultStructs() {
+        copyStruct("Void", "Object");
+        copyStruct("Boolean", "Object");
+        copyStruct("Byte", "Number", "Object");
+        copyStruct("Short", "Number", "Object");
+        copyStruct("Character", "Object");
+        copyStruct("Integer", "Number", "Object");
+        copyStruct("Long", "Number", "Object");
+        copyStruct("Float", "Number", "Object");
+        copyStruct("Double", "Number", "Object");
 
-        if (index == -1) {
-            throw new IllegalArgumentException((statik ? "Function" : "Method") +
-                    " must be defined as (struct, name, Java method name with argument types).");
-        }
+        copyStruct("Number", "Object");
+        copyStruct("CharSequence", "Object");
+        copyStruct("String", "CharSequence", "Object");
 
-        final String ownerstr = parsed.substring(0, index);
-        parsed = parsed.substring(index).trim();
-        index = parsed.indexOf(' ');
+        copyStruct("List", "Object");
+        copyStruct("ArrayList", "List", "Object");
+        copyStruct("Map", "Object");
+        copyStruct("HashMap", "Map", "Object");
+        copyStruct("Map<String,Object>", "Object");
+        copyStruct("HashMap<String,Object>", "Map<String,Object>", "Object");
 
-        if (index == -1) {
-            throw new IllegalArgumentException((statik ? "Function" : "Method") +
-                    " must be defined as (struct, name, Java method name with argument types).");
-        }
-
-        final String namestr = parsed.substring(0, index);
-        parsed = parsed.substring(index).trim();
-        index = parsed.indexOf(' ');
-
-        if (index == -1) {
-            throw new IllegalArgumentException((statik ? "Function" : "Method") +
-                    " must be defined as (struct, name, Java method name with argument types).");
-        }
-
-        final String returnstr = parsed.substring(0, index);
-        parsed = parsed.substring(index).trim();
-        index = parsed.indexOf('(');
-
-        if (index == -1) {
-            throw new IllegalArgumentException((statik ? "Function" : "Method") +
-                    " must be defined as (struct, name, Java method name with argument types).");
-        }
-
-        final String clazzstr = parsed.substring(0, index);
-        parsed = parsed.substring(index).trim();
-
-        final String[][] argumentsstrs = parseArgumentsStr(parsed);
-
-        loadMethod(definition, ownerstr, namestr, returnstr, clazzstr, argumentsstrs, statik);
+        copyStruct("Executable", "Object");
     }
 
-    private static void loadFieldFromProperty(final Definition definition, final String property, final boolean statik) {
-        final String[] split = property.split("\\s+");
+    private void addDefaultTransforms() {
+        addTransform(booleanType, byteType, "Utility", "booleanTobyte", true);
+        addTransform(booleanType, shortType, "Utility", "booleanToshort", true);
+        addTransform(booleanType, charType, "Utility", "booleanTochar", true);
+        addTransform(booleanType, intType, "Utility", "booleanToint", true);
+        addTransform(booleanType, longType, "Utility", "booleanTolong", true);
+        addTransform(booleanType, floatType, "Utility", "booleanTofloat", true);
+        addTransform(booleanType, doubleType, "Utility", "booleanTodouble", true);
+        addTransform(booleanType, objectType, "Boolean", "valueOf", true);
+        addTransform(booleanType, numberType, "Utility", "booleanToInteger", true);
+        addTransform(booleanType, booleanobjType, "Boolean", "valueOf", true);
 
-        if (split.length != 4) {
-            throw new IllegalArgumentException((statik ? "Static" : "Member") +
-                    " must be defined with exactly four arguments (type, name, Java type, Java name).");
-        }
+        addTransform(byteType, booleanType, "Utility", "byteToboolean", true);
+        addTransform(byteType, objectType, "Byte", "valueOf", true);
+        addTransform(byteType, numberType, "Byte", "valueOf", true);
+        addTransform(byteType, byteobjType, "Byte", "valueOf", true);
 
-        final String ownerstr = split[0];
-        final String namestr = split[1];
-        final String typestr = split[2];
-        final String clazzstr = split[3];
+        addTransform(shortType, booleanType, "Utility", "shortToboolean", true);
+        addTransform(shortType, objectType, "Short", "valueOf", true);
+        addTransform(shortType, numberType, "Short", "valueOf", true);
+        addTransform(shortType, shortobjType, "Short", "valueOf", true);
 
-        loadField(definition, ownerstr, namestr, typestr, clazzstr, statik);
+        addTransform(charType, booleanType, "Utility", "charToboolean", true);
+        addTransform(charType, objectType, "Character", "valueOf", true);
+        addTransform(charType, numberType, "Utility", "charToInteger", true);
+        addTransform(charType, charobjType, "Character", "valueOf", true);
+
+        addTransform(intType, booleanType, "Utility", "intToboolean", true);
+        addTransform(intType, objectType, "Integer", "valueOf", true);
+        addTransform(intType, numberType, "Integer", "valueOf", true);
+        addTransform(intType, intobjType, "Integer", "valueOf", true);
+
+        addTransform(longType, booleanType, "Utility", "longToboolean", true);
+        addTransform(longType, objectType, "Long", "valueOf", true);
+        addTransform(longType, numberType, "Long", "valueOf", true);
+        addTransform(longType, longobjType, "Long", "valueOf", true);
+
+        addTransform(floatType, booleanType, "Utility", "floatToboolean", true);
+        addTransform(floatType, objectType, "Float", "valueOf", true);
+        addTransform(floatType, numberType, "Float", "valueOf", true);
+        addTransform(floatType, floatobjType, "Float", "valueOf", true);
+
+        addTransform(doubleType, booleanType, "Utility", "doubleToboolean", true);
+        addTransform(doubleType, objectType, "Double", "valueOf", true);
+        addTransform(doubleType, numberType, "Double", "valueOf", true);
+        addTransform(doubleType, doubleobjType, "Double", "valueOf", true);
+
+        addTransform(objectType, booleanType, "Boolean", "booleanValue", false);
+        addTransform(objectType, byteType, "Number", "byteValue", false);
+        addTransform(objectType, shortType, "Number", "shortValue", false);
+        addTransform(objectType, charType, "Character", "charValue", false);
+        addTransform(objectType, intType, "Number", "intValue", false);
+        addTransform(objectType, longType, "Number", "longValue", false);
+        addTransform(objectType, floatType, "Number", "floatValue", false);
+        addTransform(objectType, doubleType, "Number", "doubleValue", false);
+        
+        addTransform(numberType, booleanType, "Utility", "NumberToboolean", true);
+        addTransform(numberType, byteType, "Number", "byteValue", false);
+        addTransform(numberType, shortType, "Number", "shortValue", false);
+        addTransform(numberType, charType, "Utility", "NumberTochar", true);
+        addTransform(numberType, intType, "Number", "intValue", false);
+        addTransform(numberType, longType, "Number", "longValue", false);
+        addTransform(numberType, floatType, "Number", "floatValue", false);
+        addTransform(numberType, doubleType, "Number", "doubleValue", false);
+        addTransform(numberType, booleanobjType, "Utility", "NumberToBoolean", true);
+        addTransform(numberType, byteobjType, "Utility", "NumberToByte", true);
+        addTransform(numberType, shortobjType, "Utility", "NumberToShort", true);
+        addTransform(numberType, charobjType, "Utility", "NumberToCharacter", true);
+        addTransform(numberType, intobjType, "Utility", "NumberToInteger", true);
+        addTransform(numberType, longobjType, "Utility", "NumberToLong", true);
+        addTransform(numberType, floatobjType, "Utility", "NumberToFloat", true);
+        addTransform(numberType, doubleobjType, "Utility", "NumberToDouble", true);
+
+        addTransform(booleanobjType, booleanType, "Boolean", "booleanValue", false);
+        addTransform(booleanobjType, byteType, "Utility", "BooleanTobyte", true);
+        addTransform(booleanobjType, shortType, "Utility", "BooleanToshort", true);
+        addTransform(booleanobjType, charType, "Utility", "BooleanTochar", true);
+        addTransform(booleanobjType, intType, "Utility", "BooleanToint", true);
+        addTransform(booleanobjType, longType, "Utility", "BooleanTolong", true);
+        addTransform(booleanobjType, floatType, "Utility", "BooleanTofloat", true);
+        addTransform(booleanobjType, doubleType, "Utility", "BooleanTodouble", true);
+        addTransform(booleanobjType, numberType, "Utility", "BooleanToLong", true);
+        addTransform(booleanobjType, byteobjType, "Utility", "BooleanToByte", true);
+        addTransform(booleanobjType, shortobjType, "Utility", "BooleanToShort", true);
+        addTransform(booleanobjType, charobjType, "Utility", "BooleanToCharacter", true);
+        addTransform(booleanobjType, intobjType, "Utility", "BooleanToInteger", true);
+        addTransform(booleanobjType, longobjType, "Utility", "BooleanToLong", true);
+        addTransform(booleanobjType, floatobjType, "Utility", "BooleanToFloat", true);
+        addTransform(booleanobjType, doubleobjType, "Utility", "BooleanToDouble", true);
+
+        addTransform(byteobjType, booleanType, "Utility", "ByteToboolean", true);
+        addTransform(byteobjType, byteType, "Byte", "byteValue", false);
+        addTransform(byteobjType, shortType, "Byte", "shortValue", false);
+        addTransform(byteobjType, charType, "Utility", "ByteTochar", true);
+        addTransform(byteobjType, intType, "Byte", "intValue", false);
+        addTransform(byteobjType, longType, "Byte", "longValue", false);
+        addTransform(byteobjType, floatType, "Byte", "floatValue", false);
+        addTransform(byteobjType, doubleType, "Byte", "doubleValue", false);
+        addTransform(byteobjType, booleanobjType, "Utility", "NumberToBoolean", true);
+        addTransform(byteobjType, shortobjType, "Utility", "NumberToShort", true);
+        addTransform(byteobjType, charobjType, "Utility", "NumberToCharacter", true);
+        addTransform(byteobjType, intobjType, "Utility", "NumberToInteger", true);
+        addTransform(byteobjType, longobjType, "Utility", "NumberToLong", true);
+        addTransform(byteobjType, floatobjType, "Utility", "NumberToFloat", true);
+        addTransform(byteobjType, doubleobjType, "Utility", "NumberToDouble", true);
+
+        addTransform(shortobjType, booleanType, "Utility", "ShortToboolean", true);
+        addTransform(shortobjType, byteType, "Short", "byteValue", false);
+        addTransform(shortobjType, shortType, "Short", "shortValue", false);
+        addTransform(shortobjType, charType, "Utility", "ShortTochar", true);
+        addTransform(shortobjType, intType, "Short", "intValue", false);
+        addTransform(shortobjType, longType, "Short", "longValue", false);
+        addTransform(shortobjType, floatType, "Short", "floatValue", false);
+        addTransform(shortobjType, doubleType, "Short", "doubleValue", false);
+        addTransform(shortobjType, booleanobjType, "Utility", "NumberToBoolean", true);
+        addTransform(shortobjType, byteobjType, "Utility", "NumberToByte", true);
+        addTransform(shortobjType, charobjType, "Utility", "NumberToCharacter", true);
+        addTransform(shortobjType, intobjType, "Utility", "NumberToInteger", true);
+        addTransform(shortobjType, longobjType, "Utility", "NumberToLong", true);
+        addTransform(shortobjType, floatobjType, "Utility", "NumberToFloat", true);
+        addTransform(shortobjType, doubleobjType, "Utility", "NumberToDouble", true);
+
+        addTransform(charobjType, booleanType, "Utility", "CharacterToboolean", true);
+        addTransform(charobjType, byteType, "Utility", "CharacterTobyte", true);
+        addTransform(charobjType, shortType, "Utility", "CharacterToshort", true);
+        addTransform(charobjType, charType, "Character", "charValue", false);
+        addTransform(charobjType, intType, "Utility", "CharacterToint", true);
+        addTransform(charobjType, longType, "Utility", "CharacterTolong", true);
+        addTransform(charobjType, floatType, "Utility", "CharacterTofloat", true);
+        addTransform(charobjType, doubleType, "Utility", "CharacterTodouble", true);
+        addTransform(charobjType, booleanobjType, "Utility", "CharacterToBoolean", true);
+        addTransform(charobjType, byteobjType, "Utility", "CharacterToByte", true);
+        addTransform(charobjType, shortobjType, "Utility", "CharacterToShort", true);
+        addTransform(charobjType, intobjType, "Utility", "CharacterToInteger", true);
+        addTransform(charobjType, longobjType, "Utility", "CharacterToLong", true);
+        addTransform(charobjType, floatobjType, "Utility", "CharacterToFloat", true);
+        addTransform(charobjType, doubleobjType, "Utility", "CharacterToDouble", true);
+
+        addTransform(intobjType, booleanType, "Utility", "IntegerToboolean", true);
+        addTransform(intobjType, byteType, "Integer", "byteValue", false);
+        addTransform(intobjType, shortType, "Integer", "shortValue", false);
+        addTransform(intobjType, charType, "Utility", "IntegerTochar", true);
+        addTransform(intobjType, intType, "Integer", "intValue", false);
+        addTransform(intobjType, longType, "Integer", "longValue", false);
+        addTransform(intobjType, floatType, "Integer", "floatValue", false);
+        addTransform(intobjType, doubleType, "Integer", "doubleValue", false);
+        addTransform(intobjType, booleanobjType, "Utility", "NumberToBoolean", true);
+        addTransform(intobjType, byteobjType, "Utility", "NumberToByte", true);
+        addTransform(intobjType, shortobjType, "Utility", "NumberToShort", true);
+        addTransform(intobjType, charobjType, "Utility", "NumberToCharacter", true);
+        addTransform(intobjType, longobjType, "Utility", "NumberToLong", true);
+        addTransform(intobjType, floatobjType, "Utility", "NumberToFloat", true);
+        addTransform(intobjType, doubleobjType, "Utility", "NumberToDouble", true);
+
+        addTransform(longobjType, booleanType, "Utility", "LongToboolean", true);
+        addTransform(longobjType, byteType, "Long", "byteValue", false);
+        addTransform(longobjType, shortType, "Long", "shortValue", false);
+        addTransform(longobjType, charType, "Utility", "LongTochar", true);
+        addTransform(longobjType, intType, "Long", "intValue", false);
+        addTransform(longobjType, longType, "Long", "longValue", false);
+        addTransform(longobjType, floatType, "Long", "floatValue", false);
+        addTransform(longobjType, doubleType, "Long", "doubleValue", false);
+        addTransform(longobjType, booleanobjType, "Utility", "NumberToBoolean", true);
+        addTransform(longobjType, byteobjType, "Utility", "NumberToByte", true);
+        addTransform(longobjType, shortobjType, "Utility", "NumberToShort", true);
+        addTransform(longobjType, charobjType, "Utility", "NumberToCharacter", true);
+        addTransform(longobjType, intobjType, "Utility", "NumberToInteger", true);
+        addTransform(longobjType, floatobjType, "Utility", "NumberToFloat", true);
+        addTransform(longobjType, doubleobjType, "Utility", "NumberToDouble", true);
+
+        addTransform(floatobjType, booleanType, "Utility", "FloatToboolean", true);
+        addTransform(floatobjType, byteType, "Float", "byteValue", false);
+        addTransform(floatobjType, shortType, "Float", "shortValue", false);
+        addTransform(floatobjType, charType, "Utility", "FloatTochar", true);
+        addTransform(floatobjType, intType, "Float", "intValue", false);
+        addTransform(floatobjType, longType, "Float", "longValue", false);
+        addTransform(floatobjType, floatType, "Float", "floatValue", false);
+        addTransform(floatobjType, doubleType, "Float", "doubleValue", false);
+        addTransform(floatobjType, booleanobjType, "Utility", "NumberToBoolean", true);
+        addTransform(floatobjType, byteobjType, "Utility", "NumberToByte", true);
+        addTransform(floatobjType, shortobjType, "Utility", "NumberToShort", true);
+        addTransform(floatobjType, charobjType, "Utility", "NumberToCharacter", true);
+        addTransform(floatobjType, intobjType, "Utility", "NumberToInteger", true);
+        addTransform(floatobjType, longobjType, "Utility", "NumberToLong", true);
+        addTransform(floatobjType, doubleobjType, "Utility", "NumberToDouble", true);
+
+        addTransform(doubleobjType, booleanType, "Utility", "DoubleToboolean", true);
+        addTransform(doubleobjType, byteType, "Double", "byteValue", false);
+        addTransform(doubleobjType, shortType, "Double", "shortValue", false);
+        addTransform(doubleobjType, charType, "Utility", "DoubleTochar", true);
+        addTransform(doubleobjType, intType, "Double", "intValue", false);
+        addTransform(doubleobjType, longType, "Double", "longValue", false);
+        addTransform(doubleobjType, floatType, "Double", "floatValue", false);
+        addTransform(doubleobjType, doubleType, "Double", "doubleValue", false);
+        addTransform(doubleobjType, booleanobjType, "Utility", "NumberToBoolean", true);
+        addTransform(doubleobjType, byteobjType, "Utility", "NumberToByte", true);
+        addTransform(doubleobjType, shortobjType, "Utility", "NumberToShort", true);
+        addTransform(doubleobjType, charobjType, "Utility", "NumberToCharacter", true);
+        addTransform(doubleobjType, intobjType, "Utility", "NumberToInteger", true);
+        addTransform(doubleobjType, longobjType, "Utility", "NumberToLong", true);
+        addTransform(doubleobjType, floatobjType, "Utility", "NumberToFloat", true);
     }
 
-    private static void loadCopyFromProperty(final Definition definition, final String property) {
-        final String[] split = property.split("\\s+");
-
-        if (split.length < 2) {
-            throw new IllegalArgumentException(
-                    "Copy must be defined with at least two arguments (sub type, super type(s)).");
+    private void addStruct(final String name, final Class<?> clazz, final boolean generic) {
+        if (!name.matches("^[_a-zA-Z][<>,_a-zA-Z0-9]*$")) {
+            throw new IllegalArgumentException("Invalid struct name [" + name + "].");
         }
 
-        final String ownerstr = split[0];
+        if (structs.containsKey(name)) {
+            throw new IllegalArgumentException("Duplicate struct name [" + name + "].");
+        }
 
-        loadCopy(definition, ownerstr, split);
+        final Struct struct = new Struct(name, clazz, org.objectweb.asm.Type.getType(clazz), generic);
+
+        structs.put(name, struct);
     }
 
-    private static void loadTransformFromProperty(final Definition definition, final String property) {
-        final String[] split = property.split("\\s+");
-
-        if (split.length != 6) {
-            throw new IllegalArgumentException("Transform must be defined with exactly six arguments" +
-                    " ([explicit/implicit], cast from type, cast to type, owner struct," +
-                    " [function/method], call name).");
-        }
-
-        final String typestr = split[0];
-        final String fromstr = split[1];
-        final String tostr = split[2];
-        final String ownerstr = split[3];
-        final String staticstr = split[4];
-        final String methodstr = split[5];
-
-        loadTransform(definition, typestr, fromstr, tostr, ownerstr, staticstr, methodstr);
-    }
-
-    private static void loadNumericFromProperty(final Definition definition, final String property) {
-        final String[] split = property.split("\\s+");
-
-        if (split.length != 2) {
-            throw new IllegalArgumentException(
-                    "Numeric cast must be defined with exactly two arguments (cast from type, cast to type).");
-        }
-
-        final String fromstr = split[0];
-        final String tostr = split[1];
-
-        loadNumeric(definition, fromstr, tostr);
-    }
-
-    private static void loadUpcastFromProperty(final Definition definition, final String property) {
-        final String[] split = property.split("\\s+");
-
-        if (split.length != 2) {
-            throw new IllegalArgumentException(
-                    "Upcast must be defined with exactly two arguments (cast from type, cast to type).");
-        }
-
-        final String fromstr = split[0];
-        final String tostr = split[1];
-
-        loadUpcast(definition, fromstr, tostr);
-    }
-
-    private static void loadStruct(final Definition definition, final String namestr,
-                                   final String clazzstr, final boolean generic, final boolean runtime) {
-        if (!namestr.matches("^[_a-zA-Z][<>,_a-zA-Z0-9]*$")) {
-            throw new IllegalArgumentException("Invalid struct name [" + namestr + "].");
-        }
-
-        if (definition.structs.containsKey(namestr)) {
-            throw new IllegalArgumentException("Duplicate struct name [" + namestr + "].");
-        }
-
-        final Class<?> clazz = getClassFromCanonicalName(clazzstr);
-        final String internal = clazz.getName().replace('.', '/');
-        final Struct struct = new Struct(namestr, clazz, internal, generic, runtime);
-
-        definition.structs.put(namestr, struct);
-    }
-
-    private static void loadConstructor(final Definition definition, final String ownerstr,
-                                         final String namestr, final String[][] argumentsstrs) {
-        final Struct owner = definition.structs.get(ownerstr);
+    private void addConstructor(final String struct, final String name, final Type[] args, final Type[] genargs) {
+        final Struct owner = structs.get(struct);
 
         if (owner == null) {
             throw new IllegalArgumentException(
-                    "Owner struct [" + ownerstr + "] not defined for constructor [" + namestr + "].");
+                    "Owner struct [" + struct + "] not defined for constructor [" + name + "].");
         }
 
-        if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
+        if (!name.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
             throw new IllegalArgumentException(
-                    "Invalid constructor name [" + namestr + "] with the struct [" + ownerstr + "].");
+                    "Invalid constructor name [" + name + "] with the struct [" + owner.name + "].");
         }
 
-        if (owner.constructors.containsKey(namestr)) {
+        if (owner.constructors.containsKey(name)) {
             throw new IllegalArgumentException(
-                    "Duplicate constructor name [" + namestr + "] found within the struct [" + ownerstr + "].");
+                    "Duplicate constructor name [" + name + "] found within the struct [" + owner.name + "].");
         }
 
-        if (owner.statics.containsKey(namestr)) {
+        if (owner.statics.containsKey(name)) {
             throw new IllegalArgumentException("Constructors and functions may not have the same name" +
-                    " [" + namestr + "] within the same struct [" + ownerstr + "].");
+                    " [" + name + "] within the same struct [" + owner.name + "].");
         }
 
-        if (owner.methods.containsKey(namestr)) {
+        if (owner.methods.containsKey(name)) {
             throw new IllegalArgumentException("Constructors and methods may not have the same name" +
-                    " [" + namestr + "] within the same struct [" + ownerstr + "].");
+                    " [" + name + "] within the same struct [" + owner.name + "].");
         }
 
-        final int length = argumentsstrs.length;
-        final Type[] arguments = new Type[length];
-        final Type[] originals = new Type[length];
-        final Class<?>[] jarguments = new Class<?>[length];
+        final Class[] classes = new Class[args.length];
 
-        String descriptor = "(";
-
-        for (int argumentindex = 0; argumentindex < length; ++ argumentindex) {
-            final String[] argumentstrs = argumentsstrs[argumentindex];
-
-            if (argumentstrs.length == 1) {
-                arguments[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[0]);
-                originals[argumentindex] = arguments[argumentindex];
-            } else if (argumentstrs.length == 2) {
-                arguments[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[1]);
-                originals[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[0]);
-            } else {
-                throw new IllegalStateException("Argument type definition without one or two parameters." +
-                        " Found [" + argumentstrs.length + "] parameters for argument type [" + argumentstrs[0] + "]" +
-                        " in constructor [" + namestr + "] within the struct [" + ownerstr + "].");
+        for (int count = 0; count < classes.length; ++count) {
+            if (genargs != null) {
+                try {
+                    genargs[count].clazz.asSubclass(args[count].clazz);
+                } catch (ClassCastException exception) {
+                    throw new ClassCastException("Generic argument [" + genargs[count].name + "]" +
+                            " is not a sub class of [" + args[count].name + "] in the constructor" +
+                            " [" + name + " ] from the struct [" + owner.name + "].");
+                }
             }
 
-            jarguments[argumentindex] = originals[argumentindex].clazz;
-            descriptor += originals[argumentindex].descriptor;
+            classes[count] = args[count].clazz;
         }
 
-        descriptor += ")V";
+        final java.lang.reflect.Constructor<?> reflect;
 
-        final java.lang.reflect.Constructor jconstructor = getJConstructorFromJClass(owner.clazz, jarguments);
-        final Constructor constructor = new Constructor(namestr, owner,
-                Arrays.asList(arguments), Arrays.asList(originals), jconstructor, descriptor);
+        try {
+            reflect = owner.clazz.getConstructor(classes);
+        } catch (NoSuchMethodException exception) {
+            throw new IllegalArgumentException("Constructor [" + name + "] not found for class" +
+                    " [" + owner.clazz.getName() + "] with arguments " + Arrays.toString(classes) + ".");
+        }
 
-        owner.constructors.put(namestr, constructor);
+        final org.objectweb.asm.commons.Method asm = org.objectweb.asm.commons.Method.getMethod(reflect);
+        final Constructor constructor =
+                new Constructor(name, owner, Arrays.asList(genargs != null ? genargs : args), asm, reflect);
+
+        owner.constructors.put(name, constructor);
     }
 
-    private static void loadMethod(final Definition definition, final String ownerstr, final String namestr,
-                                    final String returnstr, final String clazzstr,
-                                    final String[][] argumentsstrs, boolean statik) {
-        final Struct owner = definition.structs.get(ownerstr);
+    private void addMethod(final String struct, final String name, final String alias, final boolean statik,
+                          final Type rtn, final Type[] args, final Type genrtn, final Type[] genargs) {
+        final Struct owner = structs.get(struct);
 
         if (owner == null) {
-            throw new IllegalArgumentException("Owner struct [" + ownerstr + "] not defined" +
-                    " for " + (statik ? "function" : "method") + " [" + namestr + "].");
+            throw new IllegalArgumentException("Owner struct [" + struct + "] not defined" +
+                    " for " + (statik ? "function" : "method") + " [" + name + "].");
         }
 
-        if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
+        if (!name.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
             throw new IllegalArgumentException("Invalid " + (statik ? "function" : "method") +
-                    " name [" + namestr + "] with the struct [" + ownerstr + "].");
+                    " name [" + name + "] with the struct [" + owner.name + "].");
         }
 
-        if (owner.constructors.containsKey(namestr)) {
+        if (owner.constructors.containsKey(name)) {
             throw new IllegalArgumentException("Constructors and " + (statik ? "functions" : "methods") +
-                    " may not have the same name [" + namestr + "] within the same struct [" + ownerstr + "].");
+                    " may not have the same name [" + name + "] within the same struct" +
+                    " [" + owner.name + "].");
         }
 
-        if (owner.statics.containsKey(namestr)) {
+        if (owner.statics.containsKey(name)) {
             if (statik) {
                 throw new IllegalArgumentException(
-                        "Duplicate function name [" + namestr + "] found within the struct [" + ownerstr + "].");
+                        "Duplicate function name [" + name + "] found within the struct [" + owner.name + "].");
             } else {
                 throw new IllegalArgumentException("Functions and methods may not have the same name" +
-                        " [" + namestr + "] within the same struct [" + ownerstr + "].");
+                        " [" + name + "] within the same struct [" + owner.name + "].");
             }
         }
 
-        if (owner.methods.containsKey(namestr)) {
+        if (owner.methods.containsKey(name)) {
             if (statik) {
                 throw new IllegalArgumentException("Functions and methods may not have the same name" +
-                        " [" + namestr + "] within the same struct [" + ownerstr + "].");
+                        " [" + name + "] within the same struct [" + owner.name + "].");
             } else {
-                throw new IllegalArgumentException(
-                        "Duplicate method name [" + namestr + "] found within the struct [" + ownerstr + "].");
+                throw new IllegalArgumentException("Duplicate method name [" + name + "]" +
+                        " found within the struct [" + owner.name + "].");
             }
         }
 
-        final String[] returnstrs = parseArgumentStr(returnstr);
-        Type rtn;
-        Type oreturn;
-        Class<?> jreturn;
-
-        if (returnstrs.length == 1) {
-            rtn = getTypeFromCanonicalName(definition, returnstrs[0]);
-            oreturn = rtn;
-        } else if (returnstrs.length == 2) {
-            rtn = getTypeFromCanonicalName(definition, returnstrs[1]);
-            oreturn = getTypeFromCanonicalName(definition, returnstrs[0]);
-        } else {
-            throw new IllegalStateException("Return type definition without one or two parameters. Found" +
-                    " [" + returnstrs.length + "] parameters for return type [" + returnstrs[0] + "] in " +
-                    (statik ? "function" : "method") + "[" + namestr + "] within the struct [" + ownerstr + "].");
+        if (genrtn != null) {
+            try {
+                genrtn.clazz.asSubclass(rtn.clazz);
+            } catch (ClassCastException exception) {
+                throw new ClassCastException("Generic return [" + genrtn.clazz.getCanonicalName() + "]" +
+                        " is not a sub class of [" + rtn.clazz.getCanonicalName() + "] in the method" +
+                        " [" + name + " ] from the struct [" + owner.name + "].");
+            }
         }
 
-        jreturn = oreturn.clazz;
+        if (genargs != null && genargs.length != args.length) {
+            throw new IllegalArgumentException("Generic arguments arity [" +  genargs.length + "] is not the same as " +
+                    (statik ? "function" : "method") + " [" + name + "] arguments arity" +
+                    " [" + args.length + "] within the struct [" + owner.name + "].");
+        }
 
-        final int length = argumentsstrs.length;
-        final Type[] arguments = new Type[length];
-        final Type[] originals = new Type[length];
-        final Class<?>[] jarguments = new Class<?>[length];
+        final Class[] classes = new Class[args.length];
 
-        String descriptor = "(";
-
-        for (int argumentindex = 0; argumentindex < length; ++ argumentindex) {
-            final String[] argumentstrs = argumentsstrs[argumentindex];
-
-            if (argumentstrs.length == 1) {
-                arguments[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[0]);
-                originals[argumentindex] = arguments[argumentindex];
-            } else if (argumentstrs.length == 2) {
-                arguments[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[1]);
-                originals[argumentindex] = getTypeFromCanonicalName(definition, argumentstrs[0]);
-            } else {
-                throw new IllegalStateException("Argument type definition without one or two parameters." +
-                        " Found [" + returnstrs.length + "] parameters for argument type [" + returnstrs[0] + "] in " +
-                        (statik ? "function" : "method") + "[" + namestr + "] within the struct [" + ownerstr + "].");
+        for (int count = 0; count < classes.length; ++count) {
+            if (genargs != null) {
+                try {
+                    genargs[count].clazz.asSubclass(args[count].clazz);
+                } catch (ClassCastException exception) {
+                    throw new ClassCastException("Generic argument [" + genargs[count].name + "] is not a sub class" +
+                            " of [" + args[count].name + "] in the " + (statik ? "function" : "method") +
+                            " [" + name + " ] from the struct [" + owner.name + "].");
+                }
             }
 
-            jarguments[argumentindex] = originals[argumentindex].clazz;
-
-            descriptor += originals[argumentindex].descriptor;
+            classes[count] = args[count].clazz;
         }
 
-        descriptor += ")" + oreturn.descriptor;
+        final java.lang.reflect.Method reflect;
 
-        final java.lang.reflect.Method jmethod = getJMethodFromJClass(owner.clazz, clazzstr, jarguments);
-
-        if (!jreturn.equals(jmethod.getReturnType())) {
-            throw new IllegalArgumentException("Defined Java return type [" + jreturn.getCanonicalName() +
-                    " does not match the Java return type [" + jmethod.getReturnType().getCanonicalName() +
-                    "] for " + (statik ? "function" : "method") + " [" + namestr + "] " +
-                    "within the struct [" + ownerstr + "].");
+        try {
+            reflect = owner.clazz.getMethod(alias == null ? name : alias, classes);
+        } catch (NoSuchMethodException exception) {
+            throw new IllegalArgumentException((statik ? "Function" : "Method") +
+                    " [" + (alias == null ? name : alias) + "] not found for class [" + owner.clazz.getName() + "]" +
+                    " with arguments " + Arrays.toString(classes) + ".");
         }
 
-        final Method method = new Method(namestr, owner, rtn, oreturn,
-                Arrays.asList(arguments), Arrays.asList(originals), jmethod, descriptor);
-        final int modifiers = jmethod.getModifiers();
+        if (!reflect.getReturnType().equals(rtn.clazz)) {
+            throw new IllegalArgumentException("Specified return type class [" + rtn.clazz + "]" +
+                    " does not match the found return type class [" + reflect.getReturnType() + "] for the " +
+                    (statik ? "function" : "method") + " [" + name + "]" +
+                    " within the struct [" + owner.name + "].");
+        }
+
+        final org.objectweb.asm.commons.Method asm = org.objectweb.asm.commons.Method.getMethod(reflect);
+        final Method method = new Method(name, owner, genrtn != null ? genrtn : rtn,
+                Arrays.asList(genargs != null ? genargs : args), asm, reflect);
+        final int modifiers = reflect.getModifiers();
 
         if (statik) {
             if (!java.lang.reflect.Modifier.isStatic(modifiers)) {
-                throw new IllegalArgumentException("Function [" + namestr + "]" +
-                        " within the struct [" + ownerstr + "] is not linked to a static Java method.");
+                throw new IllegalArgumentException("Function [" + name + "]" +
+                        " within the struct [" + owner.name + "] is not linked to a static Java method.");
             }
 
-            owner.functions.put(namestr, method);
+            owner.functions.put(name, method);
         } else {
             if (java.lang.reflect.Modifier.isStatic(modifiers)) {
-                throw new IllegalArgumentException("Method [" + namestr + "]" +
-                        " within the struct [" + ownerstr + "] is not linked to a non-static Java method.");
+                throw new IllegalArgumentException("Method [" + name + "]" +
+                        " within the struct [" + owner.name + "] is not linked to a non-static Java method.");
             }
 
-            owner.methods.put(namestr, method);
+            owner.methods.put(name, method);
         }
     }
 
-    private static void loadField(final Definition definition, final String ownerstr, final String namestr,
-                                  final String typestr, final String jnamestr, final boolean statik) {
-        final Struct owner = definition.structs.get(ownerstr);
+    private void addField(final String struct, final String name, final String alias,
+                         final boolean statik, final Type type) {
+        final Struct owner = structs.get(struct);
 
         if (owner == null) {
-            throw new IllegalArgumentException("Owner struct [" + ownerstr + "] not defined for " +
-                    (statik ? "static" : "member") + " [" + namestr + "].");
+            throw new IllegalArgumentException("Owner struct [" + struct + "] not defined for " +
+                    (statik ? "static" : "member") + " [" + name + "].");
         }
 
-        if (!namestr.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
+        if (!name.matches("^[_a-zA-Z][_a-zA-Z0-9]*$")) {
             throw new IllegalArgumentException("Invalid " + (statik ? "static" : "member") +
-                    " name [" + namestr + "] with the struct [" + ownerstr + "].");
+                    " name [" + name + "] with the struct [" + owner.name + "].");
         }
 
-        if (owner.statics.containsKey(namestr)) {
+        if (owner.statics.containsKey(name)) {
             if (statik) {
-                throw new IllegalArgumentException(
-                        "Duplicate static name [" + namestr + "] found within the struct [" + ownerstr + "].");
+                throw new IllegalArgumentException("Duplicate static name [" + name + "]" +
+                        " found within the struct [" + owner.name + "].");
             } else {
                 throw new IllegalArgumentException("Statics and members may not have the same name " +
-                        "[" + namestr + "] within the same struct [" + ownerstr + "].");
+                        "[" + name + "] within the same struct [" + owner.name + "].");
             }
         }
 
-        if (owner.members.containsKey(namestr)) {
+        if (owner.members.containsKey(name)) {
             if (statik) {
                 throw new IllegalArgumentException("Statics and members may not have the same name " +
-                        "[" + namestr + "] within the same struct [" + ownerstr + "].");
+                        "[" + name + "] within the same struct [" + owner.name + "].");
             } else {
-                throw new IllegalArgumentException(
-                        "Duplicate member name [" + namestr + "] found within the struct [" + ownerstr + "].");
+                throw new IllegalArgumentException("Duplicate member name [" + name + "]" +
+                        " found within the struct [" + owner.name + "].");
             }
         }
 
-        final Type type = getTypeFromCanonicalName(definition, typestr);
-        final java.lang.reflect.Field jfield = getJFieldFromJClass(owner.clazz, jnamestr);
-        final Field field = new Field(namestr, owner, type, jfield);
-        final int modifiers = jfield.getModifiers();
+        java.lang.reflect.Field reflect;
+
+        try {
+            reflect = owner.clazz.getField(alias == null ? name : alias);
+        } catch (NoSuchFieldException exception) {
+            throw new IllegalArgumentException("Field [" + name + "]" +
+                    " not found for class [" + owner.clazz.getName() + "].");
+        }
+
+        final Field field = new Field(name, owner, type, reflect);
+        final int modifiers = reflect.getModifiers();
 
         if (statik) {
             if (!java.lang.reflect.Modifier.isStatic(modifiers)) {
@@ -758,127 +1070,118 @@ class Definition {
             }
 
             if (!java.lang.reflect.Modifier.isFinal(modifiers)) {
-                throw new IllegalArgumentException("Static [" + namestr + "]" +
-                        " within the struct [" + ownerstr + "] is not linked to static Java field.");
+                throw new IllegalArgumentException("Static [" + name + "]" +
+                        " within the struct [" + owner.name + "] is not linked to static Java field.");
             }
 
-            owner.statics.put(namestr, field);
+            owner.statics.put(alias == null ? name : alias, field);
         } else {
             if (java.lang.reflect.Modifier.isStatic(modifiers)) {
-                throw new IllegalArgumentException("Member [" + namestr + "]" +
-                        " within the struct [" + ownerstr + "] is not linked to non-static Java field.");
+                throw new IllegalArgumentException("Member [" + name + "]" +
+                        " within the struct [" + owner.name + "] is not linked to non-static Java field.");
             }
 
-            owner.members.put(namestr, field);
+            owner.members.put(alias == null ? name : alias, field);
         }
     }
 
-    private static void loadCopy(final Definition definition, final String ownerstr, final String[] childstrs) {
-        final Struct owner = definition.structs.get(ownerstr);
+    private void copyStruct(final String struct, final String... children) {
+        final Struct owner = structs.get(struct);
 
         if (owner == null) {
-            throw new IllegalArgumentException("Owner struct [" + ownerstr + "] not defined for copy.");
+            throw new IllegalArgumentException("Owner struct [" + struct + "] not defined for copy.");
         }
 
-        for (int child = 1; child < childstrs.length; ++child) {
-            final Struct struct = definition.structs.get(childstrs[child]);
+        for (int count = 0; count < children.length; ++count) {
+            final Struct child = structs.get(children[count]);
 
             if (struct == null) {
-                throw new IllegalArgumentException("Child struct [" + childstrs[child] + "]" +
-                        " not defined for copy to owner struct [" + ownerstr + "].");
+                throw new IllegalArgumentException("Child struct [" + children[count] + "]" +
+                        " not defined for copy to owner struct [" + owner.name + "].");
             }
 
             try {
-                owner.clazz.asSubclass(struct.clazz);
+                owner.clazz.asSubclass(child.clazz);
             } catch (ClassCastException exception) {
-                throw new ClassCastException("Child struct [" + childstrs[child] + "]" +
-                        " is not a super type of owner struct [" + ownerstr + "] in copy.");
+                throw new ClassCastException("Child struct [" + child.name + "]" +
+                        " is not a super type of owner struct [" + owner.name + "] in copy.");
             }
 
-            final boolean object = struct.clazz.equals(Object.class) &&
+            final boolean object = child.clazz.equals(Object.class) &&
                     java.lang.reflect.Modifier.isInterface(owner.clazz.getModifiers());
 
-            for (final Method method : struct.methods.values()) {
+            for (final Method method : child.methods.values()) {
                 if (owner.methods.get(method.name) == null) {
-                    java.lang.reflect.Method jmethod = getJMethodFromJClass(object ? Object.class : owner.clazz,
-                            method.method.getName(), method.method.getParameterTypes());
+                    java.lang.reflect.Method reflect;
+
+                    try {
+                        final Class<?> clazz = object ? Object.class : owner.clazz;
+                        reflect = clazz.getMethod(method.method.getName(), method.reflect.getParameterTypes());
+                    } catch (NoSuchMethodException exception) {
+                        throw new IllegalArgumentException("Method [" + method.method.getName() + "] not found for" +
+                                " class [" + owner.clazz.getName() + "] with arguments " +
+                                Arrays.toString(method.reflect.getParameterTypes()) + ".");
+                    }
 
                     owner.methods.put(method.name,
-                            new Method(method.name, owner, method.rtn, method.oreturn,
-                                    method.arguments, method.originals, jmethod, method.descriptor));
+                            new Method(method.name, owner, method.rtn, method.arguments, method.method, reflect));
                 }
             }
 
-            for (final Field field : struct.members.values()) {
+            for (final Field field : child.members.values()) {
                 if (owner.members.get(field.name) == null) {
-                    java.lang.reflect.Field jfield = getJFieldFromJClass(owner.clazz, field.field.getName());
-                    owner.members.put(field.name, new Field(field.name, owner, field.type, jfield));
+                    java.lang.reflect.Field reflect;
+
+                    try {
+                        reflect = owner.clazz.getField(field.reflect.getName());
+                    } catch (NoSuchFieldException exception) {
+                        throw new IllegalArgumentException("Field [" + field.reflect.getName() + "]" +
+                                " not found for class [" + owner.clazz.getName() + "].");
+                    }
+
+                    owner.members.put(field.name, new Field(field.name, owner, field.type, reflect));
                 }
             }
         }
     }
 
-    private static void loadTransform(final Definition definition, final String typestr,
-                                      final String fromstr, final String tostr, final String ownerstr,
-                                      final String staticstr, final String methodstr) {
-        final Struct owner = definition.structs.get(ownerstr);
+    private void addTransform(final Type from, final Type to, final String struct, final String name, final boolean statik) {
+        final Struct owner = structs.get(struct);
 
         if (owner == null) {
-            throw new IllegalArgumentException("Owner struct [" + ownerstr + "] not defined for" +
-                    " transform with cast type from [" + fromstr + "] and cast type to [" + tostr + "].");
+            throw new IllegalArgumentException("Owner struct [" + struct + "] not defined for" +
+                    " transform with cast type from [" + from.name + "] and cast type to [" + to.name + "].");
         }
 
-        final Type from = getTypeFromCanonicalName(definition, fromstr);
-        final Type to = getTypeFromCanonicalName(definition, tostr);
-
         if (from.equals(to)) {
-            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "] cannot" +
-                    " have cast type from [" + fromstr + "] be the same as cast type to [" + tostr + "].");
+            throw new IllegalArgumentException("Transform with owner struct [" + owner.name + "] cannot" +
+                    " have cast type from [" + from.name + "] be the same as cast type to [" + to.name + "].");
         }
 
         final Cast cast = new Cast(from, to);
 
-        if (definition.numerics.contains(cast)) {
-            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
-                    " and cast type from [" + fromstr + "] to cast type to [" + tostr +
-                    "] already defined as a numeric cast.");
-        }
-
-        if (definition.upcasts.contains(cast)) {
-            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
-                    " and cast type from [" + fromstr + "] to cast type to [" + tostr +
-                    "] already defined as an upcast.");
-        }
-
-        if (definition.implicits.containsKey(cast)) {
-            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
-                    " and cast type from [" + fromstr + "] to cast type to [" + tostr +
-                    "] already defined as an implicit transform.");
-        }
-
-        if (definition.explicits.containsKey(cast)) {
-            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
-                    " and cast type from [" + fromstr + "] to cast type to [" + tostr +
-                    "] already defined as an explicit transform.");
+        if (transforms.containsKey(cast)) {
+            throw new IllegalArgumentException("Transform with owner struct [" + owner.name + "]" +
+                    " and cast type from [" + from.name + "] to cast type to [" + to.name + "] already defined.");
         }
 
         Method method;
         Type upcast = null;
         Type downcast = null;
 
-        if ("function".equals(staticstr)) {
-            method = owner.functions.get(methodstr);
+        if (statik) {
+            method = owner.functions.get(name);
 
             if (method == null) {
-                throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
-                        " and cast type from [" + fromstr + "] to cast type to [" + tostr +
-                        "] using a function [" + methodstr + "] that is not defined.");
+                throw new IllegalArgumentException("Transform with owner struct [" + owner.name + "]" +
+                        " and cast type from [" + from.name + "] to cast type to [" + to.name +
+                        "] using a function [" + name + "] that is not defined.");
             }
 
             if (method.arguments.size() != 1) {
-                throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
-                        " and cast type from [" + fromstr + "] to cast type to [" + tostr +
-                        "] using function [" + methodstr + "] does not have a single type argument.");
+                throw new IllegalArgumentException("Transform with owner struct [" + owner.name + "]" +
+                        " and cast type from [" + from.name + "] to cast type to [" + to.name +
+                        "] using function [" + name + "] does not have a single type argument.");
             }
 
             Type argument = method.arguments.get(0);
@@ -890,9 +1193,9 @@ class Definition {
                     argument.clazz.asSubclass(from.clazz);
                     upcast = argument;
                 } catch (ClassCastException cce1) {
-                    throw new ClassCastException("Transform with owner struct [" + ownerstr + "]" +
-                            " and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using function [" +
-                            methodstr + "] cannot cast from type to the function input argument type.");
+                    throw new ClassCastException("Transform with owner struct [" + owner.name + "]" +
+                            " and cast type from [" + from.name + "] to cast type to [" + to.name + "] using" +
+                            " function [" + name + "] cannot cast from type to the function input argument type.");
                 }
             }
 
@@ -905,24 +1208,24 @@ class Definition {
                     to.clazz.asSubclass(rtn.clazz);
                     downcast = to;
                 } catch (ClassCastException cce1) {
-                    throw new ClassCastException("Transform with owner struct [" + ownerstr + "]" +
-                            " and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using function [" +
-                            methodstr + "] cannot cast to type to the function return argument type.");
+                    throw new ClassCastException("Transform with owner struct [" + owner.name + "]" +
+                            " and cast type from [" + from.name + "] to cast type to [" + to.name + "] using" +
+                            " function [" + name + "] cannot cast to type to the function return argument type.");
                 }
             }
-        } else if ("method".equals(staticstr)) {
-            method = owner.methods.get(methodstr);
+        } else {
+            method = owner.methods.get(name);
 
             if (method == null) {
-                throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
-                        " and cast type from [" + fromstr + "] to cast type to [" + tostr +
-                        "] using a method [" + methodstr + "] that is not defined.");
+                throw new IllegalArgumentException("Transform with owner struct [" + owner.name + "]" +
+                        " and cast type from [" + from.name + "] to cast type to [" + to.name +
+                        "] using a method [" + name + "] that is not defined.");
             }
 
             if (!method.arguments.isEmpty()) {
-                throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
-                        " and cast type from [" + fromstr + "] to cast type to [" + tostr +
-                        "] using method [" + methodstr + "] does not have a single type argument.");
+                throw new IllegalArgumentException("Transform with owner struct [" + owner.name + "]" +
+                        " and cast type from [" + from.name + "] to cast type to [" + to.name +
+                        "] using method [" + name + "] does not have a single type argument.");
             }
 
             try {
@@ -930,11 +1233,11 @@ class Definition {
             } catch (ClassCastException cce0) {
                 try {
                     owner.clazz.asSubclass(from.clazz);
-                    upcast = getTypeFromCanonicalName(definition, owner.name);
+                    upcast = getType(owner.name);
                 } catch (ClassCastException cce1) {
-                    throw new ClassCastException("Transform with owner struct [" + ownerstr + "]" +
-                            " and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using method [" +
-                            methodstr + "] cannot cast from type to the method input argument type.");
+                    throw new ClassCastException("Transform with owner struct [" + owner.name + "]" +
+                            " and cast type from [" + from.name + "] to cast type to [" + to.name + "] using" +
+                            " method [" + name + "] cannot cast from type to the method input argument type.");
                 }
             }
 
@@ -947,276 +1250,79 @@ class Definition {
                     to.clazz.asSubclass(rtn.clazz);
                     downcast = to;
                 } catch (ClassCastException cce1) {
-                    throw new ClassCastException("Transform with owner struct [" + ownerstr + "]" +
-                            " and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using method [" +
-                            methodstr + "] cannot cast to type to the method return argument type.");
+                    throw new ClassCastException("Transform with owner struct [" + owner.name + "]" +
+                            " and cast type from [" + from.name + "] to cast type to [" + to.name + "]" +
+                            " using method [" + name + "] cannot cast to type to the method return argument type.");
                 }
             }
-        } else {
-            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
-                    " and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using function [" +
-                    methodstr + "] is not specified to use a function or a method.");
         }
 
         final Transform transform = new Transform(cast, method, upcast, downcast);
-
-        if ("explicit".equals(typestr)) {
-            definition.explicits.put(cast, transform);
-        } else if ("implicit".equals(typestr)) {
-            definition.implicits.put(cast, transform);
-        } else {
-            throw new IllegalArgumentException("Transform with owner struct [" + ownerstr + "]" +
-                    " and cast type from [" + fromstr + "] to cast type to [" + tostr + "] using" +
-                    " function/method [" + methodstr + "] is not specified to be implicit or explicit.");
-        }
+        transforms.put(cast, transform);
     }
 
-    private static void loadNumeric(final Definition definition, final String fromstr, final String tostr) {
-        final Type from = getTypeFromCanonicalName(definition, fromstr);
-        final Type to = getTypeFromCanonicalName(definition, tostr);
-
-        if (from.equals(to)) {
-            throw new IllegalArgumentException("Numeric cast cannot have cast type from [" + fromstr + "]" +
-                    " be the same as cast type to [" + tostr + "].");
-        }
-
-        final Cast cast = new Cast(from, to);
-
-        if (definition.numerics.contains(cast)) {
-            throw new IllegalArgumentException("Numeric cast with cast type from [" + fromstr + "]" +
-                    " to cast type to [" + tostr + "] already defined.");
-        }
-
-        if (definition.upcasts.contains(cast)) {
-            throw new IllegalArgumentException("Numeric cast with cast type from [" + fromstr + "]" +
-                    " to cast type to [" + tostr + "] already defined as an upcast.");
-        }
-
-        if (definition.explicits.containsKey(cast)) {
-            throw new IllegalArgumentException("Numeric cast with cast type from [" + fromstr + "]" +
-                    " to cast type to [" + tostr + "] already defined as an explicit transform.");
-        }
-
-        if (definition.implicits.containsKey(cast)) {
-            throw new IllegalArgumentException("Numeric cast with cast type from [" + fromstr + "]" +
-                    " to cast type to [" + tostr + "] already defined as an implicit transform.");
-        }
-
-        if (!from.metadata.numeric) {
-            throw new IllegalArgumentException("Numeric cast with cast type from [" + fromstr + "]" +
-                    " to cast type to [" + tostr + "] cannot have the from cast type as a non-numeric.");
-        }
-
-        if (!to.metadata.numeric) {
-            throw new IllegalArgumentException("Numeric cast with cast type from [" + fromstr + "]" +
-                    " to cast type to [" + tostr + "] cannot have the to cast type as a non-numeric.");
-        }
-
-        definition.numerics.add(cast);
-    }
-
-    private static void loadUpcast(final Definition definition, final String fromstr, final String tostr) {
-        final Type from = getTypeFromCanonicalName(definition, fromstr);
-        final Type to = getTypeFromCanonicalName(definition, tostr);
-
-        if (from.equals(to)) {
-            throw new IllegalArgumentException("Upcast cannot have cast type from [" + fromstr + "]" +
-                    " be the same as cast type to [" + tostr + "].");
-        }
-
-        final Cast cast = new Cast(from, to);
-
-        if (definition.numerics.contains(cast)) {
-            throw new IllegalArgumentException("Upcast with cast type from [" + fromstr + "]" +
-                    " to cast type to [" + tostr + "] already defined as a numeric cast.");
-        }
-
-        if (definition.upcasts.contains(cast)) {
-            throw new IllegalArgumentException("Upcast with cast type from [" + fromstr + "]" +
-                    " to cast type to [" + tostr + "] already defined.");
-        }
-
-        if (definition.explicits.containsKey(cast)) {
-            throw new IllegalArgumentException("Upcast with cast type from [" + fromstr + "]" +
-                    " to cast type to [" + tostr + "] already defined as an explicit transform.");
-        }
-
-        if (definition.implicits.containsKey(cast)) {
-            throw new IllegalArgumentException(" Upcast with cast type from [" + fromstr + "]" +
-                    " to cast type to [" + tostr + "] already defined as an implicit transform.");
-        }
-
-        try {
-            to.clazz.asSubclass(from.clazz);
-        } catch (ClassCastException exception) {
-            throw new ClassCastException("Upcast with cast type from [" + fromstr + "]" +
-                    " is not a super type of cast type to [" + tostr + "].");
-        }
-
-        definition.upcasts.add(cast);
-    }
-
-    private static String[][] parseArgumentsStr(final String argumentstr) {
-        if (!argumentstr.startsWith("(") || !argumentstr.endsWith(")")) {
-            throw new IllegalArgumentException("Arguments [" + argumentstr + "]" +
-                    " is missing opening and/or closing parenthesis.");
-        }
-
-        final String tidy = argumentstr.substring(1, argumentstr.length() - 1).replace(" ", "");
-
-        if ("".equals(tidy)) {
-            return new String[0][];
-        }
-
-        final String[] argumentsstr = tidy.split(",");
-        final String[][] argumentsstrs = new String[argumentsstr.length][];
-
-        for (int argumentindex = 0; argumentindex < argumentsstr.length; ++argumentindex) {
-            argumentsstrs[argumentindex] = parseArgumentStr(argumentsstr[argumentindex]);
-        }
-
-        return argumentsstrs;
-    }
-
-    private static String[] parseArgumentStr(final String argumentstr) {
-        final String[] argumentstrs = argumentstr.split("\\^");
-
-        if (argumentstrs.length == 1) {
-            return new String[] {argumentstrs[0]};
-        } else if (argumentstrs.length == 2) {
-            return new String[] {argumentstrs[0], argumentstrs[1]};
-        } else {
-            throw new IllegalArgumentException(
-                    "Argument [" + argumentstr + "] must contain only one or two paremeters");
-        }
-    }
-
-    static Type getTypeFromCanonicalName(final Definition definition, final String namestr) {
-        final int dimensions = getArrayDimensionsFromCanonicalName(namestr);
-        final String structstr = dimensions == 0 ? namestr : namestr.substring(0, namestr.indexOf('['));
-        final Struct struct = definition.structs.get(structstr);
+    Type getType(final String name) {
+        final int dimensions = getDimensions(name);
+        final String structstr = dimensions == 0 ? name : name.substring(0, name.indexOf('['));
+        final Struct struct = structs.get(structstr);
 
         if (struct == null) {
-            throw new IllegalArgumentException("The struct with name [" + namestr + "] has not been defined.");
+            throw new IllegalArgumentException("The struct with name [" + name + "] has not been defined.");
         }
 
-        return getTypeWithArrayDimensions(struct, dimensions);
+        return getType(struct, dimensions);
     }
 
-    static Type getTypeWithArrayDimensions(final Struct struct, final int dimensions) {
-        if (dimensions == 0) {
-            final Class<?> clazz = struct.clazz;
-            final String internal = struct.internal;
-            final String descriptor = getDescriptorFromClass(clazz);
+    Type getType(final Struct struct, final int dimensions) {
+        String name = struct.name;
+        org.objectweb.asm.Type type = struct.type;
+        Class<?> clazz = struct.clazz;
+        Sort sort;
 
-            TypeMetadata metadata = TypeMetadata.OBJECT;
+        if (dimensions > 0) {
+            final StringBuilder builder = new StringBuilder(name);
+            final char[] brackets = new char[dimensions];
 
-            for (TypeMetadata value : TypeMetadata.values()) {
+            for (int count = 0; count < dimensions; ++count) {
+                builder.append("[]");
+                brackets[count] = '[';
+            }
+
+            final String descriptor = new String(brackets) + struct.type.getDescriptor();
+
+            name = builder.toString();
+            type = org.objectweb.asm.Type.getType(descriptor);
+
+            try {
+                clazz = Class.forName(type.getInternalName().replace('/', '.'));
+            } catch (ClassNotFoundException exception) {
+                throw new IllegalArgumentException("The class [" + type.getInternalName() + "]" +
+                        " could not be found to create type [" + name + "].");
+            }
+
+            sort = Sort.ARRAY;
+        } else if (struct.generic) {
+            sort = Sort.GENERIC;
+        } else {
+            sort = Sort.OBJECT;
+
+            for (Sort value : Sort.values()) {
                 if (value.clazz == null) {
                     continue;
                 }
 
                 if (value.clazz.equals(struct.clazz)) {
-                    metadata = value;
+                    sort = value;
 
                     break;
                 }
             }
-
-            return new Type(struct.name, struct, clazz, internal, descriptor, 0, metadata);
-        } else {
-            final char[] brackets = new char[dimensions*2];
-
-            for (int index = 0; index < brackets.length; ++index) {
-                brackets[index] = '[';
-                brackets[++index] = ']';
-            }
-
-            final String name = struct.name + new String(brackets);
-            final String clazzstr = struct.clazz.getCanonicalName() + new String(brackets);
-            final Class<?> clazz = getClassFromCanonicalName(clazzstr);
-            final String internal = clazz.getName().replace('.', '/');
-            final String descriptor = getDescriptorFromClass(clazz);
-
-            return new Type(name, struct, clazz, internal, descriptor, dimensions, TypeMetadata.ARRAY);
         }
+
+        return new Type(name, struct, clazz, type, sort);
     }
 
-    private static Class<?> getClassFromCanonicalName(final String namestr) {
-        try {
-            final int dimensions = getArrayDimensionsFromCanonicalName(namestr);
-
-            if (dimensions == 0) {
-                switch (namestr) {
-                    case "void":
-                        return void.class;
-                    case "boolean":
-                        return boolean.class;
-                    case "byte":
-                        return byte.class;
-                    case "char":
-                        return char.class;
-                    case "short":
-                        return short.class;
-                    case "int":
-                        return int.class;
-                    case "long":
-                        return long.class;
-                    case "float":
-                        return float.class;
-                    case "double":
-                        return double.class;
-                    default:
-                        return Class.forName(namestr);
-                }
-            } else {
-                String jclassstr = namestr.substring(0, namestr.indexOf('['));
-
-                char[] brackets = new char[dimensions];
-                Arrays.fill(brackets, '[');
-                String descriptor = new String(brackets);
-
-                switch (jclassstr) {
-                    case "void":
-                        descriptor += "V";
-                        break;
-                    case "boolean":
-                        descriptor += "Z";
-                        break;
-                    case "byte":
-                        descriptor += "B";
-                        break;
-                    case "char":
-                        descriptor += "C";
-                        break;
-                    case "short":
-                        descriptor += "S";
-                        break;
-                    case "int":
-                        descriptor += "I";
-                        break;
-                    case "long":
-                        descriptor += "J";
-                        break;
-                    case "float":
-                        descriptor += "F";
-                        break;
-                    case "double":
-                        descriptor += "D";
-                        break;
-                    default:
-                        descriptor += "L" + jclassstr + ";";
-                }
-
-                return Class.forName(descriptor);
-            }
-        } catch (ClassNotFoundException exception) {
-            throw new IllegalArgumentException(
-                    "Unable to create a Java class from the canonical name [" + namestr + "].");
-        }
-    }
-
-    private static int getArrayDimensionsFromCanonicalName(final String name) {
+    private int getDimensions(final String name) {
         int dimensions = 0;
         int index = name.indexOf('[');
 
@@ -1233,199 +1339,5 @@ class Definition {
         }
 
         return dimensions;
-    }
-
-    private static String getDescriptorFromClass(final Class<?> clazz) {
-        final String namestr = clazz.getName();
-
-        switch (namestr) {
-            case "void":
-                return "V";
-            case "boolean":
-                return "Z";
-            case "byte":
-                return "B";
-            case "char":
-                return "C";
-            case "short":
-                return "S";
-            case "int":
-                return "I";
-            case "long":
-                return "J";
-            case "float":
-                return "F";
-            case "double":
-                return "D";
-            default:
-                String descriptor = namestr.replace('.', '/');
-
-                if (!descriptor.startsWith("[")) {
-                    descriptor = "L" + descriptor + ";";
-                }
-
-                return descriptor;
-        }
-    }
-
-    private static java.lang.reflect.Constructor getJConstructorFromJClass(final Class<?> clazz,
-                                                                           final Class<?>[] arguments) {
-        try {
-            return clazz.getConstructor(arguments);
-        } catch (NoSuchMethodException exception) {
-            throw new IllegalArgumentException("Java constructor not found for Java class [" + clazz.getName() + "]" +
-                    " with Java argument types [" + Arrays.toString(arguments) + "].");
-        }
-    }
-
-    private static java.lang.reflect.Method getJMethodFromJClass(final Class<?> clazz, final String namestr,
-                                                                 final Class<?>[] arguments) {
-        try {
-            return clazz.getMethod(namestr, arguments);
-        } catch (NoSuchMethodException exception) {
-            throw new IllegalArgumentException("Java method [" + namestr +
-                    "] not found for Java class [" + clazz.getName() + "]" +
-                    " with Java argument types [" + Arrays.toString(arguments) + "].");
-        }
-    }
-
-    private static java.lang.reflect.Field getJFieldFromJClass(final Class<?> clazz, final String namestr) {
-        try {
-            return clazz.getField(namestr);
-        } catch (NoSuchFieldException exception) {
-            throw new IllegalArgumentException(
-                    "Java field [" + namestr + "] not found for Java class [" + clazz.getName() + "].");
-        }
-    }
-
-    private static void validateMethods(final Definition types) {
-        for (final Struct struct : types.structs.values()) {
-            for (final Constructor constructor : struct.constructors.values()) {
-                final int length = constructor.arguments.size();
-                final List<Type> arguments = constructor.arguments;
-                final List<Type> originals = constructor.originals;
-
-                for (int argument = 0; argument < length; ++argument) {
-                    if (!validateArgument(types, arguments.get(argument), originals.get(argument))) {
-                        throw new ClassCastException("Generic argument Java type [" +
-                                arguments.get(argument).clazz.getCanonicalName() + "] is not a Java sub type of [" +
-                                originals.get(argument).clazz.getCanonicalName() + "] in the constructor [" +
-                                constructor.name + " from the struct [" + struct.name + "].");
-                    }
-                }
-            }
-
-            for (final Method function : struct.functions.values()) {
-                final int length = function.arguments.size();
-                final List<Type> arguments = function.arguments;
-                final List<Type> originals = function.originals;
-
-                for (int argument = 0; argument < length; ++argument) {
-                    if (!validateArgument(types, arguments.get(argument), originals.get(argument))) {
-                        throw new ClassCastException("Generic argument Java type [" +
-                                arguments.get(argument).clazz.getCanonicalName() + "] is not a Java sub type of [" +
-                                originals.get(argument).clazz.getCanonicalName() + "] in the function [" +
-                                function.name + " from the struct [" + struct.name + "].");
-                    }
-                }
-
-                if (!validateArgument(types, function.rtn, function.oreturn)) {
-                    throw new ClassCastException("Generic return Java type [" +
-                            function.rtn.clazz.getCanonicalName() + "] is not a Java sub type of [" +
-                            function.oreturn.clazz.getCanonicalName() + "] in the function [" +
-                            function.name + " from the struct [" + struct.name + "].");
-                }
-            }
-
-            for (final Method method : struct.methods.values()) {
-                final int length = method.arguments.size();
-                final List<Type> arguments = method.arguments;
-                final List<Type> originals = method.originals;
-
-                for (int argument = 0; argument < length; ++argument) {
-                    if (!validateArgument(types, arguments.get(argument), originals.get(argument))) {
-                        throw new ClassCastException("Generic argument Java type [" +
-                                arguments.get(argument).clazz.getCanonicalName() + "] is not a Java sub type of [" +
-                                originals.get(argument).clazz.getCanonicalName() + "] in the method [" +
-                                method.name + " from the struct [" + struct.name + "].");
-                    }
-                }
-
-                if (!validateArgument(types, method.rtn, method.oreturn)) {
-                    throw new ClassCastException("Generic return Java type [" +
-                            method.rtn.clazz.getCanonicalName() + "] is not a Java sub type of [" +
-                            method.oreturn.clazz.getCanonicalName() + "] in the method [" +
-                            method.name + " from the struct [" + struct.name + "].");
-                }
-            }
-        }
-    }
-
-    private static boolean validateArgument(final Definition definition, final Type argument, final Type original) {
-        final Cast cast = new Cast(argument, original);
-
-        if (!definition.implicits.containsKey(cast)) {
-            try {
-                argument.clazz.asSubclass(original.clazz);
-            } catch (ClassCastException exception) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static void buildRuntimeMap(final Definition definition) {
-        for (final Struct struct : definition.structs.values()) {
-            if (struct.runtime) {
-                for (final Method method : struct.methods.values()) {
-                    final String name = struct.clazz.getName() + "_" + method.name;
-
-                    if (!definition.runtime.containsKey(name)) {
-                        try {
-                            definition.runtime.put(name,
-                                    MethodHandles.publicLookup().in(struct.clazz).unreflect(method.method));
-                        } catch (IllegalAccessException exception) {
-                            throw new IllegalStateException("Unable to find method [" + method.name + "] from the" +
-                                    " struct [" + struct.name + "] to define as a runtime method.");
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    final Map<String, Struct> structs;
-    final Map<String, MethodHandle> runtime;
-
-    final Map<Cast, Transform> explicits;
-    final Map<Cast, Transform> implicits;
-    final Set<Cast> numerics;
-    final Set<Cast> upcasts;
-
-    private Definition() {
-        structs = new HashMap<>();
-        runtime = new HashMap<>();
-
-        explicits = new HashMap<>();
-        implicits = new HashMap<>();
-        numerics = new HashSet<>();
-        upcasts = new HashSet<>();
-    }
-
-    private Definition(Definition definition) {
-        final Map<String, Struct> ummodifiable = new HashMap<>();
-
-        for (final Struct struct : definition.structs.values()) {
-            ummodifiable.put(struct.name, new Struct(struct));
-        }
-
-        structs = Collections.unmodifiableMap(ummodifiable);
-        runtime = Collections.unmodifiableMap(definition.runtime);
-
-        explicits = Collections.unmodifiableMap(definition.explicits);
-        implicits = Collections.unmodifiableMap(definition.implicits);
-        numerics = Collections.unmodifiableSet(definition.numerics);
-        upcasts = Collections.unmodifiableSet(definition.upcasts);
     }
 }

@@ -33,23 +33,10 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-import static org.elasticsearch.plan.a.Default.*;
 import static org.elasticsearch.plan.a.Definition.*;
 import static org.elasticsearch.plan.a.PlanAParser.*;
 
 class Adapter {
-    static class Variable {
-        final String name;
-        final Type type;
-        final int slot;
-
-        private Variable(final String name, final Type type, final int slot) {
-            this.name = name;
-            this.type = type;
-            this.slot = slot;
-        }
-    }
-
     static class StatementMetadata {
         final ParserRuleContext source;
 
@@ -189,12 +176,8 @@ class Adapter {
     }
 
     final Definition definition;
-    final Standard standard;
     final String source;
     final ParserRuleContext root;
-
-    private final Deque<Integer> scopes;
-    private final Deque<Variable> variables;
 
     private final Map<ParserRuleContext, StatementMetadata> statementMetadata;
     private final Map<ParserRuleContext, ExpressionMetadata> expressionMetadata;
@@ -207,16 +190,11 @@ class Adapter {
     
     final CompilerSettings settings;
 
-    Adapter(final Definition definition, final Standard standard, final String source,
-            final ParserRuleContext root, CompilerSettings settings) {
+    Adapter(final Definition definition, final String source, final ParserRuleContext root, CompilerSettings settings) {
         this.definition = definition;
-        this.standard = standard;
         this.source = source;
         this.root = root;
         this.settings = settings;
-
-        scopes = new ArrayDeque<>();
-        variables = new ArrayDeque<>();
 
         statementMetadata = new HashMap<>();
         expressionMetadata = new HashMap<>();
@@ -226,59 +204,6 @@ class Adapter {
         branches = new HashMap<>();
         jumps = new ArrayDeque<>();
         strings = new HashSet<>();
-    }
-
-    void incrementScope() {
-        scopes.push(0);
-    }
-
-    void decrementScope() {
-        int remove = scopes.pop();
-
-        while (remove > 0) {
-            variables.pop();
-            --remove;
-        }
-    }
-
-    Variable getVariable(final String name) {
-        final Iterator<Variable> itr = variables.iterator();
-
-        while (itr.hasNext()) {
-            final Variable variable = itr.next();
-
-            if (variable.name.equals(name)) {
-                return variable;
-            }
-        }
-
-        return null;
-    }
-
-     Variable addVariable(final ParserRuleContext source, final String name, final Type type) {
-         if (getVariable(name) != null) {
-             if (source == null) {
-                 throw new IllegalArgumentException("Argument name [" + name + "] already defined within the scope.");
-             } else {
-                 throw new IllegalArgumentException(
-                         error(source) + "Variable name [" + name + "] already defined within the scope.");
-             }
-         }
-
-         final Variable previous = variables.peekFirst();
-         int slot = 0;
-
-         if (previous != null) {
-             slot += previous.slot + previous.type.metadata.size;
-         }
-
-         final Variable variable = new Variable(name, type, slot);
-         variables.push(variable);
-
-         final int update = scopes.pop() + 1;
-         scopes.push(update);
-
-         return variable;
     }
 
     StatementMetadata createStatementMetadata(final ParserRuleContext source) {
