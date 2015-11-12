@@ -40,10 +40,12 @@ public class WhenThingsGoWrongTests extends ScriptTestCase {
     public void testInvalidShift() {
         try {
             exec("float x = 15F; x <<= 2; return x;");
+            fail("should have hit cce");
         } catch (ClassCastException expected) {}
 
         try {
             exec("double x = 15F; x <<= 2; return x;");
+            fail("should have hit cce");
         } catch (ClassCastException expected) {}
     }
 }

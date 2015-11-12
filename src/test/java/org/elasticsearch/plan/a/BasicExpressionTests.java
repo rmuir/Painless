@@ -70,13 +70,13 @@ public class BasicExpressionTests extends ScriptTestCase {
     }
 
     public void testCat() {
-        assertEquals("aaabbb", exec("return \"aaa\" .. \"bbb\";"));
-        assertEquals("aaabbb", exec("String aaa = \"aaa\", bbb = \"bbb\"; return aaa .. bbb;"));
+        assertEquals("aaabbb", exec("return \"aaa\" + \"bbb\";"));
+        assertEquals("aaabbb", exec("String aaa = \"aaa\", bbb = \"bbb\"; return aaa + bbb;"));
 
         assertEquals("aaabbbbbbbbb", exec(
                 "String aaa = \"aaa\", bbb = \"bbb\"; int x;\n" +
                 "for (; x < 3; ++x) \n" +
-                "    aaa ..= bbb;\n" +
+                "    aaa += bbb;\n" +
                 "return aaa;"));
     }
 

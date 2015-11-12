@@ -19,19 +19,11 @@
 
 package org.elasticsearch.plan.a;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
-import org.objectweb.asm.Label;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 
 import static org.elasticsearch.plan.a.Definition.*;
 import static org.elasticsearch.plan.a.PlanAParser.*;
@@ -72,8 +64,8 @@ class Adapter {
 
         Type to;
         Type from;
-        Object promotion;
         boolean explicit;
+        boolean typesafe;
 
         Cast cast;
 
@@ -88,8 +80,8 @@ class Adapter {
 
             to = null;
             from = null;
-            promotion = null;
             explicit = false;
+            typesafe = true;
 
             cast = null;
         }
@@ -153,24 +145,6 @@ class Adapter {
         }
     }
 
-    static class Branch {
-        final ParserRuleContext source;
-
-        Label begin;
-        Label end;
-        Label tru;
-        Label fals;
-
-        private Branch(final ParserRuleContext source) {
-            this.source = source;
-
-            begin = null;
-            end = null;
-            tru = null;
-            fals = null;
-        }
-    }
-
     static String error(final ParserRuleContext ctx) {
         return "Error [" + ctx.getStart().getLine() + ":" + ctx.getStart().getCharPositionInLine() + "]: ";
     }
@@ -178,19 +152,14 @@ class Adapter {
     final Definition definition;
     final String source;
     final ParserRuleContext root;
+    final CompilerSettings settings;
 
     private final Map<ParserRuleContext, StatementMetadata> statementMetadata;
     private final Map<ParserRuleContext, ExpressionMetadata> expressionMetadata;
     private final Map<ParserRuleContext, ExternalMetadata> externalMetadata;
     private final Map<ParserRuleContext, ExtNodeMetadata> extNodeMetadata;
 
-    private final Map<ParserRuleContext, Branch> branches;
-    private final Deque<Branch> jumps;
-    private final Set<ParserRuleContext> strings;
-    
-    final CompilerSettings settings;
-
-    Adapter(final Definition definition, final String source, final ParserRuleContext root, CompilerSettings settings) {
+    Adapter(final Definition definition, final String source, final ParserRuleContext root, final CompilerSettings settings) {
         this.definition = definition;
         this.source = source;
         this.root = root;
@@ -200,10 +169,6 @@ class Adapter {
         expressionMetadata = new HashMap<>();
         externalMetadata = new HashMap<>();
         extNodeMetadata = new HashMap<>();
-
-        branches = new HashMap<>();
-        jumps = new ArrayDeque<>();
-        strings = new HashSet<>();
     }
 
     StatementMetadata createStatementMetadata(final ParserRuleContext source) {
@@ -299,61 +264,5 @@ class Adapter {
         }
 
         return sourceemd;
-    }
-
-    Branch markBranch(final ParserRuleContext source, final ParserRuleContext... nodes) {
-        final Branch branch = new Branch(source);
-
-        for (final ParserRuleContext node : nodes) {
-            branches.put(node, branch);
-        }
-
-        return branch;
-    }
-
-    void copyBranch(final Branch branch, final ParserRuleContext... nodes) {
-        for (final ParserRuleContext node : nodes) {
-            branches.put(node, branch);
-        }
-    }
-
-    Branch getBranch(final ParserRuleContext source) {
-        return branches.get(source);
-    }
-
-    void checkWriteBranch(final MethodVisitor visitor, final ParserRuleContext source) {
-        final Branch branch = getBranch(source);
-
-        if (branch != null) {
-            if (branch.tru != null) {
-                visitor.visitJumpInsn(Opcodes.IFNE, branch.tru);
-            } else if (branch.fals != null) {
-                visitor.visitJumpInsn(Opcodes.IFEQ, branch.fals);
-            }
-        }
-    }
-
-    void pushJump(final Branch branch) {
-        jumps.push(branch);
-    }
-
-    Branch peekJump() {
-        return jumps.peek();
-    }
-
-    void popJump() {
-        jumps.pop();
-    }
-
-    void markStrings(final ParserRuleContext node) {
-        strings.add(node);
-    }
-
-    void unmarkStrings(final ParserRuleContext node) {
-        strings.remove(node);
-    }
-
-    boolean getStrings(final ParserRuleContext node) {
-        return strings.contains(node);
     }
 }

@@ -22,10 +22,14 @@ package org.elasticsearch.plan.a;
 import java.util.Map;
 
 public abstract class Executable {
+    protected final Definition definition;
+
     private final String name;
     private final String source;
 
-    public Executable(String name, String source) {
+    public Executable(final Definition definition, final String name, final String source) {
+        this.definition = definition;
+
         this.name = name;
         this.source = source;
     }
@@ -36,6 +40,10 @@ public abstract class Executable {
 
     public String getSource() {
         return source;
+    }
+
+    public Definition getDefinition() {
+        return definition;
     }
 
     public abstract Object execute(Map<String, Object> input);

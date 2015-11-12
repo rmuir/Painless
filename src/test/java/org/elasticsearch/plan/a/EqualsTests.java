@@ -101,6 +101,8 @@ public class EqualsTests extends ScriptTestCase {
         assertEquals(true, exec("Integer x = new Integer(3); Object y = new Integer(3); return x == y;"));
         assertEquals(false, exec("Integer x = new Integer(3); Object y = new Integer(3); return x === y;"));
         assertEquals(true, exec("Integer x = new Integer(3); int y = 3; return x == y;"));
+        assertEquals(true, exec("Integer x = new Integer(3); short y = 3; return x == y;"));
+        assertEquals(true, exec("Integer x = new Integer(3); Short y = (short)3; return x == y;"));
         assertEquals(false, exec("Integer x = new Integer(3); int y = 3; return x === y;"));
         assertEquals(false, exec("Integer x = new Integer(3); double y = 3; return x === y;"));
         assertEquals(true, exec("int[] x = new int[1]; Object y = x; return x == y;"));
@@ -159,6 +161,8 @@ public class EqualsTests extends ScriptTestCase {
         assertEquals(true, exec("Character a = null; Character b = null; return a === b;"));
         assertEquals(true, exec("Character a = 'a'; Character b = null; return a != b;"));
         assertEquals(false, exec("Character a = null; Character b = null; return a !== b;"));
+        assertEquals(false, exec("Integer x = null; double y = 2.0; return x == y;"));
+        assertEquals(true, exec("Integer x = null; Short y = null; return x == y;"));
     }
 
     public void testLeftHandNull() {
@@ -174,5 +178,7 @@ public class EqualsTests extends ScriptTestCase {
         assertEquals(true, exec("Character a = null; Character b = 'a'; return a != b;"));
         assertEquals(false, exec("Character a = null; Character b = null; return b != a;"));
         assertEquals(false, exec("Character a = null; Character b = null; return b !== a;"));
+        assertEquals(false, exec("Integer x = null; double y = 2.0; return y == x;"));
+        assertEquals(true, exec("Integer x = null; Short y = null; return y == x;"));
     }
 }

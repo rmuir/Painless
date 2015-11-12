@@ -97,7 +97,7 @@ final class Compiler {
         //System.out.println("write: " + end);
         //start = System.currentTimeMillis();
 
-        final Executable executable = createExecutable(name, source, definition.getClass().getClassLoader(), bytes);
+        final Executable executable = createExecutable(definition, name, source, bytes);
 
         //end = System.currentTimeMillis() - start;
         //System.out.println("create: " + end);
@@ -122,7 +122,7 @@ final class Compiler {
         return root;
     }
 
-    private static Executable createExecutable(String name, String source, ClassLoader parent, byte[] bytes) {
+    private static Executable createExecutable(final Definition definition, final String name, final String source, byte[] bytes) {
         try {
             // for debugging:
              //try {
@@ -133,12 +133,12 @@ final class Compiler {
              //   throw new RuntimeException(e);
              //}
 
-            final Loader loader = new Loader(parent);
+            final Loader loader = new Loader(definition.getClass().getClassLoader());
             final Class<? extends Executable> clazz = loader.define(Writer.CLASS_NAME, bytes);
             final java.lang.reflect.Constructor<? extends Executable> constructor =
-                    clazz.getConstructor(String.class, String.class);
+                    clazz.getConstructor(Definition.class, String.class, String.class);
 
-            return constructor.newInstance(name, source);
+            return constructor.newInstance(definition, name, source);
         } catch (Exception exception) {
             throw new IllegalStateException(
                     "An internal error occurred attempting to define the script [" + name + "].", exception);

@@ -243,13 +243,6 @@ interface PlanAVisitor<T> extends ParseTreeVisitor<T> {
    */
   T visitNull(PlanAParser.NullContext ctx);
   /**
-   * Visit a parse tree produced by the {@code cat}
-   * labeled alternative in {@link PlanAParser#expression}.
-   * @param ctx the parse tree
-   * @return the visitor result
-   */
-  T visitCat(PlanAParser.CatContext ctx);
-  /**
    * Visit a parse tree produced by the {@code binary}
    * labeled alternative in {@link PlanAParser#expression}.
    * @param ctx the parse tree

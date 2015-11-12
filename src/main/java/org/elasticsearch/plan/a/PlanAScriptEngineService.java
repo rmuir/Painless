@@ -44,10 +44,17 @@ public class PlanAScriptEngineService extends AbstractComponent implements Scrip
     
     public static final String NUMERIC_OVERFLOW = "plan-a.numeric_overflow";
 
+    // TODO: how should custom definitions be specified?
+    private Definition definition = null;
+
     @Inject
     public PlanAScriptEngineService(Settings settings) {
         super(settings);
         compilerSettings.setNumericOverflow(settings.getAsBoolean(NUMERIC_OVERFLOW, compilerSettings.getNumericOverflow()));
+    }
+
+    public void setDefinition(final Definition definition) {
+        this.definition = new Definition(definition);
     }
 
     @Override
@@ -76,7 +83,7 @@ public class PlanAScriptEngineService extends AbstractComponent implements Scrip
             @Override
             public Executable run() {
                 // NOTE: validation is delayed to allow runtime vars, and we don't have access to per index stuff here
-                return Compiler.compile("something", script, null, compilerSettings);
+                return Compiler.compile("something", script, definition, compilerSettings);
             }
         });
     }

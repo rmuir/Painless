@@ -1,0 +1,587 @@
+/*
+ * Licensed to Elasticsearch under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package org.elasticsearch.plan.a;
+
+import java.lang.invoke.MethodHandle;
+import java.lang.reflect.Array;
+import java.util.List;
+
+import static org.elasticsearch.plan.a.Definition.*;
+
+public class Def {
+    public static Object methodCall(final Object owner, final String name, final Definition definition,
+                                    final Object[] arguments, final boolean[] typesafe) {
+        final Method method = getMethod(owner, name, definition);
+        final MethodHandle handle = method.handle;
+        final List<Type> types = method.arguments;
+        final Object[] parameters = new Object[arguments.length + 1];
+
+        parameters[0] = owner;
+
+        if (types.size() != arguments.length) {
+            throw new IllegalArgumentException("When dynamically calling [" + name + "] from class " +
+                    "[" + owner.getClass() + "] expected [" + types.size() + "] arguments," +
+                    " but found [" + arguments.length + "].");
+        }
+
+        try {
+            for (int count = 0; count < arguments.length; ++count) {
+                if (typesafe[count]) {
+                    parameters[count + 1] = arguments[count];
+                } else {
+                    final Transform transform = getTransform(arguments[count].getClass(), types.get(count).clazz, definition);
+                    parameters[count + 1] = transform == null ? arguments[count] : transform.method.handle.invoke(arguments[count]);
+                }
+            }
+
+            return handle.invokeWithArguments(parameters);
+        } catch (Throwable throwable) {
+            throw new IllegalArgumentException("Error invoking method [" + name + "] " +
+                    "with owner class [" + owner.getClass().getCanonicalName() + "].", throwable);
+        }
+    }
+
+    public static void fieldStore(final Object owner, Object value, final String name,
+                                  final Definition definition, final boolean typesafe) {
+        final Field field = getField(owner, name, definition);
+        final MethodHandle handle = field.setter;
+
+        if (field.setter == null) {
+            throw new IllegalArgumentException(
+                    "Illegal to store to field [" + name + "] with owner class [" + owner.getClass() + "].");
+        }
+
+        try {
+            if (!typesafe) {
+                final Transform transform = getTransform(value.getClass(), handle.type().parameterType(1), definition);
+
+                if (transform != null) {
+                    value = transform.method.handle.invoke(value);
+                }
+            }
+
+            handle.invoke(owner, value);
+        } catch (Throwable throwable) {
+            throw new IllegalArgumentException("Error storing value [" + value + "] " +
+                    "in field [" + name + "] with owner class [" + owner.getClass() + "].", throwable);
+        }
+    }
+
+    public static Object fieldLoad(final Object owner, final String name, final Definition definition) {
+        if (owner.getClass().isArray() && "length".equals(name)) {
+            return Array.getLength(owner);
+        } else {
+            final Field field = getField(owner, name, definition);
+            final MethodHandle handle = field.getter;
+
+            if (field.getter == null) {
+                throw new IllegalArgumentException(
+                        "Unable to read from field [" + name + "] with owner class [" + owner.getClass() + "].");
+            }
+
+            try {
+                return handle.invoke(owner);
+            } catch (final Throwable throwable) {
+                throw new IllegalArgumentException("Error loading value from " +
+                        "field [" + name + "] with owner class [" + owner.getClass() + "].", throwable);
+            }
+        }
+    }
+
+    public static void arrayStore(final Object array, final int index, Object value,
+                                  final Definition definition, final boolean typesafe) {
+        if (!array.getClass().isArray()) {
+            throw new IllegalArgumentException(
+                    "Attempting to address a non-array type [" + array.getClass().getCanonicalName() + "] as an array.");
+        }
+
+        try {
+            if (!typesafe) {
+                final Transform transform = getTransform(value.getClass(), array.getClass().getComponentType(), definition);
+
+                if (transform != null) {
+                    value = transform.method.handle.invoke(value);
+                }
+            }
+
+            Array.set(array, index, value);
+        } catch (final Throwable throwable) {
+            throw new IllegalArgumentException("Error storing value [" + value + "] " +
+                    "in array class [" + array.getClass().getCanonicalName() + "].", throwable);
+        }
+    }
+
+    public static Object arrayLoad(final Object array, final int index) {
+        if (!array.getClass().isArray()) {
+            throw new IllegalArgumentException(
+                    "Attempting to address a non-array type [" + array.getClass().getCanonicalName() + "] as an array.");
+        }
+
+        try {
+            return Array.get(array, index);
+        } catch (final Throwable throwable) {
+            throw new IllegalArgumentException("Error loading value from " +
+                    "array class [" + array.getClass().getCanonicalName() + "].", throwable);
+        }
+    }
+
+    public static Method getMethod(final Object owner, final String name, final Definition definition) {
+        Struct struct = null;
+        Class<?> clazz = owner.getClass();
+        Method method = null;
+
+        while (clazz != null) {
+            struct = definition.classes.get(clazz);
+
+            if (struct != null) {
+                method = struct.methods.get(name);
+
+                if (method != null) {
+                    break;
+                }
+            }
+
+            for (final Class iface : clazz.getInterfaces()) {
+                struct = definition.classes.get(iface);
+
+                if (struct != null) {
+                    method = struct.methods.get(name);
+
+                    if (method != null) {
+                        break;
+                    }
+                }
+            }
+
+            if (struct != null) {
+                method = struct.methods.get(name);
+
+                if (method != null) {
+                    break;
+                }
+            }
+
+            clazz = clazz.getSuperclass();
+        }
+
+        if (struct == null) {
+            throw new IllegalArgumentException("Unable to find a dynamic struct for class [" + owner.getClass() + "].");
+        }
+
+        if (method == null) {
+            throw new IllegalArgumentException("Unable to find dynamic method [" + name + "] " +
+                    "for class [" + owner.getClass().getCanonicalName() + "].");
+        }
+
+        return method;
+    }
+
+    public static Field getField(final Object owner, final String name, final Definition definition) {
+        Struct struct = null;
+        Class<?> clazz = owner.getClass();
+        Field field = null;
+
+        while (clazz != null) {
+            struct = definition.classes.get(clazz);
+
+            if (struct != null) {
+                field = struct.members.get(name);
+
+                if (field != null) {
+                    break;
+                }
+            }
+
+            for (final Class iface : clazz.getInterfaces()) {
+                struct = definition.classes.get(iface);
+
+                if (struct != null) {
+                    field = struct.members.get(name);
+
+                    if (field != null) {
+                        break;
+                    }
+                }
+            }
+
+            if (struct != null) {
+                field = struct.members.get(name);
+
+                if (field != null) {
+                    break;
+                }
+            }
+
+            clazz = clazz.getSuperclass();
+        }
+
+        if (struct == null) {
+            throw new IllegalArgumentException("Unable to find a dynamic struct for class [" + owner.getClass() + "].");
+        }
+
+        if (field == null) {
+            throw new IllegalArgumentException("Unable to find dynamic field [" + name + "] " +
+                    "for class [" + owner.getClass().getCanonicalName() + "].");
+        }
+
+        return field;
+    }
+
+    public static Transform getTransform(Class<?> fromClass, Class<?> toClass, final Definition definition) {
+        Struct fromStruct = null;
+        Struct toStruct = null;
+
+        if (fromClass.equals(toClass)) {
+            return null;
+        }
+
+        while (fromClass != null) {
+            fromStruct = definition.classes.get(fromClass);
+
+            if (fromStruct != null) {
+                break;
+            }
+
+            for (final Class iface : fromClass.getInterfaces()) {
+                fromStruct = definition.classes.get(iface);
+
+                if (fromStruct != null) {
+                    break;
+                }
+            }
+
+            if (fromStruct != null) {
+                break;
+            }
+
+            fromClass = fromClass.getSuperclass();
+        }
+
+        if (fromStruct != null) {
+            while (toClass != null) {
+                toStruct = definition.classes.get(toClass);
+
+                if (toStruct != null) {
+                    break;
+                }
+
+                for (final Class iface : toClass.getInterfaces()) {
+                    toStruct = definition.classes.get(iface);
+
+                    if (toStruct != null) {
+                        break;
+                    }
+                }
+
+                if (toStruct != null) {
+                    break;
+                }
+
+                toClass = toClass.getSuperclass();
+            }
+        }
+
+        if (toStruct != null) {
+            final Type fromType = definition.getType(fromStruct.name);
+            final Type toType = definition.getType(toStruct.name);
+            final Cast cast = new Cast(fromType, toType);
+
+            return definition.transforms.get(cast);
+        }
+
+        return null;
+    }
+
+    public static Object add(final Object left, final Object right, final boolean overflow) {
+        if (left instanceof String || right instanceof String) {
+            return "" + left + right;
+        } else if (left instanceof Number) {
+            if (right instanceof Number) {
+                if (overflow) {
+                    return ((Number)left).doubleValue() + ((Number)right).doubleValue();
+                } else {
+                    return Utility.addWithoutOverflow(((Number)left).doubleValue(), ((Number)right).doubleValue());
+                }
+            } else if (right instanceof Character) {
+                if (overflow) {
+                    return ((Number)left).doubleValue() + (double)(char)right;
+                } else {
+                    return Utility.addWithoutOverflow(((Number)left).doubleValue(), (double)(char)right);
+                }
+            }
+        } else if (left instanceof Character) {
+            if (right instanceof Number) {
+                if (overflow) {
+                    return (double)(char)left + ((Number)right).doubleValue();
+                } else {
+                    return Utility.addWithoutOverflow((double)(char)left, ((Number)right).doubleValue());
+                }
+            } else if (right instanceof Character) {
+                if (overflow) {
+                    return (double)(char)left + (double)(char)right;
+                } else {
+                    return Utility.addWithoutOverflow((double)(char)left, (double)(char)right);
+                }
+            }
+        }
+
+        throw new ClassCastException("Cannot apply [+] operation to types " +
+                "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
+    }
+
+    public static Object and(final Object left, final Object right) {
+        if (left instanceof Boolean && right instanceof Boolean) {
+            return (boolean)left && (boolean)right;
+        } else if (left instanceof Number) {
+            if (right instanceof Number) {
+                return ((Number)left).longValue() & ((Number)right).longValue();
+            } else if (right instanceof Character) {
+                return ((Number)left).longValue() & (long)(char)right;
+            }
+        } else if (left instanceof Character) {
+            if (right instanceof Number) {
+                return (long)(char)left & ((Number)right).longValue();
+            } else if (right instanceof Character) {
+                return (long)(char)left & (long)(char)right;
+            }
+        }
+
+        throw new ClassCastException("Cannot apply [^] operation to types " +
+                "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
+    }
+
+    public static Object xor(final Object left, final Object right) {
+        if (left instanceof Boolean && right instanceof Boolean) {
+            return (boolean)left ^ (boolean)right;
+        } else if (left instanceof Number) {
+            if (right instanceof Number) {
+                return ((Number)left).longValue() ^ ((Number)right).longValue();
+            } else if (right instanceof Character) {
+                return ((Number)left).longValue() ^ (long)(char)right;
+            }
+        } else if (left instanceof Character) {
+            if (right instanceof Number) {
+                return (long)(char)left ^ ((Number)right).longValue();
+            } else if (right instanceof Character) {
+                return (long)(char)left ^ (long)(char)right;
+            }
+        }
+
+        throw new ClassCastException("Cannot apply [^] operation to types " +
+                "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
+    }
+
+    public static Object or(final Object left, final Object right) {
+        if (left instanceof Boolean && right instanceof Boolean) {
+            return (boolean)left || (boolean)right;
+        } else if (left instanceof Number) {
+            if (right instanceof Number) {
+                return ((Number)left).longValue() | ((Number)right).longValue();
+            } else if (right instanceof Character) {
+                return ((Number)left).longValue() | (long)(char)right;
+            }
+        } else if (left instanceof Character) {
+            if (right instanceof Number) {
+                return (long)(char)left | ((Number)right).longValue();
+            } else if (right instanceof Character) {
+                return (long)(char)left | (long)(char)right;
+            }
+        }
+
+        throw new ClassCastException("Cannot apply [^] operation to types " +
+                "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
+    }
+
+    public static boolean DefToboolean(final Object value) {
+        if (value instanceof Boolean) {
+            return (boolean)value;
+        } else if (value instanceof Character) {
+            return ((char)value) != 0;
+        } else {
+            return ((Number)value).intValue() != 0;
+        }
+    }
+
+    public static byte DefTobyte(final Object value) {
+        if (value instanceof Boolean) {
+            return ((Boolean)value) ? (byte)1 : 0;
+        } else if (value instanceof Character) {
+            return (byte)(char)value;
+        } else {
+            return ((Number)value).byteValue();
+        }
+    }
+
+    public static short DefToshort(final Object value) {
+        if (value instanceof Boolean) {
+            return ((Boolean)value) ? (short)1 : 0;
+        } else if (value instanceof Character) {
+            return (short)(char)value;
+        } else {
+            return ((Number)value).shortValue();
+        }
+    }
+
+    public static char DefTochar(final Object value) {
+        if (value instanceof Boolean) {
+            return ((Boolean)value) ? (char)1 : 0;
+        } else if (value instanceof Character) {
+            return ((Character)value);
+        } else {
+            return (char)((Number)value).intValue();
+        }
+    }
+
+    public static int DefToint(final Object value) {
+        if (value instanceof Boolean) {
+            return ((Boolean)value) ? 1 : 0;
+        } else if (value instanceof Character) {
+            return (int)(char)value;
+        } else {
+            return ((Number)value).intValue();
+        }
+    }
+
+    public static long DefTolong(final Object value) {
+        if (value instanceof Boolean) {
+            return ((Boolean)value) ? 1L : 0;
+        } else if (value instanceof Character) {
+            return (long)(char)value;
+        } else {
+            return ((Number)value).longValue();
+        }
+    }
+
+    public static float DefTofloat(final Object value) {
+        if (value instanceof Boolean) {
+            return ((Boolean)value) ? (float)1 : 0;
+        } else if (value instanceof Character) {
+            return (float)(char)value;
+        } else {
+            return ((Number)value).floatValue();
+        }
+    }
+
+    public static double DefTodouble(final Object value) {
+        if (value instanceof Boolean) {
+            return ((Boolean)value) ? (double)1 : 0;
+        } else if (value instanceof Character) {
+            return (double)(char)value;
+        } else {
+            return ((Number)value).doubleValue();
+        }
+    }
+
+    public static Boolean DefToBoolean(final Object value) {
+        if (value == null) {
+            return null;
+        } else if (value instanceof Boolean) {
+            return (boolean)value;
+        } else if (value instanceof Character) {
+            return ((char)value) != 0;
+        } else {
+            return ((Number)value).intValue() != 0;
+        }
+    }
+
+    public static Byte DefToByte(final Object value) {
+        if (value == null) {
+            return null;
+        } else if (value instanceof Boolean) {
+            return ((Boolean)value) ? (byte)1 : 0;
+        } else if (value instanceof Character) {
+            return (byte)(char)value;
+        } else {
+            return ((Number)value).byteValue();
+        }
+    }
+
+    public static Short DefToShort(final Object value) {
+        if (value == null) {
+            return null;
+        } else if (value instanceof Boolean) {
+            return ((Boolean)value) ? (short)1 : 0;
+        } else if (value instanceof Character) {
+            return (short)(char)value;
+        } else {
+            return ((Number)value).shortValue();
+        }
+    }
+
+    public static Character DefToCharacter(final Object value) {
+        if (value == null) {
+            return null;
+        } else if (value instanceof Boolean) {
+            return ((Boolean)value) ? (char)1 : 0;
+        } else if (value instanceof Character) {
+            return ((Character)value);
+        } else {
+            return (char)((Number)value).intValue();
+        }
+    }
+
+    public static Integer DefToInteger(final Object value) {
+        if (value == null) {
+            return null;
+        } else if (value instanceof Boolean) {
+            return ((Boolean)value) ? 1 : 0;
+        } else if (value instanceof Character) {
+            return (int)(char)value;
+        } else {
+            return ((Number)value).intValue();
+        }
+    }
+
+    public static Long DefToLong(final Object value) {
+        if (value == null) {
+            return null;
+        } else if (value instanceof Boolean) {
+            return ((Boolean)value) ? 1L : 0;
+        } else if (value instanceof Character) {
+            return (long)(char)value;
+        } else {
+            return ((Number)value).longValue();
+        }
+    }
+
+    public static Float DefToFloat(final Object value) {
+        if (value == null) {
+            return null;
+        } else if (value instanceof Boolean) {
+            return ((Boolean)value) ? (float)1 : 0;
+        } else if (value instanceof Character) {
+            return (float)(char)value;
+        } else {
+            return ((Number)value).floatValue();
+        }
+    }
+
+    public static Double DefToDouble(final Object value) {
+        if (value == null) {
+            return null;
+        } else if (value instanceof Boolean) {
+            return ((Boolean)value) ? (double)1 : 0;
+        } else if (value instanceof Character) {
+            return (double)(char)value;
+        } else {
+            return ((Number)value).doubleValue();
+        }
+    }
+}

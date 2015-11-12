@@ -23,24 +23,24 @@ public class StringTests extends ScriptTestCase {
     
     public void testAppend() {
         // boolean
-        assertEquals("cat" + true, exec("String s = \"cat\"; return s .. true;"));
+        assertEquals("cat" + true, exec("String s = \"cat\"; return s + true;"));
         // byte
-        assertEquals("cat" + (byte)3, exec("String s = \"cat\"; return s .. (byte)3;"));
+        assertEquals("cat" + (byte)3, exec("String s = \"cat\"; return s + (byte)3;"));
         // short
-        assertEquals("cat" + (short)3, exec("String s = \"cat\"; return s .. (short)3;"));
+        assertEquals("cat" + (short)3, exec("String s = \"cat\"; return s + (short)3;"));
         // char
-        assertEquals("cat" + 't', exec("String s = \"cat\"; return s .. 't';"));
-        assertEquals("cat" + (char)40, exec("String s = \"cat\"; return s .. (char)40;"));
+        assertEquals("cat" + 't', exec("String s = \"cat\"; return s + 't';"));
+        assertEquals("cat" + (char)40, exec("String s = \"cat\"; return s + (char)40;"));
         // int
-        assertEquals("cat" + 2, exec("String s = \"cat\"; return s .. 2;"));
+        assertEquals("cat" + 2, exec("String s = \"cat\"; return s + 2;"));
         // long
-        assertEquals("cat" + 2L, exec("String s = \"cat\"; return s .. 2L;"));
+        assertEquals("cat" + 2L, exec("String s = \"cat\"; return s + 2L;"));
         // float
-        assertEquals("cat" + 2F, exec("String s = \"cat\"; return s .. 2F;"));
+        assertEquals("cat" + 2F, exec("String s = \"cat\"; return s + 2F;"));
         // double
-        assertEquals("cat" + 2.0, exec("String s = \"cat\"; return s .. 2.0;"));
+        assertEquals("cat" + 2.0, exec("String s = \"cat\"; return s + 2.0;"));
         // String
-        assertEquals("cat" + "cat", exec("String s = \"cat\"; return s .. s;"));
+        assertEquals("cat" + "cat", exec("String s = \"cat\"; return s + s;"));
     }
 
     public void testStringAPI() {

@@ -19,6 +19,9 @@
 
 package org.elasticsearch.plan.a;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -29,47 +32,47 @@ import java.util.Map;
 class Definition {
     enum Sort {
         VOID(       void.class      , 0 , true  , false , false , false ),
-        BOOL(       boolean.class   , 1 , true  , false , true  , false ),
-        BYTE(       byte.class      , 1 , true  , true  , true  , false ),
-        SHORT(      short.class     , 1 , true  , true  , true  , false ),
-        CHAR(       char.class      , 1 , true  , true  , true  , false ),
-        INT(        int.class       , 1 , true  , true  , true  , false ),
-        LONG(       long.class      , 2 , true  , true  , true  , false ),
-        FLOAT(      float.class     , 1 , true  , true  , true  , false ),
-        DOUBLE(     double.class    , 2 , true  , true  , true  , false ),
+        BOOL(       boolean.class   , 1 , true  , true  , false , true  ),
+        BYTE(       byte.class      , 1 , true  , false , true  , true  ),
+        SHORT(      short.class     , 1 , true  , false , true  , true  ),
+        CHAR(       char.class      , 1 , true  , false , true  , true  ),
+        INT(        int.class       , 1 , true  , false , true  , true  ),
+        LONG(       long.class      , 2 , true  , false , true  , true  ),
+        FLOAT(      float.class     , 1 , true  , false , true  , true  ),
+        DOUBLE(     double.class    , 2 , true  , false , true  , true  ),
 
         VOID_OBJ(   Void.class      , 1 , true  , false , false , false ),
-        BOOL_OBJ(   Boolean.class   , 1 , false , false , false , true  ),
-        BYTE_OBJ(   Byte.class      , 1 , false , true  , false , true  ),
-        SHORT_OBJ(  Short.class     , 1 , false , true  , false , true  ),
-        CHAR_OBJ(   Character.class , 1 , false , true  , false , true  ),
-        INT_OBJ(    Integer.class   , 1 , false , true  , false , true  ),
-        LONG_OBJ(   Long.class      , 1 , false , true  , false , true  ),
-        FLOAT_OBJ(  Float.class     , 1 , false , true  , false , true  ),
-        DOUBLE_OBJ( Double.class    , 1 , false , true  , false , true  ),
+        BOOL_OBJ(   Boolean.class   , 1 , false , true  , false , false ),
+        BYTE_OBJ(   Byte.class      , 1 , false , false , true  , false ),
+        SHORT_OBJ(  Short.class     , 1 , false , false , true  , false ),
+        CHAR_OBJ(   Character.class , 1 , false , false , true  , false ),
+        INT_OBJ(    Integer.class   , 1 , false , false , true  , false ),
+        LONG_OBJ(   Long.class      , 1 , false , false , true  , false ),
+        FLOAT_OBJ(  Float.class     , 1 , false , false , true  , false ),
+        DOUBLE_OBJ( Double.class    , 1 , false , false , true  , false ),
 
-        NUMBER(     Number.class    , 1 , false , true  , false , true  ),
-        STRING(     String.class    , 1 , false , false , true  , true  ),
+        NUMBER(     Number.class    , 1 , false , false , true  , false ),
+        STRING(     String.class    , 1 , false , false , false , true  ),
 
-        OBJECT(     null            , 1 , false , false , false , true  ),
-        GENERIC(    null            , 1 , false , false , false , true  ),
-        ARRAY(      null            , 1 , false , false , false , true  );
+        OBJECT(     null            , 1 , false , false , false , false ),
+        DEF(        null            , 1 , false , false , false , false ),
+        ARRAY(      null            , 1 , false , false , false , false );
 
         final Class<?> clazz;
         final int size;
         final boolean primitive;
+        final boolean bool;
         final boolean numeric;
         final boolean constant;
-        final boolean object;
 
         Sort(final Class<?> clazz, final int size, final boolean primitive,
-             final boolean numeric, final boolean constant, final boolean object) {
+             final boolean bool, final boolean numeric, final boolean constant) {
             this.clazz = clazz;
             this.size = size;
+            this.bool = bool;
             this.primitive = primitive;
             this.numeric = numeric;
             this.constant = constant;
-            this.object = object;
         }
     }
 
@@ -137,29 +140,39 @@ class Definition {
         final List<Type> arguments;
         final org.objectweb.asm.commons.Method method;
         final java.lang.reflect.Method reflect;
+        final MethodHandle handle;
 
         private Method(final String name, final Struct owner, final Type rtn, final List<Type> arguments,
-               final org.objectweb.asm.commons.Method method, final java.lang.reflect.Method reflect) {
+                       final org.objectweb.asm.commons.Method method, final java.lang.reflect.Method reflect,
+                       final MethodHandle handle) {
             this.name = name;
             this.owner = owner;
             this.rtn = rtn;
             this.arguments = Collections.unmodifiableList(arguments);
             this.method = method;
             this.reflect = reflect;
+            this.handle = handle;
         }
     }
 
     static class Field {
         final String name;
         final Struct owner;
+        final Type generic;
         final Type type;
         final java.lang.reflect.Field reflect;
+        final MethodHandle getter;
+        final MethodHandle setter;
 
-        private Field(final String name, final Struct owner, final Type type, final java.lang.reflect.Field reflect) {
+        private Field(final String name, final Struct owner, final Type generic, final Type type,
+                      final java.lang.reflect.Field reflect, final MethodHandle getter, final MethodHandle setter) {
             this.name = name;
             this.owner = owner;
+            this.generic = generic;
             this.type = type;
             this.reflect = reflect;
+            this.getter = getter;
+            this.setter = setter;
         }
     }
 
@@ -167,7 +180,6 @@ class Definition {
         final String name;
         final Class<?> clazz;
         final org.objectweb.asm.Type type;
-        final boolean generic;
 
         final Map<String, Constructor> constructors;
         final Map<String, Method> functions;
@@ -176,11 +188,10 @@ class Definition {
         final Map<String, Field> statics;
         final Map<String, Field> members;
 
-        private Struct(final String name, final Class<?> clazz, final org.objectweb.asm.Type type, final boolean generic) {
+        private Struct(final String name, final Class<?> clazz, final org.objectweb.asm.Type type) {
             this.name = name;
             this.clazz = clazz;
             this.type = type;
-            this.generic = generic;
 
             constructors = new HashMap<>();
             functions = new HashMap<>();
@@ -194,7 +205,6 @@ class Definition {
             name = struct.name;
             clazz = struct.clazz;
             type = struct.type;
-            generic = struct.generic;
 
             constructors = Collections.unmodifiableMap(struct.constructors);
             functions = Collections.unmodifiableMap(struct.functions);
@@ -222,6 +232,39 @@ class Definition {
         @Override
         public int hashCode() {
             return name.hashCode();
+        }
+    }
+
+    static class Pair {
+        final Type type0;
+        final Type type1;
+
+        Pair(final Type type0, final Type type1) {
+            this.type0 = type0;
+            this.type1 = type1;
+        }
+
+        @Override
+        public boolean equals(final Object object) {
+            if (this == object) {
+                return true;
+            }
+
+            if (object == null || getClass() != object.getClass()) {
+                return false;
+            }
+
+            final Pair pair = (Pair)object;
+
+            return type0.equals(pair.type0) && type1.equals(pair.type1);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = type0.hashCode();
+            result = 31 * result + type1.hashCode();
+
+            return result;
         }
     }
 
@@ -275,7 +318,9 @@ class Definition {
     }
 
     final Map<String, Struct> structs;
+    final Map<Class<?>, Struct> classes;
     final Map<Cast, Transform> transforms;
+    final Map<Pair, Type> bounds;
 
     final Type voidType;
     final Type booleanType;
@@ -298,24 +343,39 @@ class Definition {
     final Type doubleobjType;
 
     final Type objectType;
+    final Type defType;
     final Type numberType;
     final Type charseqType;
     final Type stringType;
+    final Type mathType;
     final Type utilityType;
+    final Type defobjType;
 
     final Type listType;
     final Type arraylistType;
     final Type mapType;
     final Type hashmapType;
+
+    final Type olistType;
+    final Type oarraylistType;
+    final Type omapType;
+    final Type ohashmapType;
+
     final Type smapType;
+    final Type shashmapType;
+    final Type somapType;
+    final Type sohashmapType;
 
     final Type execType;
 
     public Definition() {
         structs = new HashMap<>();
+        classes = new HashMap<>();
         transforms = new HashMap<>();
+        bounds = new HashMap<>();
 
         addDefaultStructs();
+        addDefaultClasses();
 
         voidType = getType("void");
         booleanType = getType("boolean");
@@ -338,33 +398,56 @@ class Definition {
         doubleobjType = getType("Double");
 
         objectType = getType("Object");
+        defType = getType("def");
         numberType = getType("Number");
         charseqType = getType("CharSequence");
         stringType = getType("String");
+        mathType = getType("Math");
         utilityType = getType("Utility");
+        defobjType = getType("Def");
 
         listType = getType("List");
         arraylistType = getType("ArrayList");
         mapType = getType("Map");
         hashmapType = getType("HashMap");
-        smapType = getType("Map<String,Object>");
+
+        olistType = getType("List<Object>");
+        oarraylistType = getType("ArrayList<Object>");
+        omapType = getType("Map<Object,Object>");
+        ohashmapType = getType("HashMap<Object,Object>");
+
+        smapType = getType("Map<String,def>");
+        shashmapType = getType("HashMap<String,def>");
+        somapType = getType("Map<String,Object>");
+        sohashmapType = getType("HashMap<String,Object>");
 
         execType = getType("Executable");
 
         addDefaultElements();
         copyDefaultStructs();
         addDefaultTransforms();
+        addDefaultBounds();
     }
 
     Definition(final Definition definition) {
-        final Map<String, Struct> ummodifiable = new HashMap<>();
+        final Map<String, Struct> structs = new HashMap<>();
 
         for (final Struct struct : definition.structs.values()) {
-            ummodifiable.put(struct.name, new Struct(struct));
+            structs.put(struct.name, new Struct(struct));
         }
 
-        structs = Collections.unmodifiableMap(ummodifiable);
+        this.structs = Collections.unmodifiableMap(structs);
+
+        final Map<Class<?>, Struct> classes = new HashMap<>();
+
+        for (final Struct struct : definition.classes.values()) {
+            classes.put(struct.clazz, this.structs.get(struct.name));
+        }
+
+        this.classes = Collections.unmodifiableMap(classes);
+
         transforms = Collections.unmodifiableMap(definition.transforms);
+        bounds = Collections.unmodifiableMap(definition.bounds);
 
         voidType = definition.voidType;
         booleanType = definition.booleanType;
@@ -387,61 +470,118 @@ class Definition {
         doubleobjType = definition.doubleobjType;
 
         objectType = definition.objectType;
+        defType = definition.defType;
         numberType = definition.numberType;
         charseqType = definition.charseqType;
         stringType = definition.stringType;
+        mathType = definition.mathType;
         utilityType = definition.utilityType;
+        defobjType = definition.defobjType;
 
         listType = definition.listType;
         arraylistType = definition.arraylistType;
         mapType = definition.mapType;
         hashmapType = definition.hashmapType;
+
+        olistType = definition.olistType;
+        oarraylistType = definition.oarraylistType;
+        omapType = definition.omapType;
+        ohashmapType = definition.ohashmapType;
+
         smapType = definition.smapType;
+        shashmapType = definition.shashmapType;
+        somapType = definition.somapType;
+        sohashmapType = definition.sohashmapType;
 
         execType = definition.execType;
     }
 
     private void addDefaultStructs() {
-        addStruct("void"    , void.class    , false);
-        addStruct("boolean" , boolean.class , false);
-        addStruct("byte"    , byte.class    , false);
-        addStruct("short"   , short.class   , false);
-        addStruct("char"    , char.class    , false);
-        addStruct("int"     , int.class     , false);
-        addStruct("long"    , long.class    , false);
-        addStruct("float"   , float.class   , false);
-        addStruct("double"  , double.class  , false);
+        addStruct( "void"    , void.class    );
+        addStruct( "boolean" , boolean.class );
+        addStruct( "byte"    , byte.class    );
+        addStruct( "short"   , short.class   );
+        addStruct( "char"    , char.class    );
+        addStruct( "int"     , int.class     );
+        addStruct( "long"    , long.class    );
+        addStruct( "float"   , float.class   );
+        addStruct( "double"  , double.class  );
 
-        addStruct("Void"      , Void.class      , false);
-        addStruct("Boolean"   , Boolean.class   , false);
-        addStruct("Byte"      , Byte.class      , false);
-        addStruct("Short"     , Short.class     , false);
-        addStruct("Character" , Character.class , false);
-        addStruct("Integer"   , Integer.class   , false);
-        addStruct("Long"      , Long.class      , false);
-        addStruct("Float"     , Float.class     , false);
-        addStruct("Double"    , Double.class    , false);
+        addStruct( "Void"      , Void.class      );
+        addStruct( "Boolean"   , Boolean.class   );
+        addStruct( "Byte"      , Byte.class      );
+        addStruct( "Short"     , Short.class     );
+        addStruct( "Character" , Character.class );
+        addStruct( "Integer"   , Integer.class   );
+        addStruct( "Long"      , Long.class      );
+        addStruct( "Float"     , Float.class     );
+        addStruct( "Double"    , Double.class    );
 
-        addStruct("Object"       , Object.class       , false);
-        addStruct("Number"       , Number.class       , false);
-        addStruct("CharSequence" , CharSequence.class , false);
-        addStruct("String"       , String.class       , false);
-        addStruct("Utility"      , Utility.class      , false);
+        addStruct( "Object"       , Object.class       );
+        addStruct( "def"          , Object.class       );
+        addStruct( "Number"       , Number.class       );
+        addStruct( "CharSequence" , CharSequence.class );
+        addStruct( "String"       , String.class       );
+        addStruct( "Math"         , Math.class         );
+        addStruct( "Utility"      , Utility.class      );
+        addStruct( "Def"          , Def.class          );
 
-        addStruct("List"                   , List.class      , false);
-        addStruct("ArrayList"              , ArrayList.class , false);
-        addStruct("Map"                    , Map.class       , false);
-        addStruct("HashMap"                , HashMap.class   , false);
-        addStruct("Map<String,Object>"     , Map.class       , true);
-        addStruct("HashMap<String,Object>" , HashMap.class   , true);
+        addStruct( "List"      , List.class      );
+        addStruct( "ArrayList" , ArrayList.class );
+        addStruct( "Map"       , Map.class       );
+        addStruct( "HashMap"   , HashMap.class   );
 
-        addStruct("Executable" , Executable.class , false);
+        addStruct( "List<Object>"           , List.class      );
+        addStruct( "ArrayList<Object>"      , ArrayList.class );
+        addStruct( "Map<Object,Object>"     , Map.class       );
+        addStruct( "HashMap<Object,Object>" , HashMap.class   );
+
+        addStruct( "Map<String,def>"        , Map.class       );
+        addStruct( "HashMap<String,def>"    , HashMap.class   );
+        addStruct( "Map<String,Object>"     , Map.class       );
+        addStruct( "HashMap<String,Object>" , HashMap.class   );
+
+        addStruct( "Executable" , Executable.class );
+    }
+
+    private void addDefaultClasses() {
+        addClass("boolean");
+        addClass("byte");
+        addClass("short");
+        addClass("char");
+        addClass("int");
+        addClass("long");
+        addClass("float");
+        addClass("double");
+
+        addClass("Boolean");
+        addClass("Byte");
+        addClass("Short");
+        addClass("Character");
+        addClass("Integer");
+        addClass("Long");
+        addClass("Float");
+        addClass("Double");
+
+        addClass("Object");
+        addClass("Number");
+        addClass("CharSequence");
+        addClass("String");
+
+        addClass("List");
+        addClass("ArrayList");
+        addClass("Map");
+        addClass("HashMap");
     }
 
     private void addDefaultElements() {
         addMethod("Object", "toString", null, false, stringType, new Type[] {}, null, null);
         addMethod("Object", "equals", null, false, booleanType, new Type[] {objectType}, null, null);
         addMethod("Object", "hashCode", null, false, intType, new Type[] {}, null, null);
+
+        addMethod("def", "toString", null, false, stringType, new Type[] {}, null, null);
+        addMethod("def", "equals", null, false, booleanType, new Type[] {objectType}, null, null);
+        addMethod("def", "hashCode", null, false, intType, new Type[] {}, null, null);
 
         addConstructor("Boolean", "new", new Type[] {booleanType}, null);
         addMethod("Boolean", "valueOf", null, true, booleanobjType, new Type[] {booleanType}, null, null);
@@ -450,44 +590,44 @@ class Definition {
         addConstructor("Byte", "new", new Type[]{byteType}, null);
         addMethod("Byte", "valueOf", null, true, byteobjType, new Type[] {byteType}, null, null);
         addMethod("Byte", "byteValue", null, false, byteType, new Type[] {}, null, null);
-        addField("Byte", "MIN_VALUE", null, true, byteType);
-        addField("Byte", "MAX_VALUE", null, true, byteType);
+        addField("Byte", "MIN_VALUE", null, true, byteType, null);
+        addField("Byte", "MAX_VALUE", null, true, byteType, null);
 
         addConstructor("Short", "new", new Type[]{shortType}, null);
         addMethod("Short", "valueOf", null, true, shortobjType, new Type[] {shortType}, null, null);
         addMethod("Short", "shortValue", null, false, shortType, new Type[] {}, null, null);
-        addField("Short", "MIN_VALUE", null, true, shortType);
-        addField("Short", "MAX_VALUE", null, true, shortType);
+        addField("Short", "MIN_VALUE", null, true, shortType, null);
+        addField("Short", "MAX_VALUE", null, true, shortType, null);
 
         addConstructor("Character", "new", new Type[]{charType}, null);
         addMethod("Character", "valueOf", null, true, charobjType, new Type[] {charType}, null, null);
         addMethod("Character", "charValue", null, false, charType, new Type[] {}, null, null);
-        addField("Character", "MIN_VALUE", null, true, charType);
-        addField("Character", "MAX_VALUE", null, true, charType);
+        addField("Character", "MIN_VALUE", null, true, charType, null);
+        addField("Character", "MAX_VALUE", null, true, charType, null);
 
         addConstructor("Integer", "new", new Type[]{intType}, null);
         addMethod("Integer", "valueOf", null, true, intobjType, new Type[] {intType}, null, null);
         addMethod("Integer", "intValue", null, false, intType, new Type[] {}, null, null);
-        addField("Integer", "MIN_VALUE", null, true, intType);
-        addField("Integer", "MAX_VALUE", null, true, intType);
+        addField("Integer", "MIN_VALUE", null, true, intType, null);
+        addField("Integer", "MAX_VALUE", null, true, intType, null);
 
         addConstructor("Long", "new", new Type[]{longType}, null);
         addMethod("Long", "valueOf", null, true, longobjType, new Type[] {longType}, null, null);
         addMethod("Long", "longValue", null, false, longType, new Type[] {}, null, null);
-        addField("Long", "MIN_VALUE", null, true, longType);
-        addField("Long", "MAX_VALUE", null, true, longType);
+        addField("Long", "MIN_VALUE", null, true, longType, null);
+        addField("Long", "MAX_VALUE", null, true, longType, null);
 
         addConstructor("Float", "new", new Type[]{floatType}, null);
         addMethod("Float", "valueOf", null, true, floatobjType, new Type[] {floatType}, null, null);
         addMethod("Float", "floatValue", null, false, floatType, new Type[] {}, null, null);
-        addField("Float", "MIN_VALUE", null, true, floatType);
-        addField("Float", "MAX_VALUE", null, true, floatType);
+        addField("Float", "MIN_VALUE", null, true, floatType, null);
+        addField("Float", "MAX_VALUE", null, true, floatType, null);
 
         addConstructor("Double", "new", new Type[]{doubleType}, null);
         addMethod("Double", "valueOf", null, true, doubleobjType, new Type[] {doubleType}, null, null);
         addMethod("Double", "doubleValue", null, false, doubleType, new Type[] {}, null, null);
-        addField("Double", "MIN_VALUE", null, true, doubleType);
-        addField("Double", "MAX_VALUE", null, true, doubleType);
+        addField("Double", "MIN_VALUE", null, true, doubleType, null);
+        addField("Double", "MAX_VALUE", null, true, doubleType, null);
 
         addMethod("Number", "byteValue", null, false, byteType, new Type[] {}, null, null);
         addMethod("Number", "shortValue", null, false, shortType, new Type[] {}, null, null);
@@ -545,13 +685,30 @@ class Definition {
         addMethod("Utility", "BooleanToFloat", null, true, floatobjType, new Type[] {booleanobjType}, null, null);
         addMethod("Utility", "BooleanToDouble", null, true, doubleobjType, new Type[] {booleanobjType}, null, null);
         addMethod("Utility", "byteToboolean", null, true, booleanType, new Type[] {byteType}, null, null);
+        addMethod("Utility", "byteToShort", null, true, shortobjType, new Type[] {byteType}, null, null);
+        addMethod("Utility", "byteToCharacter", null, true, charobjType, new Type[] {byteType}, null, null);
+        addMethod("Utility", "byteToInteger", null, true, intobjType, new Type[] {byteType}, null, null);
+        addMethod("Utility", "byteToLong", null, true, longobjType, new Type[] {byteType}, null, null);
+        addMethod("Utility", "byteToFloat", null, true, floatobjType, new Type[] {byteType}, null, null);
+        addMethod("Utility", "byteToDouble", null, true, doubleobjType, new Type[] {byteType}, null, null);
         addMethod("Utility", "ByteToboolean", null, true, booleanType, new Type[] {byteobjType}, null, null);
         addMethod("Utility", "ByteTochar", null, true, charType, new Type[] {byteobjType}, null, null);
         addMethod("Utility", "shortToboolean", null, true, booleanType, new Type[] {shortType}, null, null);
+        addMethod("Utility", "shortToByte", null, true, byteobjType, new Type[] {shortType}, null, null);
+        addMethod("Utility", "shortToCharacter", null, true, charobjType, new Type[] {shortType}, null, null);
+        addMethod("Utility", "shortToInteger", null, true, intobjType, new Type[] {shortType}, null, null);
+        addMethod("Utility", "shortToLong", null, true, longobjType, new Type[] {shortType}, null, null);
+        addMethod("Utility", "shortToFloat", null, true, floatobjType, new Type[] {shortType}, null, null);
+        addMethod("Utility", "shortToDouble", null, true, doubleobjType, new Type[] {shortType}, null, null);
         addMethod("Utility", "ShortToboolean", null, true, booleanType, new Type[] {shortobjType}, null, null);
         addMethod("Utility", "ShortTochar", null, true, charType, new Type[] {shortobjType}, null, null);
         addMethod("Utility", "charToboolean", null, true, booleanType, new Type[] {charType}, null, null);
+        addMethod("Utility", "charToByte", null, true, byteobjType, new Type[] {charType}, null, null);
+        addMethod("Utility", "charToShort", null, true, shortobjType, new Type[] {charType}, null, null);
         addMethod("Utility", "charToInteger", null, true, intobjType, new Type[] {charType}, null, null);
+        addMethod("Utility", "charToLong", null, true, longobjType, new Type[] {charType}, null, null);
+        addMethod("Utility", "charToFloat", null, true, floatobjType, new Type[] {charType}, null, null);
+        addMethod("Utility", "charToDouble", null, true, doubleobjType, new Type[] {charType}, null, null);
         addMethod("Utility", "CharacterToboolean", null, true, booleanType, new Type[] {charobjType}, null, null);
         addMethod("Utility", "CharacterTobyte", null, true, byteType, new Type[] {charobjType}, null, null);
         addMethod("Utility", "CharacterToshort", null, true, shortType, new Type[] {charobjType}, null, null);
@@ -567,34 +724,102 @@ class Definition {
         addMethod("Utility", "CharacterToFloat", null, true, floatobjType, new Type[] {charobjType}, null, null);
         addMethod("Utility", "CharacterToDouble", null, true, doubleobjType, new Type[] {charobjType}, null, null);
         addMethod("Utility", "intToboolean", null, true, booleanType, new Type[] {intType}, null, null);
+        addMethod("Utility", "intToByte", null, true, byteobjType, new Type[] {intType}, null, null);
+        addMethod("Utility", "intToShort", null, true, shortobjType, new Type[] {intType}, null, null);
+        addMethod("Utility", "intToCharacter", null, true, charobjType, new Type[] {intType}, null, null);
+        addMethod("Utility", "intToLong", null, true, longobjType, new Type[] {intType}, null, null);
+        addMethod("Utility", "intToFloat", null, true, floatobjType, new Type[] {intType}, null, null);
+        addMethod("Utility", "intToDouble", null, true, doubleobjType, new Type[] {intType}, null, null);
         addMethod("Utility", "IntegerToboolean", null, true, booleanType, new Type[] {intobjType}, null, null);
         addMethod("Utility", "IntegerTochar", null, true, charType, new Type[] {intobjType}, null, null);
         addMethod("Utility", "longToboolean", null, true, booleanType, new Type[] {longType}, null, null);
+        addMethod("Utility", "longToByte", null, true, byteobjType, new Type[] {longType}, null, null);
+        addMethod("Utility", "longToShort", null, true, shortobjType, new Type[] {longType}, null, null);
+        addMethod("Utility", "longToCharacter", null, true, charobjType, new Type[] {longType}, null, null);
+        addMethod("Utility", "longToInteger", null, true, intobjType, new Type[] {longType}, null, null);
+        addMethod("Utility", "longToFloat", null, true, floatobjType, new Type[] {longType}, null, null);
+        addMethod("Utility", "longToDouble", null, true, doubleobjType, new Type[] {longType}, null, null);
         addMethod("Utility", "LongToboolean", null, true, booleanType, new Type[] {longobjType}, null, null);
         addMethod("Utility", "LongTochar", null, true, charType, new Type[] {longobjType}, null, null);
         addMethod("Utility", "floatToboolean", null, true, booleanType, new Type[] {floatType}, null, null);
+        addMethod("Utility", "floatToByte", null, true, byteobjType, new Type[] {floatType}, null, null);
+        addMethod("Utility", "floatToShort", null, true, shortobjType, new Type[] {floatType}, null, null);
+        addMethod("Utility", "floatToCharacter", null, true, charobjType, new Type[] {floatType}, null, null);
+        addMethod("Utility", "floatToInteger", null, true, intobjType, new Type[] {floatType}, null, null);
+        addMethod("Utility", "floatToLong", null, true, longobjType, new Type[] {floatType}, null, null);
+        addMethod("Utility", "floatToDouble", null, true, doubleobjType, new Type[] {floatType}, null, null);
         addMethod("Utility", "FloatToboolean", null, true, booleanType, new Type[] {floatobjType}, null, null);
         addMethod("Utility", "FloatTochar", null, true, charType, new Type[] {floatobjType}, null, null);
         addMethod("Utility", "doubleToboolean", null, true, booleanType, new Type[] {doubleType}, null, null);
+        addMethod("Utility", "doubleToByte", null, true, byteobjType, new Type[] {doubleType}, null, null);
+        addMethod("Utility", "doubleToShort", null, true, shortobjType, new Type[] {doubleType}, null, null);
+        addMethod("Utility", "doubleToCharacter", null, true, charobjType, new Type[] {doubleType}, null, null);
+        addMethod("Utility", "doubleToInteger", null, true, intobjType, new Type[] {doubleType}, null, null);
+        addMethod("Utility", "doubleToLong", null, true, longobjType, new Type[] {doubleType}, null, null);
+        addMethod("Utility", "doubleToFloat", null, true, floatobjType, new Type[] {doubleType}, null, null);
         addMethod("Utility", "DoubleToboolean", null, true, booleanType, new Type[] {doubleobjType}, null, null);
         addMethod("Utility", "DoubleTochar", null, true, charType, new Type[] {doubleobjType}, null, null);
 
-        addMethod("List", "addLast", "add", false, booleanType, new Type[] {objectType}, null, null);
-        addMethod("List", "add", null, false, voidType, new Type[] {intType, objectType}, null, null);
-        addMethod("List", "get", null, false, objectType, new Type[] {intType}, null, null);
-        addMethod("List", "remove", null, false, objectType, new Type[] {intType}, null, null);
+        addMethod("Math", "dmax", "max", true, doubleType, new Type[] {doubleType, doubleType}, null, null);
+
+        addMethod("Def", "DefToboolean", null, true, booleanType, new Type[] {defType}, null, null);
+        addMethod("Def", "DefTobyte", null, true, byteType, new Type[] {defType}, null, null);
+        addMethod("Def", "DefToshort", null, true, shortType, new Type[] {defType}, null, null);
+        addMethod("Def", "DefTochar", null, true, charType, new Type[] {defType}, null, null);
+        addMethod("Def", "DefToint", null, true, intType, new Type[] {defType}, null, null);
+        addMethod("Def", "DefTolong", null, true, longType, new Type[] {defType}, null, null);
+        addMethod("Def", "DefTofloat", null, true, floatType, new Type[] {defType}, null, null);
+        addMethod("Def", "DefTodouble", null, true, doubleType, new Type[] {defType}, null, null);
+        addMethod("Def", "DefToBoolean", null, true, booleanobjType, new Type[] {defType}, null, null);
+        addMethod("Def", "DefToByte", null, true, byteobjType, new Type[] {defType}, null, null);
+        addMethod("Def", "DefToShort", null, true, shortobjType, new Type[] {defType}, null, null);
+        addMethod("Def", "DefToCharacter", null, true, charobjType, new Type[] {defType}, null, null);
+        addMethod("Def", "DefToInteger", null, true, intobjType, new Type[] {defType}, null, null);
+        addMethod("Def", "DefToLong", null, true, longobjType, new Type[] {defType}, null, null);
+        addMethod("Def", "DefToFloat", null, true, floatobjType, new Type[] {defType}, null, null);
+        addMethod("Def", "DefToDouble", null, true, doubleobjType, new Type[] {defType}, null, null);
+        
+        addMethod("List", "addLast", "add", false, booleanType, new Type[] {objectType}, null, new Type[] {defType});
+        addMethod("List", "add", null, false, voidType, new Type[] {intType, objectType}, null, new Type[] {intType, defType});
+        addMethod("List", "get", null, false, objectType, new Type[] {intType}, defType, null);
+        addMethod("List", "remove", null, false, objectType, new Type[] {intType}, defType, null);
         addMethod("List", "size", null, false, intType, new Type[] {}, null, null);
         addMethod("List", "isEmpty", null, false, booleanType, new Type[] {}, null, null);
 
         addConstructor("ArrayList", "new", new Type[] {}, null);
 
-        addMethod("Map", "put", null, false, objectType, new Type[] {objectType, objectType}, null, null);
-        addMethod("Map", "get", null, false, objectType, new Type[] {objectType}, null, null);
+        addMethod("Map", "put", null, false, objectType, new Type[] {objectType, objectType}, defType, new Type[] {defType, defType});
+        addMethod("Map", "get", null, false, objectType, new Type[] {objectType}, defType, new Type[] {defType});
         addMethod("Map", "remove", null, false, objectType, new Type[] {objectType}, null, null);
         addMethod("Map", "size", null, false, intType, new Type[] {}, null, null);
         addMethod("Map", "isEmpty", null, false, booleanType, new Type[] {}, null, null);
 
         addConstructor("HashMap", "new", new Type[] {}, null);
+
+        addMethod("Map<String,def>", "put", null, false, objectType, new Type[] {objectType, objectType}, defType, new Type[] {stringType, defType});
+        addMethod("Map<String,def>", "get", null, false, objectType, new Type[] {objectType}, defType, new Type[] {stringType});
+        addMethod("Map<String,def>", "remove", null, false, objectType, new Type[] {objectType}, defType, new Type[] {stringType});
+        addMethod("Map<String,def>", "size", null, false, intType, new Type[] {}, null, null);
+        addMethod("Map<String,def>", "isEmpty", null, false, booleanType, new Type[] {}, null, null);
+
+        addConstructor("HashMap<String,def>", "new", new Type[] {}, null);
+
+        addMethod("List<Object>", "addLast", "add", false, booleanType, new Type[] {objectType}, null, null);
+        addMethod("List<Object>", "add", null, false, voidType, new Type[] {intType, objectType}, null, null);
+        addMethod("List<Object>", "get", null, false, objectType, new Type[] {intType}, null, null);
+        addMethod("List<Object>", "remove", null, false, objectType, new Type[] {intType}, null, null);
+        addMethod("List<Object>", "size", null, false, intType, new Type[] {}, null, null);
+        addMethod("List<Object>", "isEmpty", null, false, booleanType, new Type[] {}, null, null);
+
+        addConstructor("ArrayList<Object>", "new", new Type[] {}, null);
+
+        addMethod("Map<Object,Object>", "put", null, false, objectType, new Type[] {objectType, objectType}, null, null);
+        addMethod("Map<Object,Object>", "get", null, false, objectType, new Type[] {objectType}, null, null);
+        addMethod("Map<Object,Object>", "remove", null, false, objectType, new Type[] {objectType}, null, null);
+        addMethod("Map<Object,Object>", "size", null, false, intType, new Type[] {}, null, null);
+        addMethod("Map<Object,Object>", "isEmpty", null, false, booleanType, new Type[] {}, null, null);
+
+        addConstructor("HashMap<Object,Object>", "new", new Type[] {}, null);
 
         addMethod("Map<String,Object>", "put", null, false, objectType, new Type[] {objectType, objectType}, null, new Type[] {stringType, objectType});
         addMethod("Map<String,Object>", "get", null, false, objectType, new Type[] {objectType}, null, new Type[] {stringType});
@@ -624,6 +849,13 @@ class Definition {
         copyStruct("ArrayList", "List", "Object");
         copyStruct("Map", "Object");
         copyStruct("HashMap", "Map", "Object");
+        copyStruct("Map<String,def>", "Object");
+        copyStruct("HashMap<String,def>", "Map<String,def>", "Object");
+
+        copyStruct("List<Object>", "Object");
+        copyStruct("ArrayList<Object>", "List", "Object");
+        copyStruct("Map<Object,Object>", "Object");
+        copyStruct("HashMap<Object,Object>", "Map<Object,Object>", "Object");
         copyStruct("Map<String,Object>", "Object");
         copyStruct("HashMap<String,Object>", "Map<String,Object>", "Object");
 
@@ -639,42 +871,92 @@ class Definition {
         addTransform(booleanType, floatType, "Utility", "booleanTofloat", true);
         addTransform(booleanType, doubleType, "Utility", "booleanTodouble", true);
         addTransform(booleanType, objectType, "Boolean", "valueOf", true);
+        addTransform(booleanType, defType, "Boolean", "valueOf", true);
         addTransform(booleanType, numberType, "Utility", "booleanToInteger", true);
         addTransform(booleanType, booleanobjType, "Boolean", "valueOf", true);
 
         addTransform(byteType, booleanType, "Utility", "byteToboolean", true);
         addTransform(byteType, objectType, "Byte", "valueOf", true);
+        addTransform(byteType, defType, "Byte", "valueOf", true);
         addTransform(byteType, numberType, "Byte", "valueOf", true);
         addTransform(byteType, byteobjType, "Byte", "valueOf", true);
+        addTransform(byteType, shortobjType, "Utility", "byteToShort", true);
+        addTransform(byteType, charobjType, "Utility", "byteToCharacter", true);
+        addTransform(byteType, intobjType, "Utility", "byteToInteger", true);
+        addTransform(byteType, longobjType, "Utility", "byteToLong", true);
+        addTransform(byteType, floatobjType, "Utility", "byteToFloat", true);
+        addTransform(byteType, doubleobjType, "Utility", "byteToDouble", true);
 
         addTransform(shortType, booleanType, "Utility", "shortToboolean", true);
         addTransform(shortType, objectType, "Short", "valueOf", true);
+        addTransform(shortType, defType, "Short", "valueOf", true);
         addTransform(shortType, numberType, "Short", "valueOf", true);
+        addTransform(shortType, byteobjType, "Utility", "shortToByte", true);
         addTransform(shortType, shortobjType, "Short", "valueOf", true);
+        addTransform(shortType, charobjType, "Utility", "shortToCharacter", true);
+        addTransform(shortType, intobjType, "Utility", "shortToInteger", true);
+        addTransform(shortType, longobjType, "Utility", "shortToLong", true);
+        addTransform(shortType, floatobjType, "Utility", "shortToFloat", true);
+        addTransform(shortType, doubleobjType, "Utility", "shortToDouble", true);
 
         addTransform(charType, booleanType, "Utility", "charToboolean", true);
         addTransform(charType, objectType, "Character", "valueOf", true);
+        addTransform(charType, defType, "Character", "valueOf", true);
         addTransform(charType, numberType, "Utility", "charToInteger", true);
+        addTransform(charType, byteobjType, "Utility", "charToByte", true);
+        addTransform(charType, shortobjType, "Utility", "charToShort", true);
         addTransform(charType, charobjType, "Character", "valueOf", true);
+        addTransform(charType, intobjType, "Utility", "charToInteger", true);
+        addTransform(charType, longobjType, "Utility", "charToLong", true);
+        addTransform(charType, floatobjType, "Utility", "charToFloat", true);
+        addTransform(charType, doubleobjType, "Utility", "charToDouble", true);
 
         addTransform(intType, booleanType, "Utility", "intToboolean", true);
         addTransform(intType, objectType, "Integer", "valueOf", true);
+        addTransform(intType, defType, "Integer", "valueOf", true);
         addTransform(intType, numberType, "Integer", "valueOf", true);
+        addTransform(intType, byteobjType, "Utility", "intToByte", true);
+        addTransform(intType, shortobjType, "Utility", "intToShort", true);
+        addTransform(intType, charobjType, "Utility", "intToCharacter", true);
         addTransform(intType, intobjType, "Integer", "valueOf", true);
+        addTransform(intType, longobjType, "Utility", "intToLong", true);
+        addTransform(intType, floatobjType, "Utility", "intToFloat", true);
+        addTransform(intType, doubleobjType, "Utility", "intToDouble", true);
 
         addTransform(longType, booleanType, "Utility", "longToboolean", true);
         addTransform(longType, objectType, "Long", "valueOf", true);
+        addTransform(longType, defType, "Long", "valueOf", true);
         addTransform(longType, numberType, "Long", "valueOf", true);
+        addTransform(longType, byteobjType, "Utility", "longToByte", true);
+        addTransform(longType, shortobjType, "Utility", "longToShort", true);
+        addTransform(longType, charobjType, "Utility", "longToCharacter", true);
+        addTransform(longType, intobjType, "Utility", "longToInteger", true);
         addTransform(longType, longobjType, "Long", "valueOf", true);
+        addTransform(longType, floatobjType, "Utility", "longToFloat", true);
+        addTransform(longType, doubleobjType, "Utility", "longToDouble", true);
 
         addTransform(floatType, booleanType, "Utility", "floatToboolean", true);
         addTransform(floatType, objectType, "Float", "valueOf", true);
+        addTransform(floatType, defType, "Float", "valueOf", true);
         addTransform(floatType, numberType, "Float", "valueOf", true);
+        addTransform(floatType, byteobjType, "Utility", "floatToByte", true);
+        addTransform(floatType, shortobjType, "Utility", "floatToShort", true);
+        addTransform(floatType, charobjType, "Utility", "floatToCharacter", true);
+        addTransform(floatType, intobjType, "Utility", "floatToInteger", true);
+        addTransform(floatType, longobjType, "Utility", "floatToLong", true);
         addTransform(floatType, floatobjType, "Float", "valueOf", true);
+        addTransform(floatType, doubleobjType, "Utility", "floatToDouble", true);
 
         addTransform(doubleType, booleanType, "Utility", "doubleToboolean", true);
         addTransform(doubleType, objectType, "Double", "valueOf", true);
+        addTransform(doubleType, defType, "Double", "valueOf", true);
         addTransform(doubleType, numberType, "Double", "valueOf", true);
+        addTransform(doubleType, byteobjType, "Utility", "doubleToByte", true);
+        addTransform(doubleType, shortobjType, "Utility", "doubleToShort", true);
+        addTransform(doubleType, charobjType, "Utility", "doubleToCharacter", true);
+        addTransform(doubleType, intobjType, "Utility", "doubleToInteger", true);
+        addTransform(doubleType, longobjType, "Utility", "doubleToLong", true);
+        addTransform(doubleType, floatobjType, "Utility", "doubleToFloat", true);
         addTransform(doubleType, doubleobjType, "Double", "valueOf", true);
 
         addTransform(objectType, booleanType, "Boolean", "booleanValue", false);
@@ -685,6 +967,23 @@ class Definition {
         addTransform(objectType, longType, "Number", "longValue", false);
         addTransform(objectType, floatType, "Number", "floatValue", false);
         addTransform(objectType, doubleType, "Number", "doubleValue", false);
+
+        addTransform(defType, booleanType, "Def", "DefToboolean", true);
+        addTransform(defType, byteType, "Def", "DefTobyte", true);
+        addTransform(defType, shortType, "Def", "DefToshort", true);
+        addTransform(defType, charType, "Def", "DefTochar", true);
+        addTransform(defType, intType, "Def", "DefToint", true);
+        addTransform(defType, longType, "Def", "DefTolong", true);
+        addTransform(defType, floatType, "Def", "DefTofloat", true);
+        addTransform(defType, doubleType, "Def", "DefTodouble", true);
+        addTransform(defType, booleanobjType, "Def", "DefToBoolean", true);
+        addTransform(defType, byteobjType, "Def", "DefToByte", true);
+        addTransform(defType, shortobjType, "Def", "DefToShort", true);
+        addTransform(defType, charobjType, "Def", "DefToCharacter", true);
+        addTransform(defType, intobjType, "Def", "DefToInteger", true);
+        addTransform(defType, longobjType, "Def", "DefToLong", true);
+        addTransform(defType, floatobjType, "Def", "DefToFloat", true);
+        addTransform(defType, doubleobjType, "Def", "DefToDouble", true);
         
         addTransform(numberType, booleanType, "Utility", "NumberToboolean", true);
         addTransform(numberType, byteType, "Number", "byteValue", false);
@@ -833,7 +1132,74 @@ class Definition {
         addTransform(doubleobjType, floatobjType, "Utility", "NumberToFloat", true);
     }
 
-    private void addStruct(final String name, final Class<?> clazz, final boolean generic) {
+    private void addDefaultBounds() {
+        addBound(byteobjType, numberType, numberType);
+
+        addBound(shortobjType, numberType, numberType);
+        addBound(shortobjType, byteobjType, numberType);
+
+        addBound(intobjType, numberType, numberType);
+        addBound(intobjType, byteobjType, numberType);
+        addBound(intobjType, shortobjType, numberType);
+
+        addBound(longobjType, numberType, numberType);
+        addBound(longobjType, byteobjType, numberType);
+        addBound(longobjType, shortobjType, numberType);
+        addBound(longobjType, intobjType, numberType);
+
+        addBound(floatobjType, numberType, numberType);
+        addBound(floatobjType, byteobjType, numberType);
+        addBound(floatobjType, shortobjType, numberType);
+        addBound(floatobjType, intobjType, numberType);
+        addBound(floatobjType, longobjType, numberType);
+
+        addBound(doubleobjType, numberType, numberType);
+        addBound(doubleobjType, byteobjType, numberType);
+        addBound(doubleobjType, shortobjType, numberType);
+        addBound(doubleobjType, intobjType, numberType);
+        addBound(doubleobjType, longobjType, numberType);
+        addBound(doubleobjType, floatobjType, numberType);
+
+        addBound(stringType, charseqType, charseqType);
+
+        addBound(arraylistType, listType, listType);
+        addBound(olistType, listType, listType);
+        addBound(olistType, arraylistType, listType);
+        addBound(oarraylistType, listType, listType);
+        addBound(oarraylistType, olistType, olistType);
+        addBound(oarraylistType, arraylistType, arraylistType);
+
+        addBound(hashmapType, mapType, mapType);
+        addBound(omapType, mapType, mapType);
+        addBound(omapType, hashmapType, mapType);
+        addBound(ohashmapType, mapType, mapType);
+        addBound(ohashmapType, hashmapType, hashmapType);
+        addBound(ohashmapType, omapType, omapType);
+        addBound(smapType, mapType, mapType);
+        addBound(smapType, hashmapType, mapType);
+        addBound(smapType, omapType, omapType);
+        addBound(smapType, ohashmapType, omapType);
+        addBound(shashmapType, mapType, mapType);
+        addBound(shashmapType, hashmapType, hashmapType);
+        addBound(shashmapType, omapType, omapType);
+        addBound(shashmapType, ohashmapType, ohashmapType);
+        addBound(shashmapType, smapType, smapType);
+        addBound(somapType, mapType, mapType);
+        addBound(somapType, hashmapType, mapType);
+        addBound(somapType, omapType, omapType);
+        addBound(somapType, ohashmapType, omapType);
+        addBound(somapType, smapType, smapType);
+        addBound(somapType, shashmapType, smapType);
+        addBound(sohashmapType, mapType, mapType);
+        addBound(sohashmapType, hashmapType, hashmapType);
+        addBound(sohashmapType, omapType, omapType);
+        addBound(sohashmapType, ohashmapType, ohashmapType);
+        addBound(sohashmapType, smapType, smapType);
+        addBound(sohashmapType, shashmapType, shashmapType);
+        addBound(sohashmapType, somapType, somapType);
+    }
+
+    public final void addStruct(final String name, final Class<?> clazz) {
         if (!name.matches("^[_a-zA-Z][<>,_a-zA-Z0-9]*$")) {
             throw new IllegalArgumentException("Invalid struct name [" + name + "].");
         }
@@ -842,12 +1208,26 @@ class Definition {
             throw new IllegalArgumentException("Duplicate struct name [" + name + "].");
         }
 
-        final Struct struct = new Struct(name, clazz, org.objectweb.asm.Type.getType(clazz), generic);
+        final Struct struct = new Struct(name, clazz, org.objectweb.asm.Type.getType(clazz));
 
         structs.put(name, struct);
     }
 
-    private void addConstructor(final String struct, final String name, final Type[] args, final Type[] genargs) {
+    public final void addClass(final String name) {
+        final Struct struct = structs.get(name);
+
+        if (struct == null) {
+            throw new IllegalArgumentException("Struct [" + name + "] is not defined.");
+        }
+
+        if (classes.containsKey(struct.clazz)) {
+            throw new IllegalArgumentException("Duplicate struct class [" + struct.clazz + "] when defining dynamic.");
+        }
+
+        classes.put(struct.clazz, struct);
+    }
+
+    public final void addConstructor(final String struct, final String name, final Type[] args, final Type[] genargs) {
         final Struct owner = structs.get(struct);
 
         if (owner == null) {
@@ -907,8 +1287,8 @@ class Definition {
         owner.constructors.put(name, constructor);
     }
 
-    private void addMethod(final String struct, final String name, final String alias, final boolean statik,
-                          final Type rtn, final Type[] args, final Type genrtn, final Type[] genargs) {
+    public final void addMethod(final String struct, final String name, final String alias, final boolean statik,
+                                final Type rtn, final Type[] args, final Type genrtn, final Type[] genargs) {
         final Struct owner = structs.get(struct);
 
         if (owner == null) {
@@ -997,8 +1377,22 @@ class Definition {
         }
 
         final org.objectweb.asm.commons.Method asm = org.objectweb.asm.commons.Method.getMethod(reflect);
+
+        MethodHandle handle = null;
+
+        try {
+            if (!statik) {
+                handle = MethodHandles.publicLookup().in(owner.clazz).findVirtual(
+                        owner.clazz, alias == null ? name : alias, MethodType.methodType(rtn.clazz, classes));
+            }
+        } catch (NoSuchMethodException | IllegalAccessException exception) {
+            throw new IllegalArgumentException("Method [" + (alias == null ? name : alias) + "]" +
+                    " not found for class [" + owner.clazz.getName() + "]" +
+                    " with arguments " + Arrays.toString(classes) + ".");
+        }
+
         final Method method = new Method(name, owner, genrtn != null ? genrtn : rtn,
-                Arrays.asList(genargs != null ? genargs : args), asm, reflect);
+                Arrays.asList(genargs != null ? genargs : args), asm, reflect, handle);
         final int modifiers = reflect.getModifiers();
 
         if (statik) {
@@ -1018,8 +1412,8 @@ class Definition {
         }
     }
 
-    private void addField(final String struct, final String name, final String alias,
-                         final boolean statik, final Type type) {
+    public final void addField(final String struct, final String name, final String alias,
+                               final boolean statik, final Type type, final Type generic) {
         final Struct owner = structs.get(struct);
 
         if (owner == null) {
@@ -1052,16 +1446,41 @@ class Definition {
             }
         }
 
+        if (generic != null) {
+            try {
+                generic.clazz.asSubclass(type.clazz);
+            } catch (ClassCastException exception) {
+                throw new ClassCastException("Generic type [" + generic.clazz.getCanonicalName() + "]" +
+                        " is not a sub class of [" + type.clazz.getCanonicalName() + "] for the field" +
+                        " [" + name + " ] from the struct [" + owner.name + "].");
+            }
+        }
+
         java.lang.reflect.Field reflect;
 
         try {
             reflect = owner.clazz.getField(alias == null ? name : alias);
         } catch (NoSuchFieldException exception) {
-            throw new IllegalArgumentException("Field [" + name + "]" +
+            throw new IllegalArgumentException("Field [" + (alias == null ? name : alias) + "]" +
                     " not found for class [" + owner.clazz.getName() + "].");
         }
 
-        final Field field = new Field(name, owner, type, reflect);
+        MethodHandle getter = null;
+        MethodHandle setter = null;
+
+        try {
+            if (!statik) {
+                getter = MethodHandles.publicLookup().in(owner.clazz).findGetter(
+                        owner.clazz, alias == null ? name : alias, type.clazz);
+                setter = MethodHandles.publicLookup().in(owner.clazz).findSetter(
+                        owner.clazz, alias == null ? name : alias, type.clazz);
+            }
+        } catch (NoSuchFieldException | IllegalAccessException exception) {
+            throw new IllegalArgumentException("Getter/Setter [" + (alias == null ? name : alias) + "]" +
+                    " not found for class [" + owner.clazz.getName() + "].");
+        }
+
+        final Field field = new Field(name, owner, generic == null ? type : generic, type, reflect, getter, setter);
         final int modifiers = reflect.getModifiers();
 
         if (statik) {
@@ -1085,7 +1504,7 @@ class Definition {
         }
     }
 
-    private void copyStruct(final String struct, final String... children) {
+    public final void copyStruct(final String struct, final String... children) {
         final Struct owner = structs.get(struct);
 
         if (owner == null) {
@@ -1112,10 +1531,12 @@ class Definition {
 
             for (final Method method : child.methods.values()) {
                 if (owner.methods.get(method.name) == null) {
+                    final Class<?> clazz = object ? Object.class : owner.clazz;
+
                     java.lang.reflect.Method reflect;
+                    MethodHandle handle;
 
                     try {
-                        final Class<?> clazz = object ? Object.class : owner.clazz;
                         reflect = clazz.getMethod(method.method.getName(), method.reflect.getParameterTypes());
                     } catch (NoSuchMethodException exception) {
                         throw new IllegalArgumentException("Method [" + method.method.getName() + "] not found for" +
@@ -1123,14 +1544,26 @@ class Definition {
                                 Arrays.toString(method.reflect.getParameterTypes()) + ".");
                     }
 
+                    try {
+                        handle = MethodHandles.publicLookup().in(owner.clazz).findVirtual(
+                                owner.clazz, method.method.getName(),
+                                MethodType.methodType(method.reflect.getReturnType(), method.reflect.getParameterTypes()));
+                    } catch (NoSuchMethodException | IllegalAccessException exception) {
+                        throw new IllegalArgumentException("Method [" + method.method.getName() + "] not found for" +
+                                " class [" + owner.clazz.getName() + "] with arguments " +
+                                Arrays.toString(method.reflect.getParameterTypes()) + ".");
+                    }
+
                     owner.methods.put(method.name,
-                            new Method(method.name, owner, method.rtn, method.arguments, method.method, reflect));
+                            new Method(method.name, owner, method.rtn, method.arguments, method.method, reflect, handle));
                 }
             }
 
             for (final Field field : child.members.values()) {
                 if (owner.members.get(field.name) == null) {
                     java.lang.reflect.Field reflect;
+                    MethodHandle getter;
+                    MethodHandle setter;
 
                     try {
                         reflect = owner.clazz.getField(field.reflect.getName());
@@ -1139,13 +1572,25 @@ class Definition {
                                 " not found for class [" + owner.clazz.getName() + "].");
                     }
 
-                    owner.members.put(field.name, new Field(field.name, owner, field.type, reflect));
+                    try {
+                        getter = MethodHandles.publicLookup().in(owner.clazz).findGetter(
+                                owner.clazz, field.name, field.type.clazz);
+                        setter = MethodHandles.publicLookup().in(owner.clazz).findSetter(
+                                owner.clazz, field.name, field.type.clazz);
+                    } catch (NoSuchFieldException | IllegalAccessException exception) {
+                        throw new IllegalArgumentException("Getter/Setter [" + field.name + "]" +
+                                " not found for class [" + owner.clazz.getName() + "].");
+                    }
+
+                    owner.members.put(field.name,
+                            new Field(field.name, owner, field.type, field.generic, reflect, getter, setter));
                 }
             }
         }
     }
 
-    private void addTransform(final Type from, final Type to, final String struct, final String name, final boolean statik) {
+    public final void addTransform(final Type from, final Type to, final String struct,
+                                   final String name, final boolean statik) {
         final Struct owner = structs.get(struct);
 
         if (owner == null) {
@@ -1261,6 +1706,24 @@ class Definition {
         transforms.put(cast, transform);
     }
 
+    public final void addBound(final Type type0, final Type type1, final Type bound) {
+        final Pair pair0 = new Pair(type0, type1);
+        final Pair pair1 = new Pair(type1, type0);
+
+        if (bounds.containsKey(pair0)) {
+            throw new IllegalArgumentException(
+                    "Bound already defined for types [" + type0.name + "] and [" + type1.name + "].");
+        }
+
+        if (bounds.containsKey(pair1)) {
+            throw new IllegalArgumentException(
+                    "Bound already defined for types [" + type1.name + "] and [" + type0.name + "].");
+        }
+
+        bounds.put(pair0, bound);
+        bounds.put(pair1, bound);
+    }
+
     Type getType(final String name) {
         final int dimensions = getDimensions(name);
         final String structstr = dimensions == 0 ? name : name.substring(0, name.indexOf('['));
@@ -1301,8 +1764,8 @@ class Definition {
             }
 
             sort = Sort.ARRAY;
-        } else if (struct.generic) {
-            sort = Sort.GENERIC;
+        } else if ("def".equals(struct.name)) {
+            sort = Sort.DEF;
         } else {
             sort = Sort.OBJECT;
 
