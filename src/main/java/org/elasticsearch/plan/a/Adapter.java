@@ -100,6 +100,7 @@ class Adapter {
         Type current;
         boolean statik;
         boolean statement;
+        Object constant;
 
         private ExternalMetadata(final ParserRuleContext source) {
             this.source = source;
@@ -114,6 +115,7 @@ class Adapter {
             current = null;
             statik = false;
             statement = false;
+            constant = null;
         }
     }
 

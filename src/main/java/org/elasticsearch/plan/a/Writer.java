@@ -555,23 +555,6 @@ class Writer extends PlanABaseVisitor<Void> {
     }
 
     @Override
-    public Void visitString(final StringContext ctx) {
-        final ExpressionMetadata stringemd = adapter.getExpressionMetadata(ctx);
-        final Object postConst = stringemd.postConst;
-
-        if (postConst == null) {
-            writeString(ctx, stringemd.preConst);
-            checkWriteCast(stringemd);
-        } else {
-            writeConstant(ctx, postConst);
-        }
-
-        checkWriteBranch(ctx);
-
-        return null;
-    }
-
-    @Override
     public Void visitChar(final CharContext ctx) {
         final ExpressionMetadata charemd = adapter.getExpressionMetadata(ctx);
         final Object postConst = charemd.postConst;
@@ -1151,22 +1134,23 @@ class Writer extends PlanABaseVisitor<Void> {
 
     @Override
     public Void visitExtstart(ExtstartContext ctx) {
-        final ExternalMetadata startenmd = adapter.getExternalMetadata(ctx);
+        final ExternalMetadata startemd = adapter.getExternalMetadata(ctx);
 
-        if (startenmd.token == ADD) {
-            final ExpressionMetadata storeemd = adapter.getExpressionMetadata(startenmd.storeExpr);
+        if (startemd.token == ADD) {
+            final ExpressionMetadata storeemd = adapter.getExpressionMetadata(startemd.storeExpr);
 
-            if (startenmd.current.sort == Sort.STRING || storeemd.from.sort == Sort.STRING) {
+            if (startemd.current.sort == Sort.STRING || storeemd.from.sort == Sort.STRING) {
                 writeNewStrings();
-                strings.add(startenmd.storeExpr);
+                strings.add(startemd.storeExpr);
             }
         }
 
         final ExtprecContext precctx = ctx.extprec();
         final ExtcastContext castctx = ctx.extcast();
         final ExttypeContext typectx = ctx.exttype();
-        final ExtmemberContext memberctx = ctx.extmember();
+        final ExtvarContext varctx = ctx.extvar();
         final ExtnewContext newctx = ctx.extnew();
+        final ExtstringContext stringctx = ctx.extstring();
 
         if (precctx != null) {
             visit(precctx);
@@ -1174,10 +1158,12 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(castctx);
         } else if (typectx != null) {
             visit(typectx);
-        } else if (memberctx != null) {
-            visit(memberctx);
+        } else if (varctx != null) {
+            visit(varctx);
         } else if (newctx != null) {
             visit(newctx);
+        } else if (stringctx != null) {
+            visit(stringctx);
         } else {
             throw new IllegalStateException();
         }
@@ -1190,8 +1176,9 @@ class Writer extends PlanABaseVisitor<Void> {
         final ExtprecContext precctx = ctx.extprec();
         final ExtcastContext castctx = ctx.extcast();
         final ExttypeContext typectx = ctx.exttype();
-        final ExtmemberContext memberctx = ctx.extmember();
+        final ExtvarContext varctx = ctx.extvar();
         final ExtnewContext newctx = ctx.extnew();
+        final ExtstringContext stringctx = ctx.extstring();
 
         if (precctx != null) {
             visit(precctx);
@@ -1199,10 +1186,12 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(castctx);
         } else if (typectx != null) {
             visit(typectx);
-        } else if (memberctx != null) {
-            visit(memberctx);
+        } else if (varctx != null) {
+            visit(varctx);
         } else if (newctx != null) {
             visit(newctx);
+        } else if (stringctx != null) {
+            visit(stringctx);
         } else {
             throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
         }
@@ -1226,8 +1215,9 @@ class Writer extends PlanABaseVisitor<Void> {
         final ExtprecContext precctx = ctx.extprec();
         final ExtcastContext castctx = ctx.extcast();
         final ExttypeContext typectx = ctx.exttype();
-        final ExtmemberContext memberctx = ctx.extmember();
+        final ExtvarContext varctx = ctx.extvar();
         final ExtnewContext newctx = ctx.extnew();
+        final ExtstringContext stringctx = ctx.extstring();
 
         if (precctx != null) {
             visit(precctx);
@@ -1235,10 +1225,12 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(castctx);
         } else if (typectx != null) {
             visit(typectx);
-        } else if (memberctx != null) {
-            visit(memberctx);
+        } else if (varctx != null) {
+            visit(varctx);
         } else if (newctx != null) {
             visit(newctx);
+        } else if (stringctx != null) {
+            visit(stringctx);
         } else {
             throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
         }
@@ -1305,6 +1297,22 @@ class Writer extends PlanABaseVisitor<Void> {
     }
 
     @Override
+    public Void visitExtvar(final ExtvarContext ctx) {
+        writeLoadStoreExternal(ctx);
+
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        if (dotctx != null) {
+            visit(dotctx);
+        } else if (bracectx != null) {
+            visit(bracectx);
+        }
+
+        return null;
+    }
+
+    @Override
     public Void visitExtmember(final ExtmemberContext ctx) {
         writeLoadStoreExternal(ctx);
 
@@ -1323,6 +1331,24 @@ class Writer extends PlanABaseVisitor<Void> {
     @Override
     public Void visitExtnew(ExtnewContext ctx) {
         writeNewExternal(ctx);
+
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        if (dotctx != null) {
+            visit(dotctx);
+        } else if (bracectx != null) {
+            visit(bracectx);
+        }
+
+        return null;
+    }
+
+    @Override
+    public Void visitExtstring(ExtstringContext ctx) {
+        final ExtNodeMetadata stringenmd = adapter.getExtNodeMetadata(ctx);
+
+        writeConstant(ctx, stringenmd.target);
 
         final ExtdotContext dotctx = ctx.extdot();
         final ExtbraceContext bracectx = ctx.extbrace();

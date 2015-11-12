@@ -58,5 +58,18 @@ public class StringTests extends ScriptTestCase {
         assertEquals("e", exec("String t = \"abcde\"; return t.substring(4, 5);"));
         assertEquals(97, ((char[])exec("String s = \"a\"; return s.toCharArray();"))[0]);
         assertEquals("a", exec("String s = \" a \"; return s.trim();"));
+        assertEquals('x', exec("return \"x\".charAt(0);"));
+        assertEquals(120, exec("return \"x\".codePointAt(0);"));
+        assertEquals(0, exec("return \"x\".compareTo(\"x\");"));
+        assertEquals("xx", exec("return \"x\".concat(\"x\");"));
+        assertEquals(true, exec("return \"xy\".endsWith(\"y\");"));
+        assertEquals(2, exec("return \"abcde\".indexOf(\"cd\", 1);"));
+        assertEquals(false, exec("return \"abcde\".isEmpty();"));
+        assertEquals(5, exec("return \"abcde\".length();"));
+        assertEquals("cdcde", exec("return \"abcde\".replace(\"ab\", \"cd\");"));
+        assertEquals(false, exec("return \"xy\".startsWith(\"y\");"));
+        assertEquals("e", exec("return \"abcde\".substring(4, 5);"));
+        assertEquals(97, ((char[])exec("return \"a\".toCharArray();"))[0]);
+        assertEquals("a", exec("return \" a \".trim();"));
     }
 }

@@ -693,20 +693,6 @@ class Analyzer extends PlanABaseVisitor<Void> {
     }
 
     @Override
-    public Void visitString(final StringContext ctx) {
-        final ExpressionMetadata stringemd = adapter.getExpressionMetadata(ctx);
-
-        if (ctx.STRING() == null) {
-            throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
-        }
-
-        stringemd.preConst = ctx.STRING().getText();
-        stringemd.from = definition.stringType;
-
-        return null;
-    }
-
-    @Override
     public Void visitChar(final CharContext ctx) {
         final ExpressionMetadata charemd = adapter.getExpressionMetadata(ctx);
 
@@ -781,6 +767,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         visit(extstartctx);
 
         extemd.statement = extstartemd.statement;
+        extemd.preConst = extstartemd.constant;
         extemd.from = extstartemd.current;
         extemd.typesafe = extstartemd.current.sort != Sort.DEF;
 
@@ -1415,8 +1402,9 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExtprecContext precctx = ctx.extprec();
         final ExtcastContext castctx = ctx.extcast();
         final ExttypeContext typectx = ctx.exttype();
-        final ExtmemberContext memberctx = ctx.extmember();
+        final ExtvarContext varctx = ctx.extvar();
         final ExtnewContext newctx = ctx.extnew();
+        final ExtstringContext stringctx = ctx.extstring();
 
         if (precctx != null) {
             adapter.createExtNodeMetadata(ctx, precctx);
@@ -1427,12 +1415,15 @@ class Analyzer extends PlanABaseVisitor<Void> {
         } else if (typectx != null) {
             adapter.createExtNodeMetadata(ctx, typectx);
             visit(typectx);
-        } else if (memberctx != null) {
-            adapter.createExtNodeMetadata(ctx, memberctx);
-            visit(memberctx);
+        } else if (varctx != null) {
+            adapter.createExtNodeMetadata(ctx, varctx);
+            visit(varctx);
         } else if (newctx != null) {
             adapter.createExtNodeMetadata(ctx, newctx);
             visit(newctx);
+        } else if (stringctx != null) {
+            adapter.createExtNodeMetadata(ctx, stringctx);
+            visit(stringctx);
         } else {
             throw new IllegalStateException();
         }
@@ -1449,10 +1440,12 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExtprecContext precctx = ctx.extprec();
         final ExtcastContext castctx = ctx.extcast();
         final ExttypeContext typectx = ctx.exttype();
-        final ExtmemberContext memberctx = ctx.extmember();
+        final ExtvarContext varctx = ctx.extvar();
+        final ExtnewContext newctx = ctx.extnew();
+        final ExtstringContext stringctx = ctx.extstring();
+
         final ExtdotContext dotctx = ctx.extdot();
         final ExtbraceContext bracectx = ctx.extbrace();
-        final ExtnewContext newctx = ctx.extnew();
 
         if (dotctx != null || bracectx != null) {
             ++parentemd.scope;
@@ -1467,12 +1460,15 @@ class Analyzer extends PlanABaseVisitor<Void> {
         } else if (typectx != null) {
             adapter.createExtNodeMetadata(parent, typectx);
             visit(typectx);
-        } else if (memberctx != null) {
-            adapter.createExtNodeMetadata(parent, memberctx);
-            visit(memberctx);
+        } else if (varctx != null) {
+            adapter.createExtNodeMetadata(parent, varctx);
+            visit(varctx);
         } else if (newctx != null) {
             adapter.createExtNodeMetadata(parent, newctx);
             visit(newctx);
+        } else if (stringctx != null) {
+            adapter.createExtNodeMetadata(ctx, stringctx);
+            visit(stringctx);
         } else {
             throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
         }
@@ -1503,8 +1499,9 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExtprecContext precctx = ctx.extprec();
         final ExtcastContext castctx = ctx.extcast();
         final ExttypeContext typectx = ctx.exttype();
-        final ExtmemberContext memberctx = ctx.extmember();
+        final ExtvarContext varctx = ctx.extvar();
         final ExtnewContext newctx = ctx.extnew();
+        final ExtstringContext stringctx = ctx.extstring();
 
         if (precctx != null) {
             adapter.createExtNodeMetadata(parent, precctx);
@@ -1515,13 +1512,15 @@ class Analyzer extends PlanABaseVisitor<Void> {
         } else if (typectx != null) {
             adapter.createExtNodeMetadata(parent, typectx);
             visit(typectx);
-        } else if (memberctx != null) {
-            adapter.createExtNodeMetadata(parent, memberctx);
-            visit(memberctx);
-
+        } else if (varctx != null) {
+            adapter.createExtNodeMetadata(parent, varctx);
+            visit(varctx);
         } else if (newctx != null) {
             adapter.createExtNodeMetadata(parent, newctx);
             visit(newctx);
+        } else if (stringctx != null) {
+            adapter.createExtNodeMetadata(ctx, stringctx);
+            visit(stringctx);
         } else {
             throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
         }
@@ -1705,6 +1704,44 @@ class Analyzer extends PlanABaseVisitor<Void> {
     }
 
     @Override
+    public Void visitExtvar(final ExtvarContext ctx) {
+        final ExtNodeMetadata varenmd = adapter.getExtNodeMetadata(ctx);
+        final ParserRuleContext parent = varenmd.parent;
+        final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
+
+        final String name = ctx.id().getText();
+
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        if (parentemd.current != null) {
+            throw new IllegalStateException(error(ctx) + "Unexpected variable [" + name + "] load.");
+        }
+
+        varenmd.last = parentemd.scope == 0 && dotctx == null && bracectx == null;
+
+        final Variable variable = getVariable(name);
+
+        if (variable == null) {
+            throw new IllegalArgumentException(error(ctx) + "Unknown variable [" + name + "].");
+        }
+
+        varenmd.target = variable.slot;
+        varenmd.type = variable.type;
+        parentemd.current = analyzeLoadStoreExternal(ctx);
+
+        if (dotctx != null) {
+            adapter.createExtNodeMetadata(parent, dotctx);
+            visit(dotctx);
+        } else if (bracectx != null) {
+            adapter.createExtNodeMetadata(parent, bracectx);
+            visit(bracectx);
+        }
+
+        return null;
+    }
+
+    @Override
     public Void visitExtmember(final ExtmemberContext ctx) {
         final ExtNodeMetadata memberenmd = adapter.getExtNodeMetadata(ctx);
         final ParserRuleContext parent = memberenmd.parent;
@@ -1719,53 +1756,45 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final boolean store = memberenmd.last && parentemd.storeExpr != null;
 
         if (parentemd.current == null) {
-            final Variable variable = getVariable(name);
+            throw new IllegalStateException(error(ctx) + "Unexpected field [" + name + "] load.");
+        }
 
-            if (variable == null) {
-                throw new IllegalArgumentException(error(ctx) + "Unknown variable [" + name + "].");
+        if (parentemd.current.sort == Sort.ARRAY) {
+            if ("length".equals(name)) {
+                if (!parentemd.read) {
+                    throw new IllegalArgumentException(error(ctx) + "Must read array field [length].");
+                } else if (store) {
+                    throw new IllegalArgumentException(
+                            error(ctx) + "Cannot write to read-only array field [length].");
+                }
+
+                memberenmd.target = "#length";
+                memberenmd.type = definition.intType;
+                parentemd.current = definition.intType;
+            } else {
+                throw new IllegalArgumentException(error(ctx) + "Unexpected array field [" + name + "].");
             }
-
-            memberenmd.target = variable.slot;
-            memberenmd.type = variable.type;
+        } else if (parentemd.current.sort == Sort.DEF) {
+            memberenmd.target = name;
+            memberenmd.type = definition.defType;
             parentemd.current = analyzeLoadStoreExternal(ctx);
         } else {
-            if (parentemd.current.sort == Sort.ARRAY) {
-                if ("length".equals(name)) {
-                    if (!parentemd.read) {
-                        throw new IllegalArgumentException(error(ctx) + "Must read array field [length].");
-                    } else if (store) {
-                        throw new IllegalArgumentException(
-                                error(ctx) + "Cannot write to read-only array field [length].");
-                    }
+            final Struct struct = parentemd.current.struct;
+            final Field field = parentemd.statik ? struct.statics.get(name) : struct.members.get(name);
 
-                    memberenmd.target = "#length";
-                    memberenmd.type = definition.intType;
-                    parentemd.current = definition.intType;
-                } else {
-                    throw new IllegalArgumentException(error(ctx) + "Unexpected array field [" + name + "].");
-                }
-            } else if (parentemd.current.sort == Sort.DEF) {
-                memberenmd.target = name;
-                memberenmd.type = definition.defType;
-                parentemd.current = analyzeLoadStoreExternal(ctx);
-            } else {
-                final Struct struct = parentemd.current.struct;
-                final Field field = parentemd.statik ? struct.statics.get(name) : struct.members.get(name);
-
-                if (field == null) {
-                    throw new IllegalArgumentException(
-                            error(ctx) + "Unknown field [" + name + "] for type [" + struct.name + "].");
-                }
-
-                if (store && java.lang.reflect.Modifier.isFinal(field.reflect.getModifiers())) {
-                    throw new IllegalArgumentException(error(ctx) + "Cannot write to read-only" +
-                            " field [" + name + "] for type [" + struct.name + "].");
-                }
-
-                memberenmd.target = field;
-                memberenmd.type = field.type;
-                parentemd.current = analyzeLoadStoreExternal(ctx);
+            if (field == null) {
+                throw new IllegalArgumentException(
+                        error(ctx) + "Unknown field [" + name + "] for type [" + struct.name + "].");
             }
+
+            if (store && java.lang.reflect.Modifier.isFinal(field.reflect.getModifiers())) {
+                throw new IllegalArgumentException(error(ctx) + "Cannot write to read-only" +
+                        " field [" + name + "] for type [" + struct.name + "].");
+            }
+
+            memberenmd.target = field;
+            memberenmd.type = field.type;
+            parentemd.current = analyzeLoadStoreExternal(ctx);
         }
 
         parentemd.statik = false;
@@ -1866,6 +1895,50 @@ class Analyzer extends PlanABaseVisitor<Void> {
             expremd.to = types[argument];
             visit(exprctx);
             markCast(expremd);
+        }
+
+        if (dotctx != null) {
+            adapter.createExtNodeMetadata(parent, dotctx);
+            visit(dotctx);
+        } else if (bracectx != null) {
+            adapter.createExtNodeMetadata(parent, bracectx);
+            visit(bracectx);
+        }
+
+        return null;
+    }
+
+    @Override
+    public Void visitExtstring(final ExtstringContext ctx) {
+        final ExtNodeMetadata memberenmd = adapter.getExtNodeMetadata(ctx);
+        final ParserRuleContext parent = memberenmd.parent;
+        final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
+
+        final String string = ctx.STRING().getText();
+
+        final ExtdotContext dotctx = ctx.extdot();
+        final ExtbraceContext bracectx = ctx.extbrace();
+
+        memberenmd.last = parentemd.scope == 0 && dotctx == null && bracectx == null;
+        final boolean store = memberenmd.last && parentemd.storeExpr != null;
+
+        if (parentemd.current != null) {
+            throw new IllegalStateException(error(ctx) + "Unexpected String constant [" + string + "].");
+        }
+
+        if (!parentemd.read) {
+            throw new IllegalArgumentException(error(ctx) + "Must read String constant [" + string + "].");
+        } else if (store) {
+            throw new IllegalArgumentException(
+                    error(ctx) + "Cannot write to read-only String constant [" + string + "].");
+        }
+
+        memberenmd.target = string;
+        memberenmd.type = definition.stringType;
+        parentemd.current = definition.stringType;
+
+        if (memberenmd.last) {
+            parentemd.constant = string;
         }
 
         if (dotctx != null) {

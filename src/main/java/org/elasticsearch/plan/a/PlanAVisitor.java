@@ -152,13 +152,6 @@ interface PlanAVisitor<T> extends ParseTreeVisitor<T> {
    */
   T visitComp(PlanAParser.CompContext ctx);
   /**
-   * Visit a parse tree produced by the {@code string}
-   * labeled alternative in {@link PlanAParser#expression}.
-   * @param ctx the parse tree
-   * @return the visitor result
-   */
-  T visitString(PlanAParser.StringContext ctx);
-  /**
    * Visit a parse tree produced by the {@code bool}
    * labeled alternative in {@link PlanAParser#expression}.
    * @param ctx the parse tree
@@ -306,6 +299,12 @@ interface PlanAVisitor<T> extends ParseTreeVisitor<T> {
    */
   T visitExtcall(PlanAParser.ExtcallContext ctx);
   /**
+   * Visit a parse tree produced by {@link PlanAParser#extvar}.
+   * @param ctx the parse tree
+   * @return the visitor result
+   */
+  T visitExtvar(PlanAParser.ExtvarContext ctx);
+  /**
    * Visit a parse tree produced by {@link PlanAParser#extmember}.
    * @param ctx the parse tree
    * @return the visitor result
@@ -317,6 +316,12 @@ interface PlanAVisitor<T> extends ParseTreeVisitor<T> {
    * @return the visitor result
    */
   T visitExtnew(PlanAParser.ExtnewContext ctx);
+  /**
+   * Visit a parse tree produced by {@link PlanAParser#extstring}.
+   * @param ctx the parse tree
+   * @return the visitor result
+   */
+  T visitExtstring(PlanAParser.ExtstringContext ctx);
   /**
    * Visit a parse tree produced by {@link PlanAParser#arguments}.
    * @param ctx the parse tree

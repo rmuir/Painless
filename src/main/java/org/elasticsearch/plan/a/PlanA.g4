@@ -78,7 +78,6 @@ id
 expression
     :               LP expression RP                                    # precedence
     |               ( OCTAL | HEX | INTEGER | DECIMAL )                 # numeric
-    |               STRING                                              # string
     |               CHAR                                                # char
     |               TRUE                                                # true
     |               FALSE                                               # false
@@ -108,18 +107,21 @@ extstart
    : extprec
    | extcast
    | exttype
-   | extmember
+   | extvar
    | extnew
+   | extstring
    ;
 
-extprec:   LP ( extprec | extcast | exttype | extmember | extnew ) RP ( extdot | extbrace )?;
-extcast:   LP decltype RP ( extprec | extcast | exttype | extmember | extnew );
+extprec:   LP ( extprec | extcast | exttype | extvar | extnew | extstring ) RP ( extdot | extbrace )?;
+extcast:   LP decltype RP ( extprec | extcast | exttype | extvar | extnew | extstring );
 extbrace:  LBRACE expression RBRACE ( extdot | extbrace )?;
 extdot:    DOT ( extcall | extmember );
 exttype:   type extdot;
 extcall:   id arguments ( extdot | extbrace )?;
+extvar:    id (extdot | extbrace )?;
 extmember: id (extdot | extbrace )?;
 extnew:    NEW type ( ( arguments ( extdot | extbrace)? ) | ( ( LBRACE expression RBRACE )+ extdot? ) );
+extstring: STRING (extdot | extbrace )?;
 
 arguments
     : ( LP ( expression ( COMMA expression )* )? RP )
