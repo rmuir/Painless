@@ -84,14 +84,42 @@ class Writer extends PlanABaseVisitor<Void> {
     private final static org.objectweb.asm.commons.Method DEF_FIELD_LOAD = org.objectweb.asm.commons.Method.getMethod(
             "java.lang.Object fieldLoad(java.lang.Object, java.lang.String, org.elasticsearch.plan.a.Definition)");
 
+    private final static org.objectweb.asm.commons.Method DEF_NOT_CALL = org.objectweb.asm.commons.Method.getMethod(
+            "java.lang.Object not(java.lang.Object)");
+    private final static org.objectweb.asm.commons.Method DEF_NEG_CALL = org.objectweb.asm.commons.Method.getMethod(
+            "java.lang.Object neg(java.lang.Object)");
+    private final static org.objectweb.asm.commons.Method DEF_MUL_CALL = org.objectweb.asm.commons.Method.getMethod(
+            "java.lang.Object mul(java.lang.Object, java.lang.Object)");
+    private final static org.objectweb.asm.commons.Method DEF_DIV_CALL = org.objectweb.asm.commons.Method.getMethod(
+            "java.lang.Object div(java.lang.Object, java.lang.Object)");
+    private final static org.objectweb.asm.commons.Method DEF_REM_CALL = org.objectweb.asm.commons.Method.getMethod(
+            "java.lang.Object rem(java.lang.Object, java.lang.Object)");
     private final static org.objectweb.asm.commons.Method DEF_ADD_CALL = org.objectweb.asm.commons.Method.getMethod(
-            "java.lang.Object add(java.lang.Object, java.lang.Object, boolean)");
+            "java.lang.Object add(java.lang.Object, java.lang.Object)");
+    private final static org.objectweb.asm.commons.Method DEF_SUB_CALL = org.objectweb.asm.commons.Method.getMethod(
+            "java.lang.Object sub(java.lang.Object, java.lang.Object)");
+    private final static org.objectweb.asm.commons.Method DEF_LSH_CALL = org.objectweb.asm.commons.Method.getMethod(
+            "java.lang.Object lsh(java.lang.Object, java.lang.Object)");
+    private final static org.objectweb.asm.commons.Method DEF_RSH_CALL = org.objectweb.asm.commons.Method.getMethod(
+            "java.lang.Object rsh(java.lang.Object, java.lang.Object)");
+    private final static org.objectweb.asm.commons.Method DEF_USH_CALL = org.objectweb.asm.commons.Method.getMethod(
+            "java.lang.Object ush(java.lang.Object, java.lang.Object)");
     private final static org.objectweb.asm.commons.Method DEF_AND_CALL = org.objectweb.asm.commons.Method.getMethod(
             "java.lang.Object and(java.lang.Object, java.lang.Object)");
     private final static org.objectweb.asm.commons.Method DEF_XOR_CALL = org.objectweb.asm.commons.Method.getMethod(
             "java.lang.Object xor(java.lang.Object, java.lang.Object)");
     private final static org.objectweb.asm.commons.Method DEF_OR_CALL = org.objectweb.asm.commons.Method.getMethod(
             "java.lang.Object or(java.lang.Object, java.lang.Object)");
+    private final static org.objectweb.asm.commons.Method DEF_EQ_CALL = org.objectweb.asm.commons.Method.getMethod(
+            "boolean eq(java.lang.Object, java.lang.Object)");
+    private final static org.objectweb.asm.commons.Method DEF_LT_CALL = org.objectweb.asm.commons.Method.getMethod(
+            "boolean lt(java.lang.Object, java.lang.Object)");
+    private final static org.objectweb.asm.commons.Method DEF_LTE_CALL = org.objectweb.asm.commons.Method.getMethod(
+            "boolean lte(java.lang.Object, java.lang.Object)");
+    private final static org.objectweb.asm.commons.Method DEF_GT_CALL = org.objectweb.asm.commons.Method.getMethod(
+            "boolean gt(java.lang.Object, java.lang.Object)");
+    private final static org.objectweb.asm.commons.Method DEF_GTE_CALL = org.objectweb.asm.commons.Method.getMethod(
+            "boolean gte(java.lang.Object, java.lang.Object)");
 
     private final static org.objectweb.asm.Type STRINGBUILDER_TYPE = org.objectweb.asm.Type.getType(StringBuilder.class);
 
@@ -116,6 +144,8 @@ class Writer extends PlanABaseVisitor<Void> {
     private final static org.objectweb.asm.commons.Method STRINGBUILDER_TOSTRING =
             org.objectweb.asm.commons.Method.getMethod("java.lang.String toString()");
 
+    private final static org.objectweb.asm.commons.Method TOINTEXACT_LONG =
+            org.objectweb.asm.commons.Method.getMethod("int toIntExact(long)");
     private final static org.objectweb.asm.commons.Method NEGATEEXACT_INT =
             org.objectweb.asm.commons.Method.getMethod("int negateExact(int)");
     private final static org.objectweb.asm.commons.Method NEGATEEXACT_LONG =
@@ -135,12 +165,40 @@ class Writer extends PlanABaseVisitor<Void> {
 
     private final static org.objectweb.asm.commons.Method CHECKEQUALS =
             org.objectweb.asm.commons.Method.getMethod("boolean checkEquals(java.lang.Object, java.lang.Object)");
-    private final static org.objectweb.asm.commons.Method TOEXACT_BYTE =
+    private final static org.objectweb.asm.commons.Method TOBYTEEXACT_INT =
             org.objectweb.asm.commons.Method.getMethod("byte toByteExact(int)");
-    private final static org.objectweb.asm.commons.Method TOEXACT_SHORT =
+    private final static org.objectweb.asm.commons.Method TOBYTEEXACT_LONG =
+            org.objectweb.asm.commons.Method.getMethod("byte toByteExact(long)");
+    private final static org.objectweb.asm.commons.Method TOBYTEEXACT_FLOAT =
+            org.objectweb.asm.commons.Method.getMethod("byte toByteExact(float)");
+    private final static org.objectweb.asm.commons.Method TOBYTEEXACT_DOUBLE =
+            org.objectweb.asm.commons.Method.getMethod("byte toByteExact(double)");
+    private final static org.objectweb.asm.commons.Method TOSHORTEXACT_INT =
             org.objectweb.asm.commons.Method.getMethod("short toShortExact(int)");
-    private final static org.objectweb.asm.commons.Method TOEXACT_CHAR =
+    private final static org.objectweb.asm.commons.Method TOSHORTEXACT_LONG =
+            org.objectweb.asm.commons.Method.getMethod("short toShortExact(long)");
+    private final static org.objectweb.asm.commons.Method TOSHORTEXACT_FLOAT =
+            org.objectweb.asm.commons.Method.getMethod("short toShortExact(float)");
+    private final static org.objectweb.asm.commons.Method TOSHORTEXACT_DOUBLE =
+            org.objectweb.asm.commons.Method.getMethod("short toShortExact(double)");
+    private final static org.objectweb.asm.commons.Method TOCHAREXACT_INT =
             org.objectweb.asm.commons.Method.getMethod("char toCharExact(int)");
+    private final static org.objectweb.asm.commons.Method TOCHAREXACT_LONG =
+            org.objectweb.asm.commons.Method.getMethod("char toCharExact(long)");
+    private final static org.objectweb.asm.commons.Method TOCHAREXACT_FLOAT =
+            org.objectweb.asm.commons.Method.getMethod("char toCharExact(float)");
+    private final static org.objectweb.asm.commons.Method TOCHAREXACT_DOUBLE =
+            org.objectweb.asm.commons.Method.getMethod("char toCharExact(double)");
+    private final static org.objectweb.asm.commons.Method TOINTEXACT_FLOAT =
+            org.objectweb.asm.commons.Method.getMethod("int toIntExact(float)");
+    private final static org.objectweb.asm.commons.Method TOINTEXACT_DOUBLE =
+            org.objectweb.asm.commons.Method.getMethod("int toIntExact(double)");
+    private final static org.objectweb.asm.commons.Method TOLONGEXACT_FLOAT =
+            org.objectweb.asm.commons.Method.getMethod("long toLongExact(float)");
+    private final static org.objectweb.asm.commons.Method TOLONGEXACT_DOUBLE =
+            org.objectweb.asm.commons.Method.getMethod("long toLongExact(double)");
+    private final static org.objectweb.asm.commons.Method TOFLOATEXACT_DOUBLE =
+            org.objectweb.asm.commons.Method.getMethod("float toFloatExact(double)");
     private final static org.objectweb.asm.commons.Method MULWOOVERLOW_FLOAT =
             org.objectweb.asm.commons.Method.getMethod("float multiplyWithoutOverflow(float, float)");
     private final static org.objectweb.asm.commons.Method MULWOOVERLOW_DOUBLE =
@@ -714,25 +772,33 @@ class Writer extends PlanABaseVisitor<Void> {
                 visit(exprctx);
 
                 if (ctx.BWNOT() != null) {
-                    if (sort == Sort.INT)  {
-                        writeConstant(ctx, -1);
-                    } else if (sort == Sort.LONG) {
-                        writeConstant(ctx, -1L);
-                    } else {
-                        throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
-                    }
-
-                    execute.math(GeneratorAdapter.XOR, type);
-                } else if (ctx.SUB() != null) {
-                    if (settings.getNumericOverflow()) {
-                        execute.math(GeneratorAdapter.NEG, type);
+                    if (sort == Sort.DEF) {
+                        execute.invokeStatic(definition.defobjType.type, DEF_NOT_CALL);
                     } else {
                         if (sort == Sort.INT) {
-                            execute.invokeStatic(definition.mathType.type, NEGATEEXACT_INT);
+                            writeConstant(ctx, -1);
                         } else if (sort == Sort.LONG) {
-                            execute.invokeStatic(definition.mathType.type, NEGATEEXACT_LONG);
+                            writeConstant(ctx, -1L);
                         } else {
                             throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
+                        }
+
+                        execute.math(GeneratorAdapter.XOR, type);
+                    }
+                } else if (ctx.SUB() != null) {
+                    if (sort == Sort.DEF) {
+                        execute.invokeStatic(definition.defobjType.type, DEF_NEG_CALL);
+                    } else {
+                        if (settings.getNumericOverflow()) {
+                            execute.math(GeneratorAdapter.NEG, type);
+                        } else {
+                            if (sort == Sort.INT) {
+                                execute.invokeStatic(definition.mathType.type, NEGATEEXACT_INT);
+                            } else if (sort == Sort.LONG) {
+                                execute.invokeStatic(definition.mathType.type, NEGATEEXACT_LONG);
+                            } else {
+                                throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
+                            }
                         }
                     }
                 } else if (ctx.ADD() == null) {
@@ -793,7 +859,7 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(exprctx0);
 
             if (strings.contains(exprctx0)) {
-                writeAppendStrings(ctx, expremd0.from.sort);
+                writeAppendStrings(expremd0.from.sort);
                 strings.remove(exprctx0);
             }
 
@@ -803,7 +869,7 @@ class Writer extends PlanABaseVisitor<Void> {
             visit(exprctx1);
 
             if (strings.contains(exprctx1)) {
-                writeAppendStrings(ctx, expremd1.from.sort);
+                writeAppendStrings(expremd1.from.sort);
                 strings.remove(exprctx1);
             }
 
@@ -811,23 +877,6 @@ class Writer extends PlanABaseVisitor<Void> {
                 strings.remove(ctx);
             } else {
                 writeToStrings();
-            }
-
-            checkWriteCast(binaryemd);
-        } else if (binaryemd.from.sort == Sort.DEF) {
-            final ExpressionContext exprctx0 = ctx.expression(0);
-            final ExpressionContext exprctx1 = ctx.expression(1);
-
-            visit(exprctx0);
-            visit(exprctx1);
-
-            if (ctx.ADD() != null) {
-                execute.push(settings.getNumericOverflow());
-                execute.invokeStatic(definition.defobjType.type, DEF_ADD_CALL);
-            } else if (ctx.BWXOR() != null) {
-                execute.invokeStatic(definition.defobjType.type, DEF_XOR_CALL);
-            } else {
-                throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
             }
 
             checkWriteCast(binaryemd);
@@ -916,7 +965,7 @@ class Writer extends PlanABaseVisitor<Void> {
             final boolean gt  = ctx.GT()  != null && (tru || !fals) || ctx.LTE() != null && fals;
             final boolean gte = ctx.GTE() != null && (tru || !fals) || ctx.LT()  != null && fals;
 
-            boolean eqobj = false;
+            boolean writejump = true;
 
             switch (sort1) {
                 case VOID:
@@ -947,18 +996,12 @@ class Writer extends PlanABaseVisitor<Void> {
                     }
 
                     break;
-                default:
+                case DEF:
                     if (eq) {
                         if (expremd1.isNull) {
                             execute.ifNull(jump);
                         } else if (!expremd0.isNull && ctx.EQ() != null) {
-                            execute.invokeStatic(definition.utilityType.type, CHECKEQUALS);
-
-                            if (branch != null) {
-                                execute.ifZCmp(GeneratorAdapter.NE, jump);
-                            }
-
-                            eqobj = true;
+                            execute.invokeStatic(definition.defobjType.type, DEF_EQ_CALL);
                         } else {
                             execute.ifCmp(type, GeneratorAdapter.EQ, jump);
                         }
@@ -966,6 +1009,49 @@ class Writer extends PlanABaseVisitor<Void> {
                         if (expremd1.isNull) {
                             execute.ifNonNull(jump);
                         } else if (!expremd0.isNull && ctx.NE() != null) {
+                            execute.invokeStatic(definition.defobjType.type, DEF_EQ_CALL);
+                            execute.ifZCmp(GeneratorAdapter.EQ, jump);
+                        } else {
+                            execute.ifCmp(type, GeneratorAdapter.NE, jump);
+                        }
+                    } else if (lt) {
+                        execute.invokeStatic(definition.defobjType.type, DEF_LT_CALL);
+                    } else if (lte) {
+                        execute.invokeStatic(definition.defobjType.type, DEF_LTE_CALL);
+                    } else if (gt) {
+                        execute.invokeStatic(definition.defobjType.type, DEF_GT_CALL);
+                    } else if (gte) {
+                        execute.invokeStatic(definition.defobjType.type, DEF_GTE_CALL);
+                    } else {
+                        throw new IllegalStateException(error(ctx) + "Unexpected writer state.");
+                    }
+
+                    writejump = expremd1.isNull || ne || ctx.EQR() != null;
+
+                    if (branch != null && !writejump) {
+                        execute.ifZCmp(GeneratorAdapter.NE, jump);
+                    }
+
+                    break;
+                default:
+                    if (eq) {
+                        if (expremd1.isNull) {
+                            execute.ifNull(jump);
+                        } else if (ctx.EQ() != null) {
+                            execute.invokeStatic(definition.utilityType.type, CHECKEQUALS);
+
+                            if (branch != null) {
+                                execute.ifZCmp(GeneratorAdapter.NE, jump);
+                            }
+
+                            writejump = false;
+                        } else {
+                            execute.ifCmp(type, GeneratorAdapter.EQ, jump);
+                        }
+                    } else if (ne) {
+                        if (expremd1.isNull) {
+                            execute.ifNonNull(jump);
+                        } else if (ctx.NE() != null) {
                             execute.invokeStatic(definition.utilityType.type, CHECKEQUALS);
                             execute.ifZCmp(GeneratorAdapter.EQ, jump);
                         } else {
@@ -977,7 +1063,7 @@ class Writer extends PlanABaseVisitor<Void> {
             }
 
             if (branch == null) {
-                if (!eqobj) {
+                if (writejump) {
                     execute.push(false);
                     execute.goTo(end);
                     execute.mark(jump);
@@ -1262,12 +1348,12 @@ class Writer extends PlanABaseVisitor<Void> {
     @Override
     public Void visitExtdot(final ExtdotContext ctx) {
         final ExtcallContext callctx = ctx.extcall();
-        final ExtmemberContext memberctx = ctx.extmember();
+        final ExtfieldContext fieldctx = ctx.extfield();
 
         if (callctx != null) {
             visit(callctx);
-        } else if (memberctx != null) {
-            visit(memberctx);
+        } else if (fieldctx != null) {
+            visit(fieldctx);
         }
 
         return null;
@@ -1313,7 +1399,7 @@ class Writer extends PlanABaseVisitor<Void> {
     }
 
     @Override
-    public Void visitExtmember(final ExtmemberContext ctx) {
+    public Void visitExtfield(final ExtfieldContext ctx) {
         writeLoadStoreExternal(ctx);
 
         final ExtdotContext dotctx = ctx.extdot();
@@ -1434,7 +1520,7 @@ class Writer extends PlanABaseVisitor<Void> {
         execute.invokeConstructor(STRINGBUILDER_TYPE, STRINGBUILDER_CONSTRUCTOR);
     }
 
-    private void writeAppendStrings(final ParserRuleContext source, final Sort sort) {
+    private void writeAppendStrings(final Sort sort) {
         switch (sort) {
             case BOOL:   execute.invokeVirtual(STRINGBUILDER_TYPE, STRINGBUILDER_APPEND_BOOLEAN); break;
             case CHAR:   execute.invokeVirtual(STRINGBUILDER_TYPE, STRINGBUILDER_APPEND_CHAR);    break;
@@ -1445,39 +1531,12 @@ class Writer extends PlanABaseVisitor<Void> {
             case FLOAT:  execute.invokeVirtual(STRINGBUILDER_TYPE, STRINGBUILDER_APPEND_FLOAT);   break;
             case DOUBLE: execute.invokeVirtual(STRINGBUILDER_TYPE, STRINGBUILDER_APPEND_DOUBLE);  break;
             case STRING: execute.invokeVirtual(STRINGBUILDER_TYPE, STRINGBUILDER_APPEND_STRING);  break;
-            case ARRAY:
-            case DEF:
-            case OBJECT: execute.invokeVirtual(STRINGBUILDER_TYPE, STRINGBUILDER_APPEND_OBJECT);  break;
-            default:
-                throw new IllegalStateException(error(source) + "Unexpected writer state.");
+            default:     execute.invokeVirtual(STRINGBUILDER_TYPE, STRINGBUILDER_APPEND_OBJECT);
         }
     }
 
     private void writeToStrings() {
         execute.invokeVirtual(STRINGBUILDER_TYPE, STRINGBUILDER_TOSTRING);
-    }
-
-    /**
-     * Called for any compound assignment (including increment/decrement instructions).
-     * We have to be stricter than writeBinary, and do overflow checks against the original type's size
-     * instead of the promoted type's size, since the result will be implicitly cast back.
-     */
-    private void writeCompoundAssignmentInstruction(ParserRuleContext source, Type original, Type promoted, int token) {
-        writeBinaryInstruction(source, promoted, token);
-        if (settings.getNumericOverflow() == false) {
-            if (token == ADD || token == SUB || token == MUL || token == DIV) {
-                if (original.sort == Sort.BYTE) {
-                    execute.invokeStatic(definition.utilityType.type, TOEXACT_BYTE);
-                } else if (original.sort == Sort.SHORT) {
-                    execute.invokeStatic(definition.utilityType.type, TOEXACT_SHORT);
-                } else if (original.sort == Sort.CHAR) {
-                    execute.invokeStatic(definition.utilityType.type, TOEXACT_CHAR);
-                } else {
-                    // all other types are never promoted during compound assignment
-                    assert original.sort == promoted.sort;
-                }
-            }
-        }
     }
 
     private void writeBinaryInstruction(final ParserRuleContext source, final Type type, final int token) {
@@ -1490,9 +1549,7 @@ class Writer extends PlanABaseVisitor<Void> {
 
         // if its a 64-bit shift, fixup the last argument to truncate to 32-bits
         // note unlike java, this means we still do binary promotion of shifts,
-        // but it keeps things simple
-
-        // this check works because we promote shifts.
+        // but it keeps things simple -- this check works because we promote shifts.
         if (sort == Sort.LONG && (token == LSH || token == USH || token == RSH)) {
             execute.cast(org.objectweb.asm.Type.LONG_TYPE, org.objectweb.asm.Type.INT_TYPE);
         }
@@ -1554,33 +1611,51 @@ class Writer extends PlanABaseVisitor<Void> {
                 throw new IllegalStateException(error(source) + "Unexpected writer state.");
             }
 
-            switch (token) {
-                case MUL:   execute.math(GeneratorAdapter.MUL,  type.type); break;
-                case DIV:   execute.math(GeneratorAdapter.DIV,  type.type); break;
-                case REM:   execute.math(GeneratorAdapter.REM,  type.type); break;
-                case ADD:   execute.math(GeneratorAdapter.ADD,  type.type); break;
-                case SUB:   execute.math(GeneratorAdapter.SUB,  type.type); break;
-                case LSH:   execute.math(GeneratorAdapter.SHL,  type.type); break;
-                case USH:   execute.math(GeneratorAdapter.USHR, type.type); break;
-                case RSH:   execute.math(GeneratorAdapter.SHR,  type.type); break;
-                case BWAND: execute.math(GeneratorAdapter.AND,  type.type); break;
-                case BWXOR: execute.math(GeneratorAdapter.XOR,  type.type); break;
-                case BWOR:  execute.math(GeneratorAdapter.OR,   type.type); break;
-                default:
-                    throw new IllegalStateException(error(source) + "Unexpected writer state.");
+            if (sort == Sort.DEF) {
+                switch (token) {
+                    case MUL:   execute.invokeStatic(definition.defobjType.type, DEF_MUL_CALL); break;
+                    case DIV:   execute.invokeStatic(definition.defobjType.type, DEF_DIV_CALL); break;
+                    case REM:   execute.invokeStatic(definition.defobjType.type, DEF_REM_CALL); break;
+                    case ADD:   execute.invokeStatic(definition.defobjType.type, DEF_ADD_CALL); break;
+                    case SUB:   execute.invokeStatic(definition.defobjType.type, DEF_SUB_CALL); break;
+                    case LSH:   execute.invokeStatic(definition.defobjType.type, DEF_LSH_CALL); break;
+                    case USH:   execute.invokeStatic(definition.defobjType.type, DEF_RSH_CALL); break;
+                    case RSH:   execute.invokeStatic(definition.defobjType.type, DEF_USH_CALL); break;
+                    case BWAND: execute.invokeStatic(definition.defobjType.type, DEF_AND_CALL); break;
+                    case BWXOR: execute.invokeStatic(definition.defobjType.type, DEF_XOR_CALL); break;
+                    case BWOR:  execute.invokeStatic(definition.defobjType.type, DEF_OR_CALL);  break;
+                    default:
+                        throw new IllegalStateException(error(source) + "Unexpected writer state.");
+                }
+            } else {
+                switch (token) {
+                    case MUL:   execute.math(GeneratorAdapter.MUL,  type.type); break;
+                    case DIV:   execute.math(GeneratorAdapter.DIV,  type.type); break;
+                    case REM:   execute.math(GeneratorAdapter.REM,  type.type); break;
+                    case ADD:   execute.math(GeneratorAdapter.ADD,  type.type); break;
+                    case SUB:   execute.math(GeneratorAdapter.SUB,  type.type); break;
+                    case LSH:   execute.math(GeneratorAdapter.SHL,  type.type); break;
+                    case USH:   execute.math(GeneratorAdapter.USHR, type.type); break;
+                    case RSH:   execute.math(GeneratorAdapter.SHR,  type.type); break;
+                    case BWAND: execute.math(GeneratorAdapter.AND,  type.type); break;
+                    case BWXOR: execute.math(GeneratorAdapter.XOR,  type.type); break;
+                    case BWOR:  execute.math(GeneratorAdapter.OR,   type.type); break;
+                    default:
+                        throw new IllegalStateException(error(source) + "Unexpected writer state.");
+                }
             }
         }
     }
 
     private void writeLoadStoreExternal(final ParserRuleContext source) {
-        final ExtNodeMetadata sourceemd = adapter.getExtNodeMetadata(source);
-        final ExternalMetadata parentemd = adapter.getExternalMetadata(sourceemd.parent);
+        final ExtNodeMetadata sourceenmd = adapter.getExtNodeMetadata(source);
+        final ExternalMetadata parentemd = adapter.getExternalMetadata(sourceenmd.parent);
 
-        final boolean length = "#length".equals(sourceemd.target);
-        final boolean array = "#brace".equals(sourceemd.target);
-        final boolean name = sourceemd.target instanceof String && !length && !array;
-        final boolean variable = sourceemd.target instanceof Integer;
-        final boolean field = sourceemd.target instanceof Field;
+        final boolean length = "#length".equals(sourceenmd.target);
+        final boolean array = "#brace".equals(sourceenmd.target);
+        final boolean name = sourceenmd.target instanceof String && !length && !array;
+        final boolean variable = sourceenmd.target instanceof Integer;
+        final boolean field = sourceenmd.target instanceof Field;
 
         if (!length && !variable && !field && !array && !name) {
             throw new IllegalStateException(error(source) + "Target not found for load/store.");
@@ -1588,7 +1663,7 @@ class Writer extends PlanABaseVisitor<Void> {
 
         if (length) {
             execute.arrayLength();
-        } else if (sourceemd.last && parentemd.storeExpr != null) {
+        } else if (sourceenmd.last && parentemd.storeExpr != null) {
             final ExpressionMetadata expremd = adapter.getExpressionMetadata(parentemd.storeExpr);
             final boolean cat = strings.contains(parentemd.storeExpr);
 
@@ -1600,23 +1675,25 @@ class Writer extends PlanABaseVisitor<Void> {
                 }
 
                 writeLoadStoreInstruction(source, false, variable, field, name, array);
-                writeAppendStrings(source, sourceemd.type.sort);
+                writeAppendStrings(sourceenmd.type.sort);
                 visit(parentemd.storeExpr);
 
                 if (strings.contains(parentemd.storeExpr)) {
-                    writeAppendStrings(parentemd.storeExpr, expremd.to.sort);
+                    writeAppendStrings(expremd.to.sort);
                     strings.remove(parentemd.storeExpr);
                 }
 
                 writeToStrings();
-                checkWriteCast(source, sourceemd.castTo);
+                checkWriteCast(source, sourceenmd.castTo);
 
                 if (parentemd.read) {
-                    writeDup(sourceemd.type.sort.size, field || name, array);
+                    writeDup(sourceenmd.type.sort.size, field || name, array);
                 }
 
                 writeLoadStoreInstruction(source, true, variable, field, name, array);
             } else if (parentemd.token > 0) {
+                final int token = parentemd.token;
+                
                 if (field || name) {
                     execute.dup();
                 } else if (array) {
@@ -1626,29 +1703,140 @@ class Writer extends PlanABaseVisitor<Void> {
                 writeLoadStoreInstruction(source, false, variable, field, name, array);
 
                 if (parentemd.read && parentemd.post) {
-                    writeDup(sourceemd.type.sort.size, field || name, array);
+                    writeDup(sourceenmd.type.sort.size, field || name, array);
                 }
 
-                checkWriteCast(source, sourceemd.castFrom);
+                checkWriteCast(source, sourceenmd.castFrom);
                 visit(parentemd.storeExpr);
 
-                if (parentemd.token == ADD && sourceemd.promote.sort == Sort.DEF) {
-                    execute.push(settings.getNumericOverflow());
-                    execute.invokeStatic(definition.defobjType.type, DEF_ADD_CALL);
-                } else if (parentemd.token == BWAND && sourceemd.promote.sort == Sort.DEF) {
-                    execute.invokeStatic(definition.defobjType.type, DEF_AND_CALL);
-                }  else if (parentemd.token == BWXOR && sourceemd.promote.sort == Sort.DEF) {
-                    execute.invokeStatic(definition.defobjType.type, DEF_XOR_CALL);
-                }  else if (parentemd.token == BWOR && sourceemd.promote.sort == Sort.DEF) {
-                    execute.invokeStatic(definition.defobjType.type, DEF_OR_CALL);
+                final Sort osort = sourceenmd.type.sort;
+                final Sort psort = sourceenmd.promote.sort;
+
+                writeBinaryInstruction(source, sourceenmd.promote, token);
+
+                /**
+                 * Called for any compound assignment (including increment/decrement instructions).
+                 * We have to be stricter than writeBinary, and do overflow checks against the original type's size
+                 * instead of the promoted type's size, since the result will be implicitly cast back.
+                 */
+
+                if (settings.getNumericOverflow() == false && expremd.typesafe && osort != Sort.DEF &&
+                        (token == MUL || token == DIV || token == REM || token == ADD || token == SUB)) {
+                    if (psort == Sort.DOUBLE) {
+                        if (osort == Sort.FLOAT) {
+                            execute.invokeStatic(definition.utilityType.type, TOFLOATEXACT_DOUBLE);
+                        } else if (osort == Sort.FLOAT_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOFLOATEXACT_DOUBLE);
+                            execute.checkCast(definition.floatobjType.type);
+                        } else if (osort == Sort.LONG) {
+                            execute.invokeStatic(definition.utilityType.type, TOLONGEXACT_DOUBLE);
+                        } else if (osort == Sort.LONG_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOLONGEXACT_DOUBLE);
+                            execute.checkCast(definition.longobjType.type);
+                        } else if (osort == Sort.INT) {
+                            execute.invokeStatic(definition.utilityType.type, TOINTEXACT_DOUBLE);
+                        } else if (osort == Sort.INT_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOINTEXACT_DOUBLE);
+                            execute.checkCast(definition.intobjType.type);
+                        } else if (osort == Sort.CHAR) {
+                            execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_DOUBLE);
+                        } else if (osort == Sort.CHAR_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_DOUBLE);
+                            execute.checkCast(definition.charobjType.type);
+                        } else if (osort == Sort.SHORT) {
+                            execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_DOUBLE);
+                        } else if (osort == Sort.SHORT_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_DOUBLE);
+                            execute.checkCast(definition.shortobjType.type);
+                        } else if (osort == Sort.BYTE) {
+                            execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_DOUBLE);
+                        } else if (osort == Sort.BYTE_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_DOUBLE);
+                            execute.checkCast(definition.byteobjType.type);
+                        } else {
+                            checkWriteCast(source, sourceenmd.castTo);
+                        }
+                    } else if (psort == Sort.FLOAT) {
+                        if (osort == Sort.LONG) {
+                            execute.invokeStatic(definition.utilityType.type, TOLONGEXACT_FLOAT);
+                        } else if (osort == Sort.LONG_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOLONGEXACT_FLOAT);
+                            execute.checkCast(definition.longobjType.type);
+                        } else if (osort == Sort.INT) {
+                            execute.invokeStatic(definition.utilityType.type, TOINTEXACT_FLOAT);
+                        } else if (osort == Sort.INT_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOINTEXACT_FLOAT);
+                            execute.checkCast(definition.intobjType.type);
+                        } else if (osort == Sort.CHAR) {
+                            execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_FLOAT);
+                        } else if (osort == Sort.CHAR_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_FLOAT);
+                            execute.checkCast(definition.charobjType.type);
+                        } else if (osort == Sort.SHORT) {
+                            execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_FLOAT);
+                        } else if (osort == Sort.SHORT_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_FLOAT);
+                            execute.checkCast(definition.shortobjType.type);
+                        } else if (osort == Sort.BYTE) {
+                            execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_FLOAT);
+                        } else if (osort == Sort.BYTE_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_FLOAT);
+                            execute.checkCast(definition.byteobjType.type);
+                        } else {
+                            checkWriteCast(source, sourceenmd.castTo);
+                        }
+                    } else if (psort == Sort.LONG) {
+                        if (osort == Sort.INT) {
+                            execute.invokeStatic(definition.mathType.type, TOINTEXACT_LONG);
+                        } else if (osort == Sort.INT_OBJ) {
+                            execute.invokeStatic(definition.mathType.type, TOINTEXACT_LONG);
+                            execute.checkCast(definition.intobjType.type);
+                        } else if (osort == Sort.CHAR) {
+                            execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_LONG);
+                        } else if (osort == Sort.CHAR_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_LONG);
+                            execute.checkCast(definition.charobjType.type);
+                        } else if (osort == Sort.SHORT) {
+                            execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_LONG);
+                        } else if (osort == Sort.SHORT_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_LONG);
+                            execute.checkCast(definition.shortobjType.type);
+                        } else if (osort == Sort.BYTE) {
+                            execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_LONG);
+                        } else if (osort == Sort.BYTE_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_LONG);
+                            execute.checkCast(definition.byteobjType.type);
+                        } else {
+                            checkWriteCast(source, sourceenmd.castTo);
+                        }
+                    } else if (psort == Sort.INT) {
+                        if (osort == Sort.CHAR) {
+                            execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_INT);
+                        } else if (osort == Sort.CHAR_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_INT);
+                            execute.checkCast(definition.charobjType.type);
+                        } else if (osort == Sort.SHORT) {
+                            execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_INT);
+                        } else if (osort == Sort.SHORT_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_INT);
+                            execute.checkCast(definition.shortobjType.type);
+                        } else if (osort == Sort.BYTE) {
+                            execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_INT);
+                        } else if (osort == Sort.BYTE_OBJ) {
+                            execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_INT);
+                            execute.checkCast(definition.byteobjType.type);
+                        } else {
+                            checkWriteCast(source, sourceenmd.castTo);
+                        }
+                    } else {
+                        checkWriteCast(source, sourceenmd.castTo);
+                    }
                 } else {
-                    writeCompoundAssignmentInstruction(source, sourceemd.type, sourceemd.promote, parentemd.token);
+                    checkWriteCast(source, sourceenmd.castTo);
                 }
 
-                checkWriteCast(source, sourceemd.castTo);
-
                 if (parentemd.read && !parentemd.post) {
-                    writeDup(sourceemd.type.sort.size, field || name, array);
+                    writeDup(sourceenmd.type.sort.size, field || name, array);
                 }
 
                 writeLoadStoreInstruction(source, true, variable, field, name, array);
@@ -1656,7 +1844,7 @@ class Writer extends PlanABaseVisitor<Void> {
                 visit(parentemd.storeExpr);
 
                 if (parentemd.read) {
-                    writeDup(sourceemd.type.sort.size, field || name, array);
+                    writeDup(sourceenmd.type.sort.size, field || name, array);
                 }
 
                 writeLoadStoreInstruction(source, true, variable, field, name, array);

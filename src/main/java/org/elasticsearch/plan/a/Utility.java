@@ -483,22 +483,42 @@ public class Utility {
      * Like {@link Math#toIntExact(long)} but for byte range.
      */
     public static byte toByteExact(int value) {
-        byte b = (byte) value;
-        if (b != value) {
+        byte s = (byte) value;
+        if (s != value) {
             throw new ArithmeticException("byte overflow");
         }
-        return b;
+        return s;
     }
 
     /**
-     * Like {@link Math#toIntExact(long)} but for char range.
+     * Like {@link Math#toIntExact(long)} but for byte range.
      */
-    public static char toCharExact(int value) {
-        char c = (char) value;
-        if (c != value) {
-            throw new ArithmeticException("char overflow");
+    public static byte toByteExact(long value) {
+        byte s = (byte) value;
+        if (s != value) {
+            throw new ArithmeticException("byte overflow");
         }
-        return c;
+        return s;
+    }
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for byte range.
+     */
+    public static byte toByteExact(float value) {
+        if (value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) {
+            throw new ArithmeticException("byte overflow");
+        }
+        return (byte)value;
+    }
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for byte range.
+     */
+    public static byte toByteExact(double value) {
+        if (value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) {
+            throw new ArithmeticException("byte overflow");
+        }
+        return (byte)value;
     }
 
     /**
@@ -511,7 +531,130 @@ public class Utility {
         }
         return s;
     }
-    
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for short range.
+     */
+    public static short toShortExact(long value) {
+        short s = (short) value;
+        if (s != value) {
+            throw new ArithmeticException("short overflow");
+        }
+        return s;
+    }
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for short range.
+     */
+    public static short toShortExact(float value) {
+        if (value < Short.MIN_VALUE || value > Short.MAX_VALUE) {
+            throw new ArithmeticException("short overflow");
+        }
+        return (short)value;
+    }
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for short range.
+     */
+    public static short toShortExact(double value) {
+        if (value < Short.MIN_VALUE || value > Short.MAX_VALUE) {
+            throw new ArithmeticException("short overflow");
+        }
+        return (short)value;
+    }
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for char range.
+     */
+    public static char toCharExact(int value) {
+        char s = (char) value;
+        if (s != value) {
+            throw new ArithmeticException("char overflow");
+        }
+        return s;
+    }
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for char range.
+     */
+    public static char toCharExact(long value) {
+        char s = (char) value;
+        if (s != value) {
+            throw new ArithmeticException("char overflow");
+        }
+        return s;
+    }
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for char range.
+     */
+    public static char toCharExact(float value) {
+        if (value < Character.MIN_VALUE || value > Character.MAX_VALUE) {
+            throw new ArithmeticException("char overflow");
+        }
+        return (char)value;
+    }
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for char range.
+     */
+    public static char toCharExact(double value) {
+        if (value < Character.MIN_VALUE || value > Character.MAX_VALUE) {
+            throw new ArithmeticException("char overflow");
+        }
+        return (char)value;
+    }
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for int range.
+     */
+    public static int toIntExact(float value) {
+        if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
+            throw new ArithmeticException("int overflow");
+        }
+        return (int)value;
+    }
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for int range.
+     */
+    public static int toIntExact(double value) {
+        if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
+            throw new ArithmeticException("int overflow");
+        }
+        return (int)value;
+    }
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for long range.
+     */
+    public static long toLongExact(float value) {
+        if (value < Long.MIN_VALUE || value > Long.MAX_VALUE) {
+            throw new ArithmeticException("long overflow");
+        }
+        return (long)value;
+    }
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for long range.
+     */
+    public static float toLongExact(double value) {
+        if (value < Long.MIN_VALUE || value > Long.MAX_VALUE) {
+            throw new ArithmeticException("long overflow");
+        }
+        return (long)value;
+    }
+
+    /**
+     * Like {@link Math#toIntExact(long)} but for float range.
+     */
+    public static float toFloatExact(double value) {
+        if (value < Float.MIN_VALUE || value > Float.MAX_VALUE) {
+            throw new ArithmeticException("float overflow");
+        }
+        return (float)value;
+    }
+
     /**
      * Checks for overflow, result is infinite but operands are finite
      * @throws ArithmeticException if overflow occurred

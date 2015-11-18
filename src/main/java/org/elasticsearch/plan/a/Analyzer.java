@@ -832,7 +832,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         } else if (ctx.BWNOT() != null || ctx.ADD() != null || ctx.SUB() != null) {
             visit(exprctx);
 
-            final Type promote = promoteNumeric(expremd.from, ctx.BWNOT() == null, false);
+            final Type promote = promoteNumeric(expremd.from, ctx.BWNOT() == null, true);
 
             if (promote == null) {
                 throw new ClassCastException("Cannot apply [" + ctx.getChild(0).getText() + "] " +
@@ -947,7 +947,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final boolean xor = ctx.BWXOR() != null;
         final Type promote = add ? promoteAdd(expremd0.from, expremd1.from) :
                              xor ? promoteXor(expremd0.from, expremd1.from) :
-                                   promoteNumeric(expremd0.from, expremd1.from, decimal, false);
+                                   promoteNumeric(expremd0.from, expremd1.from, decimal, true);
 
         if (promote == null) {
             throw new ClassCastException("Cannot apply [" + ctx.getChild(1).getText() + "] " +
@@ -1176,7 +1176,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         final Type promote = equality ? promoteEquality(expremd0.from, expremd1.from) :
                 reference ? promoteReference(expremd0.from, expremd1.from) :
-                        promoteNumeric(expremd0.from, expremd1.from, true, false);
+                            promoteNumeric(expremd0.from, expremd1.from, true, true);
 
         if (promote == null) {
             throw new ClassCastException("Cannot apply [" + ctx.getChild(1).getText() + "] " +
@@ -1585,14 +1585,14 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ParserRuleContext parent = dotemnd.parent;
 
         final ExtcallContext callctx = ctx.extcall();
-        final ExtmemberContext memberctx = ctx.extmember();
+        final ExtfieldContext fieldctx = ctx.extfield();
 
         if (callctx != null) {
             adapter.createExtNodeMetadata(parent, callctx);
             visit(callctx);
-        } else if (memberctx != null) {
-            adapter.createExtNodeMetadata(parent, memberctx);
-            visit(memberctx);
+        } else if (fieldctx != null) {
+            adapter.createExtNodeMetadata(parent, fieldctx);
+            visit(fieldctx);
         }
 
         return null;
@@ -1742,7 +1742,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
     }
 
     @Override
-    public Void visitExtmember(final ExtmemberContext ctx) {
+    public Void visitExtfield(final ExtfieldContext ctx) {
         final ExtNodeMetadata memberenmd = adapter.getExtNodeMetadata(ctx);
         final ParserRuleContext parent = memberenmd.parent;
         final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
@@ -2005,7 +2005,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
                 extenmd.promote = add ? promoteAdd(extenmd.type, storeemd.from) :
                                   xor ? promoteXor(extenmd.type, storeemd.from) :
-                                        promoteNumeric(extenmd.type, storeemd.from, decimal, false);
+                                        promoteNumeric(extenmd.type, storeemd.from, decimal, true);
 
                 if (extenmd.promote == null) {
                     throw new IllegalArgumentException("Cannot apply compound assignment to " +
@@ -2556,40 +2556,46 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
     }
 
-    private Type promoteNumeric(final Type from, boolean decimal, boolean object) {
+    private Type promoteNumeric(final Type from, boolean decimal, boolean primitive) {
         final Sort sort = from.sort;
 
-        if ((sort == Sort.DOUBLE || sort == Sort.DOUBLE_OBJ || sort == Sort.NUMBER || sort == Sort.DEF) && decimal) {
-             return object ? definition.doubleobjType : definition.doubleType;
+        if (sort == Sort.DEF) {
+            return definition.defType;
+        } else if ((sort == Sort.DOUBLE || sort == Sort.DOUBLE_OBJ || sort == Sort.NUMBER) && decimal) {
+             return primitive ? definition.doubleType : definition.doubleobjType;
         } else if ((sort == Sort.FLOAT || sort == Sort.FLOAT_OBJ) && decimal) {
-            return object ? definition.floatobjType : definition.floatType;
-        } else if (sort == Sort.LONG || sort == Sort.LONG_OBJ || sort == Sort.NUMBER || sort == Sort.DEF) {
-            return object ? definition.longobjType : definition.longType;
+            return primitive ? definition.floatType : definition.floatobjType;
+        } else if (sort == Sort.LONG || sort == Sort.LONG_OBJ || sort == Sort.NUMBER) {
+            return primitive ? definition.longType : definition.longobjType;
         } else if (sort.numeric) {
-            return object ? definition.intobjType : definition.intType;
+            return primitive ? definition.intType : definition.intobjType;
         }
 
         return null;
     }
 
-    private Type promoteNumeric(final Type from0, final Type from1, boolean decimal, boolean object) {
+    private Type promoteNumeric(final Type from0, final Type from1, boolean decimal, boolean primitive) {
         final Sort sort0 = from0.sort;
         final Sort sort1 = from1.sort;
 
+        if (sort0 == Sort.DEF || sort1 == Sort.DEF) {
+            return definition.defType;
+        }
+
         if (decimal) {
-            if (sort0 == Sort.DOUBLE || sort0 == Sort.DOUBLE_OBJ || sort0 == Sort.NUMBER || sort0 == Sort.DEF ||
-                    sort1 == Sort.DOUBLE || sort1 == Sort.DOUBLE_OBJ || sort1 == Sort.NUMBER || sort1 == Sort.DEF) {
-                return object ? definition.doubleobjType : definition.doubleType;
+            if (sort0 == Sort.DOUBLE || sort0 == Sort.DOUBLE_OBJ || sort0 == Sort.NUMBER ||
+                    sort1 == Sort.DOUBLE || sort1 == Sort.DOUBLE_OBJ || sort1 == Sort.NUMBER) {
+                return primitive ? definition.doubleType : definition.doubleobjType;
             } else if (sort0 == Sort.FLOAT || sort0 == Sort.FLOAT_OBJ || sort1 == Sort.FLOAT || sort1 == Sort.FLOAT_OBJ) {
-                return object ? definition.floatobjType : definition.floatType;
+                return primitive ? definition.floatType : definition.floatobjType;
             }
         }
 
-        if (sort0 == Sort.LONG || sort0 == Sort.LONG_OBJ || sort0 == Sort.NUMBER || sort0 == Sort.DEF ||
-                sort1 == Sort.LONG || sort1 == Sort.LONG_OBJ || sort1 == Sort.NUMBER || sort1 == Sort.DEF) {
-             return object ? definition.longobjType : definition.longType;
+        if (sort0 == Sort.LONG || sort0 == Sort.LONG_OBJ || sort0 == Sort.NUMBER ||
+                sort1 == Sort.LONG || sort1 == Sort.LONG_OBJ || sort1 == Sort.NUMBER) {
+             return primitive ? definition.longType : definition.longobjType;
         } else if (sort0.numeric && sort1.numeric) {
-            return object ? definition.intobjType : definition.intType;
+            return primitive ? definition.intType : definition.intobjType;
         }
 
         return null;
@@ -2603,31 +2609,27 @@ class Analyzer extends PlanABaseVisitor<Void> {
             return definition.stringType;
         }
 
-        if (sort0 == Sort.DEF || sort1 == Sort.DEF) {
-            return definition.defType;
-        }
-
-        return promoteNumeric(from0, from1, true, false);
+        return promoteNumeric(from0, from1, true, true);
     }
 
     private Type promoteXor(final Type from0, final Type from1) {
         final Sort sort0 = from0.sort;
         final Sort sort1 = from1.sort;
 
-        if (sort0 == Sort.DEF && sort1 == Sort.DEF) {
-            return definition.defType;
-        }
-
         if (sort0.bool || sort1.bool) {
             return definition.booleanType;
         }
 
-        return promoteNumeric(from0, from1, false, false);
+        return promoteNumeric(from0, from1, false, true);
     }
 
     private Type promoteEquality(final Type from0, final Type from1) {
         final Sort sort0 = from0.sort;
         final Sort sort1 = from1.sort;
+
+        if (sort0 == Sort.DEF || sort1 == Sort.DEF) {
+            return definition.defType;
+        }
 
         final boolean primitive = sort0.primitive && sort1.primitive;
 
@@ -2636,7 +2638,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
 
         if (sort0.numeric && sort1.numeric) {
-            return promoteNumeric(from0, from1, true, !primitive);
+            return promoteNumeric(from0, from1, true, primitive);
         }
 
         return definition.objectType;
@@ -2646,13 +2648,17 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final Sort sort0 = from0.sort;
         final Sort sort1 = from1.sort;
 
+        if (sort0 == Sort.DEF || sort1 == Sort.DEF) {
+            return definition.defType;
+        }
+
         if (sort0.primitive && sort1.primitive) {
             if (sort0.bool && sort1.bool) {
                 return definition.booleanType;
             }
 
             if (sort0.numeric && sort1.numeric) {
-                return promoteNumeric(from0, from1, true, false);
+                return promoteNumeric(from0, from1, true, true);
             }
         }
 

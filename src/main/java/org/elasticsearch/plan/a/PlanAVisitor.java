@@ -305,11 +305,11 @@ interface PlanAVisitor<T> extends ParseTreeVisitor<T> {
    */
   T visitExtvar(PlanAParser.ExtvarContext ctx);
   /**
-   * Visit a parse tree produced by {@link PlanAParser#extmember}.
+   * Visit a parse tree produced by {@link PlanAParser#extfield}.
    * @param ctx the parse tree
    * @return the visitor result
    */
-  T visitExtmember(PlanAParser.ExtmemberContext ctx);
+  T visitExtfield(PlanAParser.ExtfieldContext ctx);
   /**
    * Visit a parse tree produced by {@link PlanAParser#extnew}.
    * @param ctx the parse tree

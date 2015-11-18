@@ -309,36 +309,203 @@ public class Def {
         return null;
     }
 
-    public static Object add(final Object left, final Object right, final boolean overflow) {
-        if (left instanceof String || right instanceof String) {
-            return "" + left + right;
-        } else if (left instanceof Number) {
+    public static Object not(final Object unary) {
+        if (unary instanceof Double || unary instanceof Float || unary instanceof Long) {
+            return ~((Number)unary).longValue();
+        } else if (unary instanceof Number) {
+            return ~((Number)unary).intValue();
+        } else if (unary instanceof Character) {
+            return ~(int)(char)unary;
+        }
+
+        throw new ClassCastException("Cannot apply [~] operation to type " +
+                "[" + unary.getClass().getCanonicalName() + "].");
+    }
+
+    public static Object neg(final Object unary) {
+        if (unary instanceof Double) {
+            return -(double)unary;
+        } else if (unary instanceof Float) {
+            return -(float)unary;
+        } else if (unary instanceof Long) {
+            return -(long)unary;
+        } else if (unary instanceof Number) {
+            return -((Number)unary).intValue();
+        } else if (unary instanceof Character) {
+            return -(char)unary;
+        }
+
+        throw new ClassCastException("Cannot apply [-] operation to type " +
+                "[" + unary.getClass().getCanonicalName() + "].");
+    }
+
+    public static Object mul(final Object left, final Object right) {
+        if (left instanceof Number) {
             if (right instanceof Number) {
-                if (overflow) {
-                    return ((Number)left).doubleValue() + ((Number)right).doubleValue();
+                if (left instanceof Double || right instanceof Double) {
+                    return ((Number)left).doubleValue() * ((Number)right).doubleValue();
+                } else if (left instanceof Float || right instanceof Float) {
+                    return ((Number)left).floatValue() * ((Number)right).floatValue();
+                } else if (left instanceof Long || right instanceof Long) {
+                    return ((Number)left).longValue() * ((Number)right).longValue();
                 } else {
-                    return Utility.addWithoutOverflow(((Number)left).doubleValue(), ((Number)right).doubleValue());
+                    return ((Number)left).intValue() * ((Number)right).intValue();
                 }
             } else if (right instanceof Character) {
-                if (overflow) {
-                    return ((Number)left).doubleValue() + (double)(char)right;
+                if (left instanceof Double) {
+                    return ((Number)left).doubleValue() * (double)(char)right;
+                } else if (left instanceof Float) {
+                    return ((Number)left).floatValue() * (float)(char)right;
+                } else if (left instanceof Long) {
+                    return ((Number)left).longValue() * (long)(char)right;
                 } else {
-                    return Utility.addWithoutOverflow(((Number)left).doubleValue(), (double)(char)right);
+                    return ((Number)left).intValue() * (int)(char)right;
                 }
             }
         } else if (left instanceof Character) {
             if (right instanceof Number) {
-                if (overflow) {
-                    return (double)(char)left + ((Number)right).doubleValue();
+                if (right instanceof Double) {
+                    return (double)(char)left * ((Number)right).doubleValue();
+                } else if (right instanceof Float) {
+                    return (float)(char)left * ((Number)right).floatValue();
+                } else if (right instanceof Long) {
+                    return (long)(char)left * ((Number)right).longValue();
                 } else {
-                    return Utility.addWithoutOverflow((double)(char)left, ((Number)right).doubleValue());
+                    return (int)(char)left * ((Number)right).intValue();
                 }
             } else if (right instanceof Character) {
-                if (overflow) {
-                    return (double)(char)left + (double)(char)right;
+                return (int)(char)left * (int)(char)right;
+            }
+        }
+
+        throw new ClassCastException("Cannot apply [*] operation to types " +
+                "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
+    }
+
+    public static Object div(final Object left, final Object right) {
+        if (left instanceof Number) {
+            if (right instanceof Number) {
+                if (left instanceof Double || right instanceof Double) {
+                    return ((Number)left).doubleValue() / ((Number)right).doubleValue();
+                } else if (left instanceof Float || right instanceof Float) {
+                    return ((Number)left).floatValue() / ((Number)right).floatValue();
+                } else if (left instanceof Long || right instanceof Long) {
+                    return ((Number)left).longValue() / ((Number)right).longValue();
                 } else {
-                    return Utility.addWithoutOverflow((double)(char)left, (double)(char)right);
+                    return ((Number)left).intValue() / ((Number)right).intValue();
                 }
+            } else if (right instanceof Character) {
+                if (left instanceof Double) {
+                    return ((Number)left).doubleValue() / (double)(char)right;
+                } else if (left instanceof Float) {
+                    return ((Number)left).floatValue() / (float)(char)right;
+                } else if (left instanceof Long) {
+                    return ((Number)left).longValue() / (long)(char)right;
+                } else {
+                    return ((Number)left).intValue() / (int)(char)right;
+                }
+            }
+        } else if (left instanceof Character) {
+            if (right instanceof Number) {
+                if (right instanceof Double) {
+                    return (double)(char)left / ((Number)right).doubleValue();
+                } else if (right instanceof Float) {
+                    return (float)(char)left / ((Number)right).floatValue();
+                } else if (right instanceof Long) {
+                    return (long)(char)left / ((Number)right).longValue();
+                } else {
+                    return (int)(char)left / ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                return (int)(char)left / (int)(char)right;
+            }
+        }
+
+        throw new ClassCastException("Cannot apply [/] operation to types " +
+                "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
+    }
+
+    public static Object rem(final Object left, final Object right) {
+        if (left instanceof Number) {
+            if (right instanceof Number) {
+                if (left instanceof Double || right instanceof Double) {
+                    return ((Number)left).doubleValue() % ((Number)right).doubleValue();
+                } else if (left instanceof Float || right instanceof Float) {
+                    return ((Number)left).floatValue() % ((Number)right).floatValue();
+                } else if (left instanceof Long || right instanceof Long) {
+                    return ((Number)left).longValue() % ((Number)right).longValue();
+                } else {
+                    return ((Number)left).intValue() % ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                if (left instanceof Double) {
+                    return ((Number)left).doubleValue() % (double)(char)right;
+                } else if (left instanceof Float) {
+                    return ((Number)left).floatValue() % (float)(char)right;
+                } else if (left instanceof Long) {
+                    return ((Number)left).longValue() % (long)(char)right;
+                } else {
+                    return ((Number)left).intValue() % (int)(char)right;
+                }
+            }
+        } else if (left instanceof Character) {
+            if (right instanceof Number) {
+                if (right instanceof Double) {
+                    return (double)(char)left % ((Number)right).doubleValue();
+                } else if (right instanceof Float) {
+                    return (float)(char)left % ((Number)right).floatValue();
+                } else if (right instanceof Long) {
+                    return (long)(char)left % ((Number)right).longValue();
+                } else {
+                    return (int)(char)left % ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                return (int)(char)left % (int)(char)right;
+            }
+        }
+
+        throw new ClassCastException("Cannot apply [%] operation to types " +
+                "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
+    }
+    
+    public static Object add(final Object left, final Object right) {
+        if (left instanceof String || right instanceof String) {
+            return "" + left + right;
+        } else if (left instanceof Number) {
+            if (right instanceof Number) {
+                if (left instanceof Double || right instanceof Double) {
+                    return ((Number)left).doubleValue() + ((Number)right).doubleValue();
+                } else if (left instanceof Float || right instanceof Float) {
+                    return ((Number)left).floatValue() + ((Number)right).floatValue();
+                } else if (left instanceof Long || right instanceof Long) {
+                    return ((Number)left).longValue() + ((Number)right).longValue();
+                } else {
+                    return ((Number)left).intValue() + ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                if (left instanceof Double) {
+                    return ((Number)left).doubleValue() + (double)(char)right;
+                } else if (left instanceof Float) {
+                    return ((Number)left).floatValue() + (float)(char)right;
+                } else if (left instanceof Long) {
+                    return ((Number)left).longValue() + (long)(char)right;
+                } else {
+                    return ((Number)left).intValue() + (int)(char)right;
+                }
+            }
+        } else if (left instanceof Character) {
+            if (right instanceof Number) {
+                if (right instanceof Double) {
+                    return (double)(char)left + ((Number)right).doubleValue();
+                } else if (right instanceof Float) {
+                    return (float)(char)left + ((Number)right).floatValue();
+                } else if (right instanceof Long) {
+                    return (long)(char)left + ((Number)right).longValue();
+                } else {
+                    return (int)(char)left + ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                return (int)(char)left + (int)(char)right;
             }
         }
 
@@ -346,24 +513,180 @@ public class Def {
                 "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
     }
 
+    public static Object sub(final Object left, final Object right) {
+        if (left instanceof Number) {
+            if (right instanceof Number) {
+                if (left instanceof Double || right instanceof Double) {
+                    return ((Number)left).doubleValue() - ((Number)right).doubleValue();
+                } else if (left instanceof Float || right instanceof Float) {
+                    return ((Number)left).floatValue() - ((Number)right).floatValue();
+                } else if (left instanceof Long || right instanceof Long) {
+                    return ((Number)left).longValue() - ((Number)right).longValue();
+                } else {
+                    return ((Number)left).intValue() - ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                if (left instanceof Double) {
+                    return ((Number)left).doubleValue() - (double)(char)right;
+                } else if (left instanceof Float) {
+                    return ((Number)left).floatValue() - (float)(char)right;
+                } else if (left instanceof Long) {
+                    return ((Number)left).longValue() - (long)(char)right;
+                } else {
+                    return ((Number)left).intValue() - (int)(char)right;
+                }
+            }
+        } else if (left instanceof Character) {
+            if (right instanceof Number) {
+                if (right instanceof Double) {
+                    return (double)(char)left - ((Number)right).doubleValue();
+                } else if (right instanceof Float) {
+                    return (float)(char)left - ((Number)right).floatValue();
+                } else if (right instanceof Long) {
+                    return (long)(char)left - ((Number)right).longValue();
+                } else {
+                    return (int)(char)left - ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                return (int)(char)left - (int)(char)right;
+            }
+        }
+
+        throw new ClassCastException("Cannot apply [-] operation to types " +
+                "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
+    }
+
+    public static Object lsh(final Object left, final Object right) {
+        if (left instanceof Number) {
+            if (right instanceof Number) {
+                if (left instanceof Double || right instanceof Double ||
+                        left instanceof Float || right instanceof Float ||
+                        left instanceof Long || right instanceof Long) {
+                    return ((Number)left).longValue() << ((Number)right).longValue();
+                } else {
+                    return ((Number)left).intValue() << ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                if (left instanceof Double || left instanceof Float || left instanceof Long) {
+                    return ((Number)left).longValue() << (long)(char)right;
+                } else {
+                    return ((Number)left).intValue() << (int)(char)right;
+                }
+            }
+        } else if (left instanceof Character) {
+            if (right instanceof Number) {
+                if (right instanceof Double || right instanceof Float || right instanceof Long) {
+                    return (long)(char)left << ((Number)right).longValue();
+                } else {
+                    return (int)(char)left << ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                return (int)(char)left << (int)(char)right;
+            }
+        }
+
+        throw new ClassCastException("Cannot apply [<<] operation to types " +
+                "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
+    }
+
+    public static Object rsh(final Object left, final Object right) {
+        if (left instanceof Number) {
+            if (right instanceof Number) {
+                if (left instanceof Double || right instanceof Double ||
+                        left instanceof Float || right instanceof Float ||
+                        left instanceof Long || right instanceof Long) {
+                    return ((Number)left).longValue() >> ((Number)right).longValue();
+                } else {
+                    return ((Number)left).intValue() >> ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                if (left instanceof Double || left instanceof Float || left instanceof Long) {
+                    return ((Number)left).longValue() >> (long)(char)right;
+                } else {
+                    return ((Number)left).intValue() >> (int)(char)right;
+                }
+            }
+        } else if (left instanceof Character) {
+            if (right instanceof Number) {
+                if (right instanceof Double || right instanceof Float || right instanceof Long) {
+                    return (long)(char)left >> ((Number)right).longValue();
+                } else {
+                    return (int)(char)left >> ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                return (int)(char)left >> (int)(char)right;
+            }
+        }
+
+        throw new ClassCastException("Cannot apply [>>] operation to types " +
+                "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
+    }
+
+    public static Object ush(final Object left, final Object right) {
+        if (left instanceof Number) {
+            if (right instanceof Number) {
+                if (left instanceof Double || right instanceof Double ||
+                        left instanceof Float || right instanceof Float ||
+                        left instanceof Long || right instanceof Long) {
+                    return ((Number)left).longValue() >>> ((Number)right).longValue();
+                } else {
+                    return ((Number)left).intValue() >>> ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                if (left instanceof Double || left instanceof Float || left instanceof Long) {
+                    return ((Number)left).longValue() >>> (long)(char)right;
+                } else {
+                    return ((Number)left).intValue() >>> (int)(char)right;
+                }
+            }
+        } else if (left instanceof Character) {
+            if (right instanceof Number) {
+                if (right instanceof Double || right instanceof Float || right instanceof Long) {
+                    return (long)(char)left >>> ((Number)right).longValue();
+                } else {
+                    return (int)(char)left >>> ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                return (int)(char)left >>> (int)(char)right;
+            }
+        }
+
+        throw new ClassCastException("Cannot apply [>>>] operation to types " +
+                "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
+    }
+    
     public static Object and(final Object left, final Object right) {
         if (left instanceof Boolean && right instanceof Boolean) {
             return (boolean)left && (boolean)right;
         } else if (left instanceof Number) {
             if (right instanceof Number) {
-                return ((Number)left).longValue() & ((Number)right).longValue();
+                if (left instanceof Double || right instanceof Double ||
+                        left instanceof Float || right instanceof Float ||
+                        left instanceof Long || right instanceof Long) {
+                    return ((Number)left).longValue() & ((Number)right).longValue();
+                } else {
+                    return ((Number)left).intValue() & ((Number)right).intValue();
+                }
             } else if (right instanceof Character) {
-                return ((Number)left).longValue() & (long)(char)right;
+                if (left instanceof Double || left instanceof Float || left instanceof Long) {
+                    return ((Number)left).longValue() & (long)(char)right;
+                } else {
+                    return ((Number)left).intValue() & (int)(char)right;
+                }
             }
         } else if (left instanceof Character) {
             if (right instanceof Number) {
-                return (long)(char)left & ((Number)right).longValue();
+                if (right instanceof Double || right instanceof Float || right instanceof Long) {
+                    return (long)(char)left & ((Number)right).longValue();
+                } else {
+                    return (int)(char)left & ((Number)right).intValue();
+                }
             } else if (right instanceof Character) {
-                return (long)(char)left & (long)(char)right;
+                return (int)(char)left & (int)(char)right;
             }
         }
 
-        throw new ClassCastException("Cannot apply [^] operation to types " +
+        throw new ClassCastException("Cannot apply [&] operation to types " +
                 "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
     }
 
@@ -372,15 +695,29 @@ public class Def {
             return (boolean)left ^ (boolean)right;
         } else if (left instanceof Number) {
             if (right instanceof Number) {
-                return ((Number)left).longValue() ^ ((Number)right).longValue();
+                if (left instanceof Double || right instanceof Double ||
+                        left instanceof Float || right instanceof Float ||
+                        left instanceof Long || right instanceof Long) {
+                    return ((Number)left).longValue() ^ ((Number)right).longValue();
+                } else {
+                    return ((Number)left).intValue() ^ ((Number)right).intValue();
+                }
             } else if (right instanceof Character) {
-                return ((Number)left).longValue() ^ (long)(char)right;
+                if (left instanceof Double || left instanceof Float || left instanceof Long) {
+                    return ((Number)left).longValue() ^ (long)(char)right;
+                } else {
+                    return ((Number)left).intValue() ^ (int)(char)right;
+                }
             }
         } else if (left instanceof Character) {
             if (right instanceof Number) {
-                return (long)(char)left ^ ((Number)right).longValue();
+                if (right instanceof Double || right instanceof Float || right instanceof Long) {
+                    return (long)(char)left ^ ((Number)right).longValue();
+                } else {
+                    return (int)(char)left ^ ((Number)right).intValue();
+                }
             } else if (right instanceof Character) {
-                return (long)(char)left ^ (long)(char)right;
+                return (int)(char)left ^ (int)(char)right;
             }
         }
 
@@ -393,19 +730,261 @@ public class Def {
             return (boolean)left || (boolean)right;
         } else if (left instanceof Number) {
             if (right instanceof Number) {
-                return ((Number)left).longValue() | ((Number)right).longValue();
+                if (left instanceof Double || right instanceof Double ||
+                        left instanceof Float || right instanceof Float ||
+                        left instanceof Long || right instanceof Long) {
+                    return ((Number)left).longValue() | ((Number)right).longValue();
+                } else {
+                    return ((Number)left).intValue() | ((Number)right).intValue();
+                }
             } else if (right instanceof Character) {
-                return ((Number)left).longValue() | (long)(char)right;
+                if (left instanceof Double || left instanceof Float || left instanceof Long) {
+                    return ((Number)left).longValue() | (long)(char)right;
+                } else {
+                    return ((Number)left).intValue() | (int)(char)right;
+                }
             }
         } else if (left instanceof Character) {
             if (right instanceof Number) {
-                return (long)(char)left | ((Number)right).longValue();
+                if (right instanceof Double || right instanceof Float || right instanceof Long) {
+                    return (long)(char)left | ((Number)right).longValue();
+                } else {
+                    return (int)(char)left | ((Number)right).intValue();
+                }
             } else if (right instanceof Character) {
-                return (long)(char)left | (long)(char)right;
+                return (int)(char)left | (int)(char)right;
             }
         }
 
-        throw new ClassCastException("Cannot apply [^] operation to types " +
+        throw new ClassCastException("Cannot apply [|] operation to types " +
+                "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
+    }
+
+    public static boolean eq(final Object left, final Object right) {
+        if (left != null && right != null) {
+            if (left instanceof Double) {
+                if (right instanceof Number) {
+                    return (double)left == ((Number)right).doubleValue();
+                } else if (right instanceof Character) {
+                    return (double)left == (double)(char)right;
+                }
+            } else if (right instanceof Double) {
+                if (left instanceof Number) {
+                    return ((Number)left).doubleValue() == (double)right;
+                } else if (left instanceof Character) {
+                    return (double)(char)left == ((Number)right).doubleValue();
+                }
+            } else if (left instanceof Float) {
+                if (right instanceof Number) {
+                    return (float)left == ((Number)right).floatValue();
+                } else if (right instanceof Character) {
+                    return (float)left == (float)(char)right;
+                }
+            } else if (right instanceof Float) {
+                if (left instanceof Number) {
+                    return ((Number)left).floatValue() == (float)right;
+                } else if (left instanceof Character) {
+                    return (float)(char)left == ((Number)right).floatValue();
+                }
+            } else if (left instanceof Long) {
+                if (right instanceof Number) {
+                    return (long)left == ((Number)right).longValue();
+                } else if (right instanceof Character) {
+                    return (long)left == (long)(char)right;
+                }
+            } else if (right instanceof Long) {
+                if (left instanceof Number) {
+                    return ((Number)left).longValue() == (long)right;
+                } else if (left instanceof Character) {
+                    return (long)(char)left == ((Number)right).longValue();
+                }
+            } else if (left instanceof Number) {
+                if (right instanceof Number) {
+                    return ((Number)left).intValue() == ((Number)right).intValue();
+                } else if (right instanceof Character) {
+                    return ((Number)left).intValue() == (int)(char)right;
+                }
+            } else if (right instanceof Number && left instanceof Character) {
+                return (int)(char)left == ((Number)right).intValue();
+            } else if (left instanceof Character && right instanceof Character) {
+                return (int)(char)left == (int)(char)right;
+            }
+
+            return left.equals(right);
+        }
+
+        return left == null && right == null;
+    }
+
+    public static boolean lt(final Object left, final Object right) {
+        if (left instanceof Number) {
+            if (right instanceof Number) {
+                if (left instanceof Double || right instanceof Double) {
+                    return ((Number)left).doubleValue() < ((Number)right).doubleValue();
+                } else if (left instanceof Float || right instanceof Float) {
+                    return ((Number)left).floatValue() < ((Number)right).floatValue();
+                } else if (left instanceof Long || right instanceof Long) {
+                    return ((Number)left).longValue() < ((Number)right).longValue();
+                } else {
+                    return ((Number)left).intValue() < ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                if (left instanceof Double) {
+                    return ((Number)left).doubleValue() < (double)(char)right;
+                } else if (left instanceof Float) {
+                    return ((Number)left).floatValue() < (float)(char)right;
+                } else if (left instanceof Long) {
+                    return ((Number)left).longValue() < (long)(char)right;
+                } else {
+                    return ((Number)left).intValue() < (int)(char)right;
+                }
+            }
+        } else if (left instanceof Character) {
+            if (right instanceof Number) {
+                if (right instanceof Double) {
+                    return (double)(char)left < ((Number)right).doubleValue();
+                } else if (right instanceof Float) {
+                    return (float)(char)left < ((Number)right).floatValue();
+                } else if (right instanceof Long) {
+                    return (long)(char)left < ((Number)right).longValue();
+                } else {
+                    return (int)(char)left < ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                return (int)(char)left < (int)(char)right;
+            }
+        }
+
+        throw new ClassCastException("Cannot apply [<] operation to types " +
+                "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
+    }
+
+    public static boolean lte(final Object left, final Object right) {
+        if (left instanceof Number) {
+            if (right instanceof Number) {
+                if (left instanceof Double || right instanceof Double) {
+                    return ((Number)left).doubleValue() <= ((Number)right).doubleValue();
+                } else if (left instanceof Float || right instanceof Float) {
+                    return ((Number)left).floatValue() <= ((Number)right).floatValue();
+                } else if (left instanceof Long || right instanceof Long) {
+                    return ((Number)left).longValue() <= ((Number)right).longValue();
+                } else {
+                    return ((Number)left).intValue() <= ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                if (left instanceof Double) {
+                    return ((Number)left).doubleValue() <= (double)(char)right;
+                } else if (left instanceof Float) {
+                    return ((Number)left).floatValue() <= (float)(char)right;
+                } else if (left instanceof Long) {
+                    return ((Number)left).longValue() <= (long)(char)right;
+                } else {
+                    return ((Number)left).intValue() <= (int)(char)right;
+                }
+            }
+        } else if (left instanceof Character) {
+            if (right instanceof Number) {
+                if (right instanceof Double) {
+                    return (double)(char)left <= ((Number)right).doubleValue();
+                } else if (right instanceof Float) {
+                    return (float)(char)left <= ((Number)right).floatValue();
+                } else if (right instanceof Long) {
+                    return (long)(char)left <= ((Number)right).longValue();
+                } else {
+                    return (int)(char)left <= ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                return (int)(char)left <= (int)(char)right;
+            }
+        }
+
+        throw new ClassCastException("Cannot apply [<=] operation to types " +
+                "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
+    }
+
+    public static boolean gt(final Object left, final Object right) {
+        if (left instanceof Number) {
+            if (right instanceof Number) {
+                if (left instanceof Double || right instanceof Double) {
+                    return ((Number)left).doubleValue() > ((Number)right).doubleValue();
+                } else if (left instanceof Float || right instanceof Float) {
+                    return ((Number)left).floatValue() > ((Number)right).floatValue();
+                } else if (left instanceof Long || right instanceof Long) {
+                    return ((Number)left).longValue() > ((Number)right).longValue();
+                } else {
+                    return ((Number)left).intValue() > ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                if (left instanceof Double) {
+                    return ((Number)left).doubleValue() > (double)(char)right;
+                } else if (left instanceof Float) {
+                    return ((Number)left).floatValue() > (float)(char)right;
+                } else if (left instanceof Long) {
+                    return ((Number)left).longValue() > (long)(char)right;
+                } else {
+                    return ((Number)left).intValue() > (int)(char)right;
+                }
+            }
+        } else if (left instanceof Character) {
+            if (right instanceof Number) {
+                if (right instanceof Double) {
+                    return (double)(char)left > ((Number)right).doubleValue();
+                } else if (right instanceof Float) {
+                    return (float)(char)left > ((Number)right).floatValue();
+                } else if (right instanceof Long) {
+                    return (long)(char)left > ((Number)right).longValue();
+                } else {
+                    return (int)(char)left > ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                return (int)(char)left > (int)(char)right;
+            }
+        }
+
+        throw new ClassCastException("Cannot apply [>] operation to types " +
+                "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
+    }
+
+    public static boolean gte(final Object left, final Object right) {
+        if (left instanceof Number) {
+            if (right instanceof Number) {
+                if (left instanceof Double || right instanceof Double) {
+                    return ((Number)left).doubleValue() >= ((Number)right).doubleValue();
+                } else if (left instanceof Float || right instanceof Float) {
+                    return ((Number)left).floatValue() >= ((Number)right).floatValue();
+                } else if (left instanceof Long || right instanceof Long) {
+                    return ((Number)left).longValue() >= ((Number)right).longValue();
+                } else {
+                    return ((Number)left).intValue() >= ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                if (left instanceof Double) {
+                    return ((Number)left).doubleValue() >= (double)(char)right;
+                } else if (left instanceof Float) {
+                    return ((Number)left).floatValue() >= (float)(char)right;
+                } else if (left instanceof Long) {
+                    return ((Number)left).longValue() >= (long)(char)right;
+                } else {
+                    return ((Number)left).intValue() >= (int)(char)right;
+                }
+            }
+        } else if (left instanceof Character) {
+            if (right instanceof Number) {
+                if (right instanceof Double) {
+                    return (double)(char)left >= ((Number)right).doubleValue();
+                } else if (right instanceof Float) {
+                    return (float)(char)left >= ((Number)right).floatValue();
+                } else if (right instanceof Long) {
+                    return (long)(char)left >= ((Number)right).longValue();
+                } else {
+                    return (int)(char)left >= ((Number)right).intValue();
+                }
+            } else if (right instanceof Character) {
+                return (int)(char)left >= (int)(char)right;
+            }
+        }
+
+        throw new ClassCastException("Cannot apply [>] operation to types " +
                 "[" + left.getClass().getCanonicalName() + "] and [" + right.getClass().getCanonicalName() + "].");
     }
 

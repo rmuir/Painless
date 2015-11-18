@@ -66,7 +66,7 @@ public class FieldTests extends ScriptTestCase {
     }
 
     public void testIntField() {
-        assertEquals("s5.0t42", exec("def fc = new FieldClass() return fc.t += 2 + fc.j + \"t\" + 4 + (3 - 1)"));
+        assertEquals("s5t42", exec("def fc = new FieldClass() return fc.t += 2 + fc.j + \"t\" + 4 + (3 - 1)"));
         assertEquals(2.0f, exec("def fc = new FieldClass(); def l = new Double(3) Byte b = new Byte((byte)2) return fc.test(l, b)"));
         assertEquals(4, exec("def fc = new FieldClass() fc.i = 4 return fc.i"));
         assertEquals(5, exec("FieldClass fc0 = new FieldClass() FieldClass fc1 = new FieldClass() fc0.i = 7 - fc0.i fc1.i = fc0.i return fc1.i"));

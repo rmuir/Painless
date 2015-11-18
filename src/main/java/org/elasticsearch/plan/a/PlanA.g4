@@ -115,11 +115,11 @@ extstart
 extprec:   LP ( extprec | extcast | exttype | extvar | extnew | extstring ) RP ( extdot | extbrace )?;
 extcast:   LP decltype RP ( extprec | extcast | exttype | extvar | extnew | extstring );
 extbrace:  LBRACE expression RBRACE ( extdot | extbrace )?;
-extdot:    DOT ( extcall | extmember );
+extdot:    DOT ( extcall | extfield );
 exttype:   type extdot;
 extcall:   id arguments ( extdot | extbrace )?;
 extvar:    id (extdot | extbrace )?;
-extmember: id (extdot | extbrace )?;
+extfield:  ( id | INTEGER ) (extdot | extbrace )?;
 extnew:    NEW type ( ( arguments ( extdot | extbrace)? ) | ( ( LBRACE expression RBRACE )+ extdot? ) );
 extstring: STRING (extdot | extbrace )?;
 
