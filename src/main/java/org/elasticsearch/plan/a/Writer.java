@@ -145,7 +145,7 @@ class Writer extends PlanABaseVisitor<Void> {
             org.objectweb.asm.commons.Method.getMethod("java.lang.String toString()");
 
     private final static org.objectweb.asm.commons.Method TOINTEXACT_LONG =
-            org.objectweb.asm.commons.Method.getMethod("int toIntExact(long)");
+            org.objectweb.asm.commons.Method.getMethod("int toIntWithoutOverflow(long)");
     private final static org.objectweb.asm.commons.Method NEGATEEXACT_INT =
             org.objectweb.asm.commons.Method.getMethod("int negateExact(int)");
     private final static org.objectweb.asm.commons.Method NEGATEEXACT_LONG =
@@ -169,36 +169,36 @@ class Writer extends PlanABaseVisitor<Void> {
             org.objectweb.asm.commons.Method.getMethod("byte toByteExact(int)");
     private final static org.objectweb.asm.commons.Method TOBYTEEXACT_LONG =
             org.objectweb.asm.commons.Method.getMethod("byte toByteExact(long)");
-    private final static org.objectweb.asm.commons.Method TOBYTEEXACT_FLOAT =
-            org.objectweb.asm.commons.Method.getMethod("byte toByteExact(float)");
-    private final static org.objectweb.asm.commons.Method TOBYTEEXACT_DOUBLE =
-            org.objectweb.asm.commons.Method.getMethod("byte toByteExact(double)");
+    private final static org.objectweb.asm.commons.Method TOBYTEWOOVERLFOW_FLOAT =
+            org.objectweb.asm.commons.Method.getMethod("byte toByteWithoutOverflow(float)");
+    private final static org.objectweb.asm.commons.Method TOBYTEWOOVERFLOW_DOUBLE =
+            org.objectweb.asm.commons.Method.getMethod("byte toByteWithoutOverflow(double)");
     private final static org.objectweb.asm.commons.Method TOSHORTEXACT_INT =
             org.objectweb.asm.commons.Method.getMethod("short toShortExact(int)");
     private final static org.objectweb.asm.commons.Method TOSHORTEXACT_LONG =
             org.objectweb.asm.commons.Method.getMethod("short toShortExact(long)");
-    private final static org.objectweb.asm.commons.Method TOSHORTEXACT_FLOAT =
-            org.objectweb.asm.commons.Method.getMethod("short toShortExact(float)");
-    private final static org.objectweb.asm.commons.Method TOSHORTEXACT_DOUBLE =
-            org.objectweb.asm.commons.Method.getMethod("short toShortExact(double)");
+    private final static org.objectweb.asm.commons.Method TOSHORTWOOVERFLOW_FLOAT =
+            org.objectweb.asm.commons.Method.getMethod("short toShortWithoutOverflow(float)");
+    private final static org.objectweb.asm.commons.Method TOSHORTWOOVERFLOW_DOUBLE =
+            org.objectweb.asm.commons.Method.getMethod("short toShortWithoutOverflow(double)");
     private final static org.objectweb.asm.commons.Method TOCHAREXACT_INT =
             org.objectweb.asm.commons.Method.getMethod("char toCharExact(int)");
     private final static org.objectweb.asm.commons.Method TOCHAREXACT_LONG =
             org.objectweb.asm.commons.Method.getMethod("char toCharExact(long)");
-    private final static org.objectweb.asm.commons.Method TOCHAREXACT_FLOAT =
-            org.objectweb.asm.commons.Method.getMethod("char toCharExact(float)");
-    private final static org.objectweb.asm.commons.Method TOCHAREXACT_DOUBLE =
-            org.objectweb.asm.commons.Method.getMethod("char toCharExact(double)");
-    private final static org.objectweb.asm.commons.Method TOINTEXACT_FLOAT =
-            org.objectweb.asm.commons.Method.getMethod("int toIntExact(float)");
-    private final static org.objectweb.asm.commons.Method TOINTEXACT_DOUBLE =
-            org.objectweb.asm.commons.Method.getMethod("int toIntExact(double)");
-    private final static org.objectweb.asm.commons.Method TOLONGEXACT_FLOAT =
-            org.objectweb.asm.commons.Method.getMethod("long toLongExact(float)");
-    private final static org.objectweb.asm.commons.Method TOLONGEXACT_DOUBLE =
-            org.objectweb.asm.commons.Method.getMethod("long toLongExact(double)");
-    private final static org.objectweb.asm.commons.Method TOFLOATEXACT_DOUBLE =
-            org.objectweb.asm.commons.Method.getMethod("float toFloatExact(double)");
+    private final static org.objectweb.asm.commons.Method TOCHARWOOVERFLOW_FLOAT =
+            org.objectweb.asm.commons.Method.getMethod("char toCharWithoutOverflow(float)");
+    private final static org.objectweb.asm.commons.Method TOCHARWOOVERFLOW_DOUBLE =
+            org.objectweb.asm.commons.Method.getMethod("char toCharWithoutOverflow(double)");
+    private final static org.objectweb.asm.commons.Method TOINTWOOVERFLOW_FLOAT =
+            org.objectweb.asm.commons.Method.getMethod("int toIntWithoutOverflow(float)");
+    private final static org.objectweb.asm.commons.Method TOINTWOOVERFLOW_DOUBLE =
+            org.objectweb.asm.commons.Method.getMethod("int toIntWithoutOverflow(double)");
+    private final static org.objectweb.asm.commons.Method TOLONGWOOVERFLOW_FLOAT =
+            org.objectweb.asm.commons.Method.getMethod("long toLongExactWithoutOverflow(float)");
+    private final static org.objectweb.asm.commons.Method TOLONGWOOVERFLOW_DOUBLE =
+            org.objectweb.asm.commons.Method.getMethod("long toLongExactWithoutOverflow(double)");
+    private final static org.objectweb.asm.commons.Method TOFLOATWOOVERFLOW_DOUBLE =
+            org.objectweb.asm.commons.Method.getMethod("float toFloatWithoutOverflow(double)");
     private final static org.objectweb.asm.commons.Method MULWOOVERLOW_FLOAT =
             org.objectweb.asm.commons.Method.getMethod("float multiplyWithoutOverflow(float, float)");
     private final static org.objectweb.asm.commons.Method MULWOOVERLOW_DOUBLE =
@@ -1724,63 +1724,63 @@ class Writer extends PlanABaseVisitor<Void> {
                         (token == MUL || token == DIV || token == REM || token == ADD || token == SUB)) {
                     if (psort == Sort.DOUBLE) {
                         if (osort == Sort.FLOAT) {
-                            execute.invokeStatic(definition.utilityType.type, TOFLOATEXACT_DOUBLE);
+                            execute.invokeStatic(definition.utilityType.type, TOFLOATWOOVERFLOW_DOUBLE);
                         } else if (osort == Sort.FLOAT_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOFLOATEXACT_DOUBLE);
+                            execute.invokeStatic(definition.utilityType.type, TOFLOATWOOVERFLOW_DOUBLE);
                             execute.checkCast(definition.floatobjType.type);
                         } else if (osort == Sort.LONG) {
-                            execute.invokeStatic(definition.utilityType.type, TOLONGEXACT_DOUBLE);
+                            execute.invokeStatic(definition.utilityType.type, TOLONGWOOVERFLOW_DOUBLE);
                         } else if (osort == Sort.LONG_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOLONGEXACT_DOUBLE);
+                            execute.invokeStatic(definition.utilityType.type, TOLONGWOOVERFLOW_DOUBLE);
                             execute.checkCast(definition.longobjType.type);
                         } else if (osort == Sort.INT) {
-                            execute.invokeStatic(definition.utilityType.type, TOINTEXACT_DOUBLE);
+                            execute.invokeStatic(definition.utilityType.type, TOINTWOOVERFLOW_DOUBLE);
                         } else if (osort == Sort.INT_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOINTEXACT_DOUBLE);
+                            execute.invokeStatic(definition.utilityType.type, TOINTWOOVERFLOW_DOUBLE);
                             execute.checkCast(definition.intobjType.type);
                         } else if (osort == Sort.CHAR) {
-                            execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_DOUBLE);
+                            execute.invokeStatic(definition.utilityType.type, TOCHARWOOVERFLOW_DOUBLE);
                         } else if (osort == Sort.CHAR_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_DOUBLE);
+                            execute.invokeStatic(definition.utilityType.type, TOCHARWOOVERFLOW_DOUBLE);
                             execute.checkCast(definition.charobjType.type);
                         } else if (osort == Sort.SHORT) {
-                            execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_DOUBLE);
+                            execute.invokeStatic(definition.utilityType.type, TOSHORTWOOVERFLOW_DOUBLE);
                         } else if (osort == Sort.SHORT_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_DOUBLE);
+                            execute.invokeStatic(definition.utilityType.type, TOSHORTWOOVERFLOW_DOUBLE);
                             execute.checkCast(definition.shortobjType.type);
                         } else if (osort == Sort.BYTE) {
-                            execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_DOUBLE);
+                            execute.invokeStatic(definition.utilityType.type, TOBYTEWOOVERFLOW_DOUBLE);
                         } else if (osort == Sort.BYTE_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_DOUBLE);
+                            execute.invokeStatic(definition.utilityType.type, TOBYTEWOOVERFLOW_DOUBLE);
                             execute.checkCast(definition.byteobjType.type);
                         } else {
                             checkWriteCast(source, sourceenmd.castTo);
                         }
                     } else if (psort == Sort.FLOAT) {
                         if (osort == Sort.LONG) {
-                            execute.invokeStatic(definition.utilityType.type, TOLONGEXACT_FLOAT);
+                            execute.invokeStatic(definition.utilityType.type, TOLONGWOOVERFLOW_FLOAT);
                         } else if (osort == Sort.LONG_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOLONGEXACT_FLOAT);
+                            execute.invokeStatic(definition.utilityType.type, TOLONGWOOVERFLOW_FLOAT);
                             execute.checkCast(definition.longobjType.type);
                         } else if (osort == Sort.INT) {
-                            execute.invokeStatic(definition.utilityType.type, TOINTEXACT_FLOAT);
+                            execute.invokeStatic(definition.utilityType.type, TOINTWOOVERFLOW_FLOAT);
                         } else if (osort == Sort.INT_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOINTEXACT_FLOAT);
+                            execute.invokeStatic(definition.utilityType.type, TOINTWOOVERFLOW_FLOAT);
                             execute.checkCast(definition.intobjType.type);
                         } else if (osort == Sort.CHAR) {
-                            execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_FLOAT);
+                            execute.invokeStatic(definition.utilityType.type, TOCHARWOOVERFLOW_FLOAT);
                         } else if (osort == Sort.CHAR_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_FLOAT);
+                            execute.invokeStatic(definition.utilityType.type, TOCHARWOOVERFLOW_FLOAT);
                             execute.checkCast(definition.charobjType.type);
                         } else if (osort == Sort.SHORT) {
-                            execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_FLOAT);
+                            execute.invokeStatic(definition.utilityType.type, TOSHORTWOOVERFLOW_FLOAT);
                         } else if (osort == Sort.SHORT_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_FLOAT);
+                            execute.invokeStatic(definition.utilityType.type, TOSHORTWOOVERFLOW_FLOAT);
                             execute.checkCast(definition.shortobjType.type);
                         } else if (osort == Sort.BYTE) {
-                            execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_FLOAT);
+                            execute.invokeStatic(definition.utilityType.type, TOBYTEWOOVERLFOW_FLOAT);
                         } else if (osort == Sort.BYTE_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_FLOAT);
+                            execute.invokeStatic(definition.utilityType.type, TOBYTEWOOVERLFOW_FLOAT);
                             execute.checkCast(definition.byteobjType.type);
                         } else {
                             checkWriteCast(source, sourceenmd.castTo);

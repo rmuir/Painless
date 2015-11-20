@@ -504,7 +504,7 @@ public class Utility {
     /**
      * Like {@link Math#toIntExact(long)} but for byte range.
      */
-    public static byte toByteExact(float value) {
+    public static byte toByteWithoutOverflow(float value) {
         if (value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) {
             throw new ArithmeticException("byte overflow");
         }
@@ -514,7 +514,7 @@ public class Utility {
     /**
      * Like {@link Math#toIntExact(long)} but for byte range.
      */
-    public static byte toByteExact(double value) {
+    public static byte toByteWithoutOverflow(double value) {
         if (value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) {
             throw new ArithmeticException("byte overflow");
         }
@@ -546,7 +546,7 @@ public class Utility {
     /**
      * Like {@link Math#toIntExact(long)} but for short range.
      */
-    public static short toShortExact(float value) {
+    public static short toShortWithoutOverflow(float value) {
         if (value < Short.MIN_VALUE || value > Short.MAX_VALUE) {
             throw new ArithmeticException("short overflow");
         }
@@ -556,7 +556,7 @@ public class Utility {
     /**
      * Like {@link Math#toIntExact(long)} but for short range.
      */
-    public static short toShortExact(double value) {
+    public static short toShortWithoutOverflow(double value) {
         if (value < Short.MIN_VALUE || value > Short.MAX_VALUE) {
             throw new ArithmeticException("short overflow");
         }
@@ -588,7 +588,7 @@ public class Utility {
     /**
      * Like {@link Math#toIntExact(long)} but for char range.
      */
-    public static char toCharExact(float value) {
+    public static char toCharWithoutOverflow(float value) {
         if (value < Character.MIN_VALUE || value > Character.MAX_VALUE) {
             throw new ArithmeticException("char overflow");
         }
@@ -598,7 +598,7 @@ public class Utility {
     /**
      * Like {@link Math#toIntExact(long)} but for char range.
      */
-    public static char toCharExact(double value) {
+    public static char toCharWithoutOverflow(double value) {
         if (value < Character.MIN_VALUE || value > Character.MAX_VALUE) {
             throw new ArithmeticException("char overflow");
         }
@@ -608,7 +608,7 @@ public class Utility {
     /**
      * Like {@link Math#toIntExact(long)} but for int range.
      */
-    public static int toIntExact(float value) {
+    public static int toIntWithoutOverflow(float value) {
         if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
             throw new ArithmeticException("int overflow");
         }
@@ -618,7 +618,7 @@ public class Utility {
     /**
      * Like {@link Math#toIntExact(long)} but for int range.
      */
-    public static int toIntExact(double value) {
+    public static int toIntWithoutOverflow(double value) {
         if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
             throw new ArithmeticException("int overflow");
         }
@@ -628,7 +628,7 @@ public class Utility {
     /**
      * Like {@link Math#toIntExact(long)} but for long range.
      */
-    public static long toLongExact(float value) {
+    public static long toLongExactWithoutOverflow(float value) {
         if (value < Long.MIN_VALUE || value > Long.MAX_VALUE) {
             throw new ArithmeticException("long overflow");
         }
@@ -638,7 +638,7 @@ public class Utility {
     /**
      * Like {@link Math#toIntExact(long)} but for long range.
      */
-    public static float toLongExact(double value) {
+    public static float toLongExactWithoutOverflow(double value) {
         if (value < Long.MIN_VALUE || value > Long.MAX_VALUE) {
             throw new ArithmeticException("long overflow");
         }
@@ -648,7 +648,7 @@ public class Utility {
     /**
      * Like {@link Math#toIntExact(long)} but for float range.
      */
-    public static float toFloatExact(double value) {
+    public static float toFloatWithoutOverflow(double value) {
         if (value < Float.MIN_VALUE || value > Float.MAX_VALUE) {
             throw new ArithmeticException("float overflow");
         }
