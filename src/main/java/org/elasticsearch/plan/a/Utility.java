@@ -556,7 +556,7 @@ public class Utility {
     /**
      * Like {@link Math#toIntExact(long)} but for short range.
      */
-    public static short toShortWithoutOverflow(double value) {
+    public static short toShortExact(double value) {
         if (value < Short.MIN_VALUE || value > Short.MAX_VALUE) {
             throw new ArithmeticException("short overflow");
         }

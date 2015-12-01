@@ -19,17 +19,7 @@
 
 package org.elasticsearch.plan.a;
 
-import java.text.ParseException;
-
 public class WhenThingsGoWrongTests extends ScriptTestCase {
-
-    public void testMissingReturn() {
-        try {
-            exec("5;");
-            fail("should have hit illegal argument exception");
-        } catch (IllegalArgumentException expected) {}
-    }
-
     public void testNullPointer() {
         try {
             exec("int x = (int) ((Map) input).get(\"missing\"); return x;");

@@ -22,6 +22,7 @@ package org.elasticsearch.plan.a;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
 import java.util.List;
+import java.util.Map;
 
 import static org.elasticsearch.plan.a.Definition.*;
 
@@ -29,6 +30,12 @@ public class Def {
     public static Object methodCall(final Object owner, final String name, final Definition definition,
                                     final Object[] arguments, final boolean[] typesafe) {
         final Method method = getMethod(owner, name, definition);
+
+        if (method == null) {
+            throw new IllegalArgumentException("Unable to find dynamic method [" + name + "] " +
+                    "for class [" + owner.getClass().getCanonicalName() + "].");
+        }
+
         final MethodHandle handle = method.handle;
         final List<Type> types = method.arguments;
         final Object[] parameters = new Object[arguments.length + 1];
@@ -58,87 +65,174 @@ public class Def {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public static void fieldStore(final Object owner, Object value, final String name,
                                   final Definition definition, final boolean typesafe) {
         final Field field = getField(owner, name, definition);
-        final MethodHandle handle = field.setter;
+        MethodHandle handle = null;
 
-        if (field.setter == null) {
-            throw new IllegalArgumentException(
-                    "Illegal to store to field [" + name + "] with owner class [" + owner.getClass() + "].");
+        if (field == null) {
+            final String set = "set" + Character.toUpperCase(name.charAt(0)) + name.substring(1);
+            final Method method = getMethod(owner, set, definition);
+
+            if (method != null) {
+                handle = method.handle;
+            }
+        } else {
+            handle = field.setter;
         }
 
-        try {
-            if (!typesafe) {
-                final Transform transform = getTransform(value.getClass(), handle.type().parameterType(1), definition);
+        if (handle != null) {
+            try {
+                if (!typesafe) {
+                    final Transform transform = getTransform(value.getClass(), handle.type().parameterType(1), definition);
 
-                if (transform != null) {
-                    value = transform.method.handle.invoke(value);
+                    if (transform != null) {
+                        value = transform.method.handle.invoke(value);
+                    }
                 }
-            }
 
-            handle.invoke(owner, value);
-        } catch (Throwable throwable) {
-            throw new IllegalArgumentException("Error storing value [" + value + "] " +
-                    "in field [" + name + "] with owner class [" + owner.getClass() + "].", throwable);
+                handle.invoke(owner, value);
+            } catch (Throwable throwable) {
+                throw new IllegalArgumentException("Error storing value [" + value + "] " +
+                        "in field [" + name + "] with owner class [" + owner.getClass() + "].", throwable);
+            }
+        } else if (owner instanceof Map) {
+            ((Map)owner).put(name, value);
+        } else if (owner instanceof List) {
+            try {
+                final int index = Integer.parseInt(name);
+                ((List)owner).add(index, value);
+            } catch (NumberFormatException exception) {
+                throw new IllegalArgumentException( "Illegal list shortcut value [" + name + "].");
+            }
+        } else {
+            throw new IllegalArgumentException("Unable to find dynamic field [" + name + "] " +
+                    "for class [" + owner.getClass().getCanonicalName() + "].");
         }
     }
 
+    @SuppressWarnings("unchecked")
     public static Object fieldLoad(final Object owner, final String name, final Definition definition) {
         if (owner.getClass().isArray() && "length".equals(name)) {
             return Array.getLength(owner);
         } else {
             final Field field = getField(owner, name, definition);
-            final MethodHandle handle = field.getter;
+            MethodHandle handle;
 
-            if (field.getter == null) {
+            if (field == null) {
+                final String get = "get" + Character.toUpperCase(name.charAt(0)) + name.substring(1);
+                final Method method = getMethod(owner, get, definition);
+
+                if (method != null) {
+                    handle = method.handle;
+                } else if (owner instanceof Map) {
+                    return ((Map)owner).get(name);
+                } else if (owner instanceof List) {
+                    try {
+                        final int index = Integer.parseInt(name);
+
+                        return ((List)owner).get(index);
+                    } catch (NumberFormatException exception) {
+                        throw new IllegalArgumentException( "Illegal list shortcut value [" + name + "].");
+                    }
+                } else {
+                    throw new IllegalArgumentException("Unable to find dynamic field [" + name + "] " +
+                            "for class [" + owner.getClass().getCanonicalName() + "].");
+                }
+            } else {
+                handle = field.getter;
+            }
+
+            if (handle == null) {
                 throw new IllegalArgumentException(
                         "Unable to read from field [" + name + "] with owner class [" + owner.getClass() + "].");
-            }
-
-            try {
-                return handle.invoke(owner);
-            } catch (final Throwable throwable) {
-                throw new IllegalArgumentException("Error loading value from " +
-                        "field [" + name + "] with owner class [" + owner.getClass() + "].", throwable);
-            }
-        }
-    }
-
-    public static void arrayStore(final Object array, final int index, Object value,
-                                  final Definition definition, final boolean typesafe) {
-        if (!array.getClass().isArray()) {
-            throw new IllegalArgumentException(
-                    "Attempting to address a non-array type [" + array.getClass().getCanonicalName() + "] as an array.");
-        }
-
-        try {
-            if (!typesafe) {
-                final Transform transform = getTransform(value.getClass(), array.getClass().getComponentType(), definition);
-
-                if (transform != null) {
-                    value = transform.method.handle.invoke(value);
+            } else {
+                try {
+                    return handle.invoke(owner);
+                } catch (final Throwable throwable) {
+                    throw new IllegalArgumentException("Error loading value from " +
+                            "field [" + name + "] with owner class [" + owner.getClass() + "].", throwable);
                 }
             }
-
-            Array.set(array, index, value);
-        } catch (final Throwable throwable) {
-            throw new IllegalArgumentException("Error storing value [" + value + "] " +
-                    "in array class [" + array.getClass().getCanonicalName() + "].", throwable);
         }
     }
 
-    public static Object arrayLoad(final Object array, final int index) {
-        if (!array.getClass().isArray()) {
-            throw new IllegalArgumentException(
-                    "Attempting to address a non-array type [" + array.getClass().getCanonicalName() + "] as an array.");
-        }
+    @SuppressWarnings("unchecked")
+    public static void arrayStore(final Object array, Object index, Object value, final Definition definition,
+                                  final boolean indexsafe, final boolean valuesafe) {
+        if (array instanceof Map) {
+            ((Map)array).put(index, value);
+        } else {
+            try {
+                if (!indexsafe) {
+                    final Transform transform = getTransform(index.getClass(), Integer.class, definition);
 
-        try {
-            return Array.get(array, index);
-        } catch (final Throwable throwable) {
-            throw new IllegalArgumentException("Error loading value from " +
-                    "array class [" + array.getClass().getCanonicalName() + "].", throwable);
+                    if (transform != null) {
+                        index = transform.method.handle.invoke(index);
+                    }
+                }
+            } catch (final Throwable throwable) {
+                throw new IllegalArgumentException(
+                        "Error storing value [" + value + "] in list using index [" + index + "].", throwable);
+            }
+
+            if (array.getClass().isArray()) {
+                try {
+                    if (!valuesafe) {
+                        final Transform transform = getTransform(value.getClass(), array.getClass().getComponentType(), definition);
+
+                        if (transform != null) {
+                            value = transform.method.handle.invoke(value);
+                        }
+                    }
+
+                    Array.set(array, (int)index, value);
+                } catch (final Throwable throwable) {
+                    throw new IllegalArgumentException("Error storing value [" + value + "] " +
+                            "in array class [" + array.getClass().getCanonicalName() + "].", throwable);
+                }
+            } else if (array instanceof List) {
+                ((List)array).add((int)index, value);
+            } else {
+                throw new IllegalArgumentException("Attempting to address a non-array type " +
+                        "[" + array.getClass().getCanonicalName() + "] as an array.");
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static Object arrayLoad(final Object array, Object index,
+                                   final Definition definition, final boolean indexsafe) {
+        if (array instanceof Map) {
+            return ((Map)array).get(index);
+        } else {
+            try {
+                if (!indexsafe) {
+                    final Transform transform = getTransform(index.getClass(), Integer.class, definition);
+
+                    if (transform != null) {
+                        index = transform.method.handle.invoke(index);
+                    }
+                }
+            } catch (final Throwable throwable) {
+                throw new IllegalArgumentException(
+                        "Error loading value using index [" + index + "].", throwable);
+            }
+
+            if (array.getClass().isArray()) {
+                try {
+                    return Array.get(array, (int)index);
+                } catch (final Throwable throwable) {
+                    throw new IllegalArgumentException("Error loading value from " +
+                            "array class [" + array.getClass().getCanonicalName() + "].", throwable);
+                }
+            } else if (array instanceof List) {
+                return ((List)array).get((int)index);
+            } else {
+                throw new IllegalArgumentException("Attempting to address a non-array type " +
+                        "[" + array.getClass().getCanonicalName() + "] as an array.");
+            }
         }
     }
 
@@ -185,11 +279,6 @@ public class Def {
             throw new IllegalArgumentException("Unable to find a dynamic struct for class [" + owner.getClass() + "].");
         }
 
-        if (method == null) {
-            throw new IllegalArgumentException("Unable to find dynamic method [" + name + "] " +
-                    "for class [" + owner.getClass().getCanonicalName() + "].");
-        }
-
         return method;
     }
 
@@ -234,11 +323,6 @@ public class Def {
 
         if (struct == null) {
             throw new IllegalArgumentException("Unable to find a dynamic struct for class [" + owner.getClass() + "].");
-        }
-
-        if (field == null) {
-            throw new IllegalArgumentException("Unable to find dynamic field [" + name + "] " +
-                    "for class [" + owner.getClass().getCanonicalName() + "].");
         }
 
         return field;

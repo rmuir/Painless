@@ -1378,10 +1378,13 @@ class Definition {
 
         final org.objectweb.asm.commons.Method asm = org.objectweb.asm.commons.Method.getMethod(reflect);
 
-        MethodHandle handle = null;
+        MethodHandle handle;
 
         try {
-            if (!statik) {
+            if (statik) {
+                handle = MethodHandles.publicLookup().in(owner.clazz).findStatic(
+                        owner.clazz, alias == null ? name : alias, MethodType.methodType(rtn.clazz, classes));
+            } else {
                 handle = MethodHandles.publicLookup().in(owner.clazz).findVirtual(
                         owner.clazz, alias == null ? name : alias, MethodType.methodType(rtn.clazz, classes));
             }

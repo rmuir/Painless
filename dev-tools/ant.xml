@@ -22,7 +22,8 @@
   <target name="regenerate" depends="run-antlr"/>
 
   <target name="run-antlr">
-    <regen-grammar grammar="PlanA"/>
+    <regen-lexer grammar="PlanA"/>
+    <regen-parser grammar="PlanA"/>
   </target>
 
   <macrodef name="replace-value">
@@ -43,15 +44,15 @@
     </sequential>
   </macrodef>
 
-   <macrodef name="regen-grammar">
+  <macrodef name="regen-lexer">
     <attribute name="grammar" />
     <sequential>
       <local name="grammar.path"/>
       <patternset id="grammar.@{grammar}.patternset">
         <include name="@{grammar}Lexer.java" />
         <include name="@{grammar}Parser.java" />
-        <include name="@{grammar}Visitor.java" />
-        <include name="@{grammar}BaseVisitor.java" />
+        <include name="@{grammar}ParserVisitor.java" />
+        <include name="@{grammar}ParserBaseVisitor.java" />
       </patternset>
       <property name="grammar.path" location="src/main/java/org/elasticsearch/plan/a"/>
       <!-- delete parser and lexer so files will be generated -->
@@ -66,11 +67,38 @@
         <sysproperty key="user.variant" value=""/>
         <arg value="-package"/>
         <arg value="org.elasticsearch.plan.a"/>
+         <arg value="-o"/>
+        <arg path="${grammar.path}"/>
+        <arg path="${grammar.path}/@{grammar}Lexer.g4"/>
+      </java>
+    </sequential>
+  </macrodef>
+
+  <macrodef name="regen-parser">
+    <attribute name="grammar" />
+    <sequential>
+      <local name="grammar.path"/>
+      <patternset id="grammar.@{grammar}.patternset">
+        <include name="@{grammar}Lexer.java" />
+        <include name="@{grammar}Parser.java" />
+        <include name="@{grammar}ParserVisitor.java" />
+        <include name="@{grammar}ParserBaseVisitor.java" />
+      </patternset>
+      <property name="grammar.path" location="src/main/java/org/elasticsearch/plan/a"/>
+      <!-- invoke ANTLR4 -->
+      <java classname="org.antlr.v4.Tool" fork="true" failonerror="true" classpathref="maven.plugin.classpath" taskname="antlr">
+        <sysproperty key="file.encoding" value="UTF-8"/>
+        <sysproperty key="user.language" value="en"/>
+        <sysproperty key="user.country" value="US"/>
+        <sysproperty key="user.variant" value=""/>
+        <arg value="-package"/>
+        <arg value="org.elasticsearch.plan.a"/>
         <arg value="-no-listener"/>
         <arg value="-visitor"/>
+        <!-- <arg value="-Xlog"/> -->
         <arg value="-o"/>
         <arg path="${grammar.path}"/>
-        <arg path="${grammar.path}/@{grammar}.g4"/>
+        <arg path="${grammar.path}/@{grammar}Parser.g4"/>
       </java>
       <!-- fileset with files to edit -->
       <fileset id="grammar.fileset" dir="${grammar.path}">

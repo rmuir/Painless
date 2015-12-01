@@ -28,6 +28,7 @@ public class FieldTests extends ScriptTestCase {
         public short s = 1;
         public char c = 'c';
         public int i = 2;
+        public int si = -1;
         public long j = 3l;
         public float f = 4.0f;
         public double d = 5.0;
@@ -36,6 +37,14 @@ public class FieldTests extends ScriptTestCase {
 
         public float test(float a, float b) {
             return Math.min(a, b);
+        }
+
+        public int getSi() {
+            return si;
+        }
+
+        public void setSi(final int si) {
+            this.si = si;
         }
     }
 
@@ -56,6 +65,8 @@ public class FieldTests extends ScriptTestCase {
             addField("FieldClass", "t", null, false, stringType, null);
             addField("FieldClass", "l", null, false, objectType, null);
             addClass("FieldClass");
+            addMethod("FieldClass", "getSi", null, false, intType, new Type[] {}, null, null);
+            addMethod("FieldClass", "setSi", null, false, voidType, new Type[] {intType}, null, null);
             addMethod("FieldClass", "test", null, false, floatType, new Type[] {floatType, floatType}, null, null);
         }
     }
@@ -71,5 +82,27 @@ public class FieldTests extends ScriptTestCase {
         assertEquals(4, exec("def fc = new FieldClass() fc.i = 4 return fc.i"));
         assertEquals(5, exec("FieldClass fc0 = new FieldClass() FieldClass fc1 = new FieldClass() fc0.i = 7 - fc0.i fc1.i = fc0.i return fc1.i"));
         assertEquals(8, exec("def fc0 = new FieldClass() def fc1 = new FieldClass() fc0.i += fc1.i fc0.i += fc0.i return fc0.i"));
+    }
+
+    public void testExplicitShortcut() {
+        assertEquals(5, exec("FieldClass fc = new FieldClass() fc.setSi(5) return fc.si"));
+        assertEquals(-1, exec("FieldClass fc = new FieldClass() def x = fc.getSi() x"));
+        assertEquals(5, exec("FieldClass fc = new FieldClass() fc.si = 5 return fc.si"));
+        assertEquals(0, exec("FieldClass fc = new FieldClass() fc.si++ return fc.si"));
+        assertEquals(-1, exec("FieldClass fc = new FieldClass() def x = fc.si++ return x"));
+        assertEquals(0, exec("FieldClass fc = new FieldClass() def x = ++fc.si return x"));
+        assertEquals(-2, exec("FieldClass fc = new FieldClass() fc.si *= 2 fc.si"));
+        assertEquals("-1test", exec("FieldClass fc = new FieldClass() fc.si + \"test\""));
+    }
+
+    public void testImplicitShortcut() {
+        assertEquals(5, exec("def fc = new FieldClass() fc.setSi(5) return fc.si"));
+        assertEquals(-1, exec("def fc = new FieldClass() def x = fc.getSi() x"));
+        assertEquals(5, exec("def fc = new FieldClass() fc.si = 5 return fc.si"));
+        assertEquals(0, exec("def fc = new FieldClass() fc.si++ return fc.si"));
+        assertEquals(-1, exec("def fc = new FieldClass() def x = fc.si++ return x"));
+        assertEquals(0, exec("def fc = new FieldClass() def x = ++fc.si return x"));
+        assertEquals(-2, exec("def fc = new FieldClass() fc.si *= 2 fc.si"));
+        assertEquals("-1test", exec("def fc = new FieldClass() fc.si + \"test\""));
     }
 }

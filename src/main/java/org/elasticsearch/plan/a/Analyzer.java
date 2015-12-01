@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 
@@ -31,7 +32,7 @@ import static org.elasticsearch.plan.a.Adapter.*;
 import static org.elasticsearch.plan.a.Definition.*;
 import static org.elasticsearch.plan.a.PlanAParser.*;
 
-class Analyzer extends PlanABaseVisitor<Void> {
+class Analyzer extends PlanAParserBaseVisitor<Void> {
     private static class Variable {
         final String name;
         final Type type;
@@ -129,16 +130,19 @@ class Analyzer extends PlanABaseVisitor<Void> {
     @Override
     public Void visitSource(final SourceContext ctx) {
         final StatementMetadata sourcesmd = adapter.getStatementMetadata(ctx);
+        final List<StatementContext> statectxs = ctx.statement();
+        final StatementContext lastctx = statectxs.get(statectxs.size() - 1);
 
         incrementScope();
 
-        for (final StatementContext statectx : ctx.statement()) {
+        for (final StatementContext statectx : statectxs) {
             if (sourcesmd.allExit) {
                 throw new IllegalArgumentException(error(statectx) +
                         "Statement will never be executed because all prior paths exit.");
             }
 
             final StatementMetadata statesmd = adapter.createStatementMetadata(statectx);
+            statesmd.last = statectx == lastctx;
             visit(statectx);
 
             if (statesmd.anyContinue) {
@@ -178,6 +182,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         final BlockContext blockctx0 = ctx.block(0);
         final StatementMetadata blocksmd0 = adapter.createStatementMetadata(blockctx0);
+        blocksmd0.last = ifsmd.last;
         visit(blockctx0);
 
         ifsmd.anyReturn = blocksmd0.anyReturn;
@@ -187,6 +192,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         if (ctx.ELSE() != null) {
             final BlockContext blockctx1 = ctx.block(1);
             final StatementMetadata blocksmd1 = adapter.createStatementMetadata(blockctx1);
+            blocksmd1.last = ifsmd.last;
             visit(blockctx1);
 
             ifsmd.allExit = blocksmd0.allExit && blocksmd1.allExit;
@@ -431,22 +437,22 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
     @Override
     public Void visitExpr(final ExprContext ctx) {
+        final StatementMetadata exprsmd = adapter.getStatementMetadata(ctx);
         final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
-        expremd.to = definition.voidType;
+        expremd.read = exprsmd.last;
+        visit(exprctx);
 
-        try {
-            visit(exprctx);
-            markCast(expremd);
-        } catch (ClassCastException exception) {
-            if (expremd.statement) {
-                throw exception;
-            }
-        }
-
-        if (!expremd.statement) {
+        if (!expremd.statement && !exprsmd.last) {
             throw new IllegalArgumentException(error(ctx) + "Not a statement.");
         }
+
+        final boolean rtn = exprsmd.last && expremd.from.sort != Sort.VOID;
+        exprsmd.allExit = rtn;
+        exprsmd.allReturn = rtn;
+        exprsmd.anyReturn = rtn;
+        expremd.to = rtn ? definition.objectType : expremd.from;
+        markCast(expremd);
 
         return null;
     }
@@ -454,14 +460,17 @@ class Analyzer extends PlanABaseVisitor<Void> {
     @Override
     public Void visitMultiple(final MultipleContext ctx) {
         final StatementMetadata multiplesmd = adapter.getStatementMetadata(ctx);
+        final List<StatementContext> statectxs = ctx.statement();
+        final StatementContext lastctx = statectxs.get(statectxs.size() - 1);
 
-        for (StatementContext statectx : ctx.statement()) {
+        for (StatementContext statectx : statectxs) {
             if (multiplesmd.allExit) {
                 throw new IllegalArgumentException(error(statectx) +
                         "Statement will never be executed because all prior paths exit.");
             }
 
             final StatementMetadata statesmd = adapter.createStatementMetadata(statectx);
+            statesmd.last = multiplesmd.last && statectx == lastctx;
             visit(statectx);
 
             multiplesmd.allExit = statesmd.allExit;
@@ -482,6 +491,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         final StatementContext statectx = ctx.statement();
         final StatementMetadata statesmd = adapter.createStatementMetadata(statectx);
+        statesmd.last = singlesmd.last;
         visit(statectx);
 
         singlesmd.allExit = statesmd.allExit;
@@ -510,16 +520,11 @@ class Analyzer extends PlanABaseVisitor<Void> {
             visit(declctx);
         } else if (exprctx != null) {
             final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
-            expremd.to = definition.voidType;
+            expremd.read = false;
+            visit(exprctx);
 
-            try {
-                visit(exprctx);
-                markCast(expremd);
-            } catch (ClassCastException exception) {
-                if (expremd.statement) {
-                    throw exception;
-                }
-            }
+            expremd.to = expremd.from;
+            markCast(expremd);
 
             if (!expremd.statement) {
                 throw new IllegalArgumentException(error(exprctx) +
@@ -538,16 +543,11 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         if (exprctx != null) {
             final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
-            expremd.to = definition.voidType;
+            expremd.read = false;
+            visit(exprctx);
 
-            try {
-                visit(exprctx);
-                markCast(expremd);
-            } catch (ClassCastException exception) {
-                if (expremd.statement) {
-                    throw exception;
-                }
-            }
+            expremd.to = expremd.from;
+            markCast(expremd);
 
             if (!expremd.statement) {
                 throw new IllegalArgumentException(error(exprctx) +
@@ -587,7 +587,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
     public Void visitDeclvar(final DeclvarContext ctx) {
         final ExpressionMetadata declvaremd = adapter.getExpressionMetadata(ctx);
 
-        final String name = ctx.id().getText();
+        final String name = ctx.ID().getText();
         declvaremd.postConst = addVariable(ctx, name, declvaremd.to).slot;
 
         final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
@@ -600,16 +600,6 @@ class Analyzer extends PlanABaseVisitor<Void> {
         }
 
         return null;
-    }
-
-    @Override
-    public Void visitType(final TypeContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected parser state.");
-    }
-
-    @Override
-    public Void visitId(final IdContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected parser state.");
     }
 
     @Override
@@ -630,14 +620,14 @@ class Analyzer extends PlanABaseVisitor<Void> {
                     numericemd.from = definition.floatType;
                     numericemd.preConst = Float.parseFloat(svalue.substring(0, svalue.length() - 1));
                 } catch (NumberFormatException exception) {
-                    throw new IllegalArgumentException(error(ctx) + "Invalid float constant.");
+                    throw new IllegalArgumentException(error(ctx) + "Invalid float constant [" + svalue + "].");
                 }
             } else {
                 try {
                     numericemd.from = definition.doubleType;
                     numericemd.preConst = Double.parseDouble(svalue);
                 } catch (NumberFormatException exception) {
-                    throw new IllegalArgumentException(error(ctx) + "Invalid double constant.");
+                    throw new IllegalArgumentException(error(ctx) + "Invalid double constant [" + svalue + "].");
                 }
             }
         } else {
@@ -657,12 +647,26 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
             }
 
-            if (svalue.endsWith("l") || svalue.endsWith("L")) {
+            if (svalue.endsWith("d") || svalue.endsWith("D")) {
+                try {
+                    numericemd.from = definition.doubleType;
+                    numericemd.preConst = Double.parseDouble(svalue.substring(0, svalue.length() - 1));
+                } catch (NumberFormatException exception) {
+                    throw new IllegalArgumentException(error(ctx) + "Invalid float constant [" + svalue + "].");
+                }
+            } else if (svalue.endsWith("f") || svalue.endsWith("F")) {
+                try {
+                    numericemd.from = definition.floatType;
+                    numericemd.preConst = Float.parseFloat(svalue.substring(0, svalue.length() - 1));
+                } catch (NumberFormatException exception) {
+                    throw new IllegalArgumentException(error(ctx) + "Invalid float constant [" + svalue + "].");
+                }
+            } else if (svalue.endsWith("l") || svalue.endsWith("L")) {
                 try {
                     numericemd.from = definition.longType;
                     numericemd.preConst = Long.parseLong(svalue.substring(0, svalue.length() - 1), radix);
                 } catch (NumberFormatException exception) {
-                    throw new IllegalArgumentException(error(ctx) + "Invalid long constant.");
+                    throw new IllegalArgumentException(error(ctx) + "Invalid long constant [" + svalue + "].");
                 }
             } else {
                 try {
@@ -684,7 +688,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
                         numericemd.preConst = value;
                     }
                 } catch (NumberFormatException exception) {
-                    throw new IllegalArgumentException(error(ctx) + "Invalid int constant.");
+                    throw new IllegalArgumentException(error(ctx) + "Invalid int constant [" + svalue + "].");
                 }
             }
         }
@@ -763,7 +767,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         final ExtstartContext extstartctx = ctx.extstart();
         final ExternalMetadata extstartemd = adapter.createExternalMetadata(extstartctx);
-        extstartemd.read = extemd.to == null || extemd.to.sort != Sort.VOID;
+        extstartemd.read = extemd.read;
         visit(extstartctx);
 
         extemd.statement = extstartemd.statement;
@@ -777,17 +781,17 @@ class Analyzer extends PlanABaseVisitor<Void> {
     @Override
     public Void visitPostinc(final PostincContext ctx) {
         final ExpressionMetadata postincemd = adapter.getExpressionMetadata(ctx);
-        postincemd.statement = true;
 
         final ExtstartContext extstartctx = ctx.extstart();
         final ExternalMetadata extstartemd = adapter.createExternalMetadata(extstartctx);
-        extstartemd.read = postincemd.to == null || postincemd.to.sort != Sort.VOID;
+        extstartemd.read = postincemd.read;
         extstartemd.storeExpr = ctx.increment();
         extstartemd.token = ADD;
         extstartemd.post = true;
         visit(extstartctx);
 
-        postincemd.from = extstartemd.current;
+        postincemd.statement = true;
+        postincemd.from = extstartemd.read ? extstartemd.current : definition.voidType;
         postincemd.typesafe = extstartemd.current.sort != Sort.DEF;
 
         return null;
@@ -796,17 +800,17 @@ class Analyzer extends PlanABaseVisitor<Void> {
     @Override
     public Void visitPreinc(final PreincContext ctx) {
         final ExpressionMetadata preincemd = adapter.getExpressionMetadata(ctx);
-        preincemd.statement = true;
 
         final ExtstartContext extstartctx = ctx.extstart();
         final ExternalMetadata extstartemd = adapter.createExternalMetadata(extstartctx);
-        extstartemd.read = preincemd.to == null || preincemd.to.sort != Sort.VOID;
+        extstartemd.read = preincemd.read;
         extstartemd.storeExpr = ctx.increment();
         extstartemd.token = ADD;
         extstartemd.pre = true;
         visit(extstartctx);
 
-        preincemd.from = extstartemd.current;
+        preincemd.statement = true;
+        preincemd.from = extstartemd.read ? extstartemd.current : definition.voidType;
         preincemd.typesafe = extstartemd.current.sort != Sort.DEF;
 
         return null;
@@ -925,7 +929,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             castemd.preConst = expremd.postConst;
         }
 
-        castemd.typesafe = expremd.typesafe || castemd.from.sort == Sort.DEF;
+        castemd.typesafe = expremd.typesafe && castemd.from.sort != Sort.DEF;
 
         return null;
     }
@@ -1357,12 +1361,11 @@ class Analyzer extends PlanABaseVisitor<Void> {
     @Override
     public Void visitAssignment(final AssignmentContext ctx) {
         final ExpressionMetadata assignemd = adapter.getExpressionMetadata(ctx);
-        assignemd.statement = true;
 
         final ExtstartContext extstartctx = ctx.extstart();
         final ExternalMetadata extstartemd = adapter.createExternalMetadata(extstartctx);
 
-        extstartemd.read = assignemd.to == null || assignemd.to.sort != Sort.VOID;
+        extstartemd.read = assignemd.read;
         extstartemd.storeExpr = adapter.updateExpressionTree(ctx.expression());
 
         if (ctx.AMUL() != null) {
@@ -1391,7 +1394,8 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         visit(extstartctx);
 
-        assignemd.from = extstartemd.current;
+        assignemd.statement = true;
+        assignemd.from = extstartemd.read ? extstartemd.current : definition.voidType;
         assignemd.typesafe = extstartemd.current.sort != Sort.DEF;
 
         return null;
@@ -1545,10 +1549,21 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         final boolean array = parentemd.current.sort == Sort.ARRAY;
         final boolean def = parentemd.current.sort == Sort.DEF;
+        boolean map = false;
+        boolean list = false;
 
-        if (!array && !def) {
-            throw new IllegalArgumentException(error(ctx) +
-                    "Attempting to address a non-array type [" + parentemd.current.name + "] as an array.");
+        try {
+            parentemd.current.clazz.asSubclass(Map.class);
+            map = true;
+        } catch (ClassCastException exception) {
+            // Do nothing.
+        }
+
+        try {
+            parentemd.current.clazz.asSubclass(List.class);
+            list = true;
+        } catch (ClassCastException exception) {
+            // Do nothing.
         }
 
         final ExtdotContext dotctx = ctx.extdot();
@@ -1559,21 +1574,96 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ExpressionContext exprctx = adapter.updateExpressionTree(ctx.expression());
         final ExpressionMetadata expremd = adapter.createExpressionMetadata(exprctx);
 
-        expremd.to = definition.intType;
-        visit(exprctx);
-        markCast(expremd);
+        if (array || def) {
+            expremd.to = array ? definition.intType : definition.objectType;
+            visit(exprctx);
+            markCast(expremd);
 
-        braceenmd.target = "#brace";
-        braceenmd.type = def ? definition.defType :
-                definition.getType(parentemd.current.struct, parentemd.current.type.getDimensions() - 1);
-        parentemd.current = analyzeLoadStoreExternal(ctx);
+            braceenmd.target = "#brace";
+            braceenmd.type = def ? definition.defType :
+                    definition.getType(parentemd.current.struct, parentemd.current.type.getDimensions() - 1);
+            analyzeLoadStoreExternal(ctx);
+            parentemd.current = braceenmd.type;
 
-        if (dotctx != null) {
-            adapter.createExtNodeMetadata(parent, dotctx);
-            visit(dotctx);
-        } else if (bracectx != null) {
-            adapter.createExtNodeMetadata(parent, bracectx);
-            visit(bracectx);
+            if (dotctx != null) {
+                adapter.createExtNodeMetadata(parent, dotctx);
+                visit(dotctx);
+            } else if (bracectx != null) {
+                adapter.createExtNodeMetadata(parent, bracectx);
+                visit(bracectx);
+            }
+        } else {
+            final boolean store = braceenmd.last && parentemd.storeExpr != null;
+            final boolean get = parentemd.read || parentemd.token > 0 || !braceenmd.last;
+            final boolean set = braceenmd.last && store;
+
+            Method getter;
+            Method setter;
+            Type valuetype;
+            Type settype;
+
+            if (map) {
+                getter = parentemd.current.struct.methods.get("get");
+                setter = parentemd.current.struct.methods.get("put");
+
+                if (getter != null && (getter.rtn.sort == Sort.VOID || getter.arguments.size() != 1)) {
+                    throw new IllegalArgumentException(error(ctx) +
+                            "Illegal map get shortcut for type [" + parentemd.current.name + "].");
+                }
+
+                if (setter != null && setter.arguments.size() != 2) {
+                    throw new IllegalArgumentException(error(ctx) +
+                            "Illegal map set shortcut for type [" + parentemd.current.name + "].");
+                }
+
+                if (getter != null && setter != null && (!getter.arguments.get(0).equals(setter.arguments.get(0))
+                        || !getter.rtn.equals(setter.arguments.get(1)))) {
+                    throw new IllegalArgumentException(error(ctx) + "Shortcut argument types must match.");
+                }
+
+                valuetype = setter != null ? setter.arguments.get(0) : getter != null ? getter.arguments.get(0) : null;
+                settype = setter == null ? null : setter.arguments.get(1);
+            } else if (list) {
+                getter = parentemd.current.struct.methods.get("get");
+                setter = parentemd.current.struct.methods.get("add");
+
+                if (getter != null && (getter.rtn.sort == Sort.VOID || getter.arguments.size() != 1 ||
+                        getter.arguments.get(0).sort != Sort.INT)) {
+                    throw new IllegalArgumentException(error(ctx) +
+                            "Illegal list get shortcut for type [" + parentemd.current.name + "].");
+                }
+
+                if (setter != null && (setter.arguments.size() != 2 || setter.arguments.get(0).sort != Sort.INT)) {
+                    throw new IllegalArgumentException(error(ctx) +
+                            "Illegal list set shortcut for type [" + parentemd.current.name + "].");
+                }
+
+                if (getter != null && setter != null && (!getter.arguments.get(0).equals(setter.arguments.get(0))
+                        || !getter.rtn.equals(setter.arguments.get(1)))) {
+                    throw new IllegalArgumentException(error(ctx) + "Shortcut argument types must match.");
+                }
+
+                valuetype = definition.intType;
+                settype = setter == null ? null : setter.arguments.get(1);
+            } else {
+                throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+            }
+
+            if ((get || set) && (!get || getter != null) && (!set || setter != null)) {
+                expremd.to = valuetype;
+                visit(exprctx);
+                markCast(expremd);
+
+                braceenmd.target = new Object[] {getter, setter, true, null};
+                braceenmd.type = get ? getter.rtn : settype;
+                analyzeLoadStoreExternal(ctx);
+                parentemd.current = get ? getter.rtn : setter.rtn;
+            }
+        }
+
+        if (braceenmd.target == null) {
+            throw new IllegalArgumentException(error(ctx) +
+                    "Attempting to address a non-array type [" + parentemd.current.name + "] as an array.");
         }
 
         return null;
@@ -1608,7 +1698,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             throw new IllegalArgumentException(error(ctx) + "Unexpected static type.");
         }
 
-        final String typestr = ctx.type().getText();
+        final String typestr = ctx.TYPE().getText();
         typeenmd.type = definition.getType(typestr);
         parentemd.current = typeenmd.type;
         parentemd.statik = true;
@@ -1631,7 +1721,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         callenmd.last = parentemd.scope == 0 && dotctx == null && bracectx == null;
 
-        final String name = ctx.id().getText();
+        final String name = ctx.EXTID().getText();
 
         if (parentemd.current.sort == Sort.ARRAY) {
             throw new IllegalArgumentException(error(ctx) + "Unexpected call [" + name + "] on an array.");
@@ -1656,13 +1746,8 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
             callenmd.target = method;
             callenmd.type = method.rtn;
-
-            if (!parentemd.read) {
-                parentemd.current = definition.voidType;
-                parentemd.statement = true;
-            } else {
-                parentemd.current = method.rtn;
-            }
+            parentemd.statement = !parentemd.read && callenmd.last;
+            parentemd.current = method.rtn;
 
             if (size != types.length) {
                 throw new IllegalArgumentException(error(ctx) + "When calling [" + name + "] on type " +
@@ -1675,11 +1760,8 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
             callenmd.target = name;
             callenmd.type = definition.defType;
-
-            if (!parentemd.read) {
-                parentemd.current = definition.voidType;
-                parentemd.statement = true;
-            }
+            parentemd.statement = !parentemd.read && callenmd.last;
+            parentemd.current = callenmd.type;
         }
 
         for (int argument = 0; argument < size; ++argument) {
@@ -1709,7 +1791,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ParserRuleContext parent = varenmd.parent;
         final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
 
-        final String name = ctx.id().getText();
+        final String name = ctx.ID().getText();
 
         final ExtdotContext dotctx = ctx.extdot();
         final ExtbraceContext bracectx = ctx.extbrace();
@@ -1728,7 +1810,8 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
         varenmd.target = variable.slot;
         varenmd.type = variable.type;
-        parentemd.current = analyzeLoadStoreExternal(ctx);
+        analyzeLoadStoreExternal(ctx);
+        parentemd.current = varenmd.type;
 
         if (dotctx != null) {
             adapter.createExtNodeMetadata(parent, dotctx);
@@ -1747,7 +1830,11 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final ParserRuleContext parent = memberenmd.parent;
         final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
 
-        final String name = ctx.id().getText();
+        if (ctx.EXTID() == null && ctx.EXTINTEGER() == null) {
+            throw new IllegalArgumentException(error(ctx) + "Unexpected parser state.");
+        }
+
+        final String value = ctx.EXTID() == null ? ctx.EXTINTEGER().getText() : ctx.EXTID().getText();
 
         final ExtdotContext dotctx = ctx.extdot();
         final ExtbraceContext bracectx = ctx.extbrace();
@@ -1756,11 +1843,11 @@ class Analyzer extends PlanABaseVisitor<Void> {
         final boolean store = memberenmd.last && parentemd.storeExpr != null;
 
         if (parentemd.current == null) {
-            throw new IllegalStateException(error(ctx) + "Unexpected field [" + name + "] load.");
+            throw new IllegalStateException(error(ctx) + "Unexpected field [" + value + "] load.");
         }
 
         if (parentemd.current.sort == Sort.ARRAY) {
-            if ("length".equals(name)) {
+            if ("length".equals(value)) {
                 if (!parentemd.read) {
                     throw new IllegalArgumentException(error(ctx) + "Must read array field [length].");
                 } else if (store) {
@@ -1772,29 +1859,127 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 memberenmd.type = definition.intType;
                 parentemd.current = definition.intType;
             } else {
-                throw new IllegalArgumentException(error(ctx) + "Unexpected array field [" + name + "].");
+                throw new IllegalArgumentException(error(ctx) + "Unexpected array field [" + value + "].");
             }
         } else if (parentemd.current.sort == Sort.DEF) {
-            memberenmd.target = name;
+            memberenmd.target = value;
             memberenmd.type = definition.defType;
-            parentemd.current = analyzeLoadStoreExternal(ctx);
+            analyzeLoadStoreExternal(ctx);
+            parentemd.current = memberenmd.type;
         } else {
             final Struct struct = parentemd.current.struct;
-            final Field field = parentemd.statik ? struct.statics.get(name) : struct.members.get(name);
+            final Field field = parentemd.statik ? struct.statics.get(value) : struct.members.get(value);
 
-            if (field == null) {
+            if (field != null) {
+                if (store && java.lang.reflect.Modifier.isFinal(field.reflect.getModifiers())) {
+                    throw new IllegalArgumentException(error(ctx) + "Cannot write to read-only" +
+                            " field [" + value + "] for type [" + struct.name + "].");
+                }
+
+                memberenmd.target = field;
+                memberenmd.type = field.type;
+                analyzeLoadStoreExternal(ctx);
+                parentemd.current = memberenmd.type;
+            } else {
+                final boolean get = parentemd.read || parentemd.token > 0 || !memberenmd.last;
+                final boolean set = memberenmd.last && store;
+
+                Method getter = struct.methods.get("get" + Character.toUpperCase(value.charAt(0)) + value.substring(1));
+                Method setter = struct.methods.get("set" + Character.toUpperCase(value.charAt(0)) + value.substring(1));
+                Object constant = null;
+
+                if (getter != null && (getter.rtn.sort == Sort.VOID || !getter.arguments.isEmpty())) {
+                    throw new IllegalArgumentException(error(ctx) +
+                            "Illegal get shortcut on field [" + value + "] for type [" + struct.name + "].");
+                }
+
+                if (setter != null && (setter.rtn.sort != Sort.VOID || setter.arguments.size() != 1)) {
+                    throw new IllegalArgumentException(error(ctx) +
+                            "Illegal set shortcut on field [" + value + "] for type [" + struct.name + "].");
+                }
+
+                Type settype = setter == null ? null : setter.arguments.get(0);
+
+                if (getter == null && setter == null) {
+                    if (ctx.EXTID() != null) {
+                        try {
+                            parentemd.current.clazz.asSubclass(Map.class);
+
+                            getter = parentemd.current.struct.methods.get("get");
+                            setter = parentemd.current.struct.methods.get("put");
+
+                            if (getter != null && (getter.rtn.sort == Sort.VOID || getter.arguments.size() != 1 ||
+                                getter.arguments.get(0).sort != Sort.STRING)) {
+                                throw new IllegalArgumentException(error(ctx) +
+                                        "Illegal map get shortcut [" + value + "] for type [" + struct.name + "].");
+                            }
+
+                            if (setter != null && (setter.arguments.size() != 2 ||
+                                    setter.arguments.get(0).sort != Sort.STRING)) {
+                                throw new IllegalArgumentException(error(ctx) +
+                                        "Illegal map set shortcut [" + value + "] for type [" + struct.name + "].");
+                            }
+
+                            if (getter != null && setter != null && !getter.rtn.equals(setter.arguments.get(1))) {
+                                throw new IllegalArgumentException(error(ctx) + "Shortcut argument types must match.");
+                            }
+
+                            settype = setter == null ? null : setter.arguments.get(1);
+                            constant = value;
+                        } catch (ClassCastException exception) {
+                            //Do nothing.
+                        }
+                    } else if (ctx.EXTINTEGER() != null) {
+                        try {
+                            parentemd.current.clazz.asSubclass(List.class);
+
+                            getter = parentemd.current.struct.methods.get("get");
+                            setter = parentemd.current.struct.methods.get("add");
+
+                            if (getter != null && (getter.rtn.sort == Sort.VOID || getter.arguments.size() != 1 ||
+                                    getter.arguments.get(0).sort != Sort.INT)) {
+                                throw new IllegalArgumentException(error(ctx) +
+                                        "Illegal list get shortcut [" + value + "] for type [" + struct.name + "].");
+                            }
+
+                            if (setter != null && (setter.rtn.sort != Sort.VOID || setter.arguments.size() != 2 ||
+                                    setter.arguments.get(0).sort != Sort.INT)) {
+                                throw new IllegalArgumentException(error(ctx) +
+                                        "Illegal list add shortcut [" + value + "] for type [" + struct.name + "].");
+                            }
+
+                            if (getter != null && setter != null && !getter.rtn.equals(setter.arguments.get(1))) {
+                                throw new IllegalArgumentException(error(ctx) + "Shortcut argument types must match.");
+                            }
+
+                            settype = setter == null ? null : setter.arguments.get(1);
+
+                            try {
+                                constant = Integer.parseInt(value);
+                            } catch (NumberFormatException exception) {
+                                throw new IllegalArgumentException(error(ctx) +
+                                        "Illegal list shortcut value [" + value + "].");
+                            }
+                        } catch (ClassCastException exception) {
+                            //Do nothing.
+                        }
+                    } else {
+                        throw new IllegalStateException(error(ctx) + "Unexpected parser state.");
+                    }
+                }
+
+                if ((get || set) && (!get || getter != null) && (!set || setter != null)) {
+                    memberenmd.target = new Object[] {getter, setter, constant != null, constant};
+                    memberenmd.type = get ? getter.rtn : settype;
+                    analyzeLoadStoreExternal(ctx);
+                    parentemd.current = get ? getter.rtn : setter.rtn;
+                }
+            }
+
+            if (memberenmd.target == null) {
                 throw new IllegalArgumentException(
-                        error(ctx) + "Unknown field [" + name + "] for type [" + struct.name + "].");
+                        error(ctx) + "Unknown field [" + value + "] for type [" + struct.name + "].");
             }
-
-            if (store && java.lang.reflect.Modifier.isFinal(field.reflect.getModifiers())) {
-                throw new IllegalArgumentException(error(ctx) + "Cannot write to read-only" +
-                        " field [" + name + "] for type [" + struct.name + "].");
-            }
-
-            memberenmd.target = field;
-            memberenmd.type = field.type;
-            parentemd.current = analyzeLoadStoreExternal(ctx);
         }
 
         parentemd.statik = false;
@@ -1812,23 +1997,23 @@ class Analyzer extends PlanABaseVisitor<Void> {
 
     @Override
     public Void visitExtnew(ExtnewContext ctx) {
-        final ExtNodeMetadata callenmd = adapter.getExtNodeMetadata(ctx);
-        final ParserRuleContext parent = callenmd.parent;
+        final ExtNodeMetadata newenmd = adapter.getExtNodeMetadata(ctx);
+        final ParserRuleContext parent = newenmd.parent;
         final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
 
         final ExtdotContext dotctx = ctx.extdot();
         final ExtbraceContext bracectx = ctx.extbrace();
 
-        callenmd.last = parentemd.scope == 0 && dotctx == null && bracectx == null;
+        newenmd.last = parentemd.scope == 0 && dotctx == null && bracectx == null;
 
-        final String name = ctx.type().getText();
+        final String name = ctx.TYPE().getText();
         final Struct struct = definition.structs.get(name);
 
         if (parentemd.current != null) {
             throw new IllegalArgumentException(error(ctx) + "Unexpected new call.");
         } else if (struct == null) {
             throw new IllegalArgumentException(error(ctx) + "Specified type [" + name + "] not found.");
-        } else if (callenmd.last && parentemd.storeExpr != null) {
+        } else if (newenmd.last && parentemd.storeExpr != null) {
             throw new IllegalArgumentException(error(ctx) + "Cannot assign a value to a new call.");
         }
 
@@ -1848,13 +2033,13 @@ class Analyzer extends PlanABaseVisitor<Void> {
             types = new Type[size];
             Arrays.fill(types, definition.intType);
 
-            callenmd.target = "#makearray";
+            newenmd.target = "#makearray";
 
             if (size > 1) {
-                callenmd.type = definition.getType(struct, size);
-                parentemd.current = callenmd.type;
+                newenmd.type = definition.getType(struct, size);
+                parentemd.current = newenmd.type;
             } else if (size == 1) {
-                callenmd.type = definition.getType(struct, 0);
+                newenmd.type = definition.getType(struct, 0);
                 parentemd.current = definition.getType(struct, 1);
             } else {
                 throw new IllegalArgumentException(error(ctx) + "A newly created array cannot have zero dimensions.");
@@ -1866,15 +2051,10 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 types = new Type[constructor.arguments.size()];
                 constructor.arguments.toArray(types);
 
-                callenmd.target = constructor;
-                callenmd.type = definition.getType(struct, 0);
-
-                if (!parentemd.read) {
-                    parentemd.current = definition.voidType;
-                    parentemd.statement = true;
-                } else {
-                    parentemd.current = callenmd.type;
-                }
+                newenmd.target = constructor;
+                newenmd.type = definition.getType(struct, 0);
+                parentemd.statement = !parentemd.read && newenmd.last;
+                parentemd.current = newenmd.type;
             } else {
                 throw new IllegalArgumentException(
                         error(ctx) + "Unknown new call on type [" + struct.name + "].");
@@ -1986,7 +2166,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
         return null;
     }
 
-    private Type analyzeLoadStoreExternal(final ParserRuleContext source) {
+    private void analyzeLoadStoreExternal(final ParserRuleContext source) {
         final ExtNodeMetadata extenmd = adapter.getExtNodeMetadata(source);
         final ParserRuleContext parent = extenmd.parent;
         final ExternalMetadata parentemd = adapter.getExternalMetadata(parent);
@@ -2022,10 +2202,6 @@ class Analyzer extends PlanABaseVisitor<Void> {
                 visit(store);
                 markCast(storeemd);
             }
-
-            return parentemd.read ? extenmd.type : definition.voidType;
-        } else {
-            return extenmd.type;
         }
     }
 
@@ -2052,7 +2228,7 @@ class Analyzer extends PlanABaseVisitor<Void> {
             return cast;
         }
 
-        if (from.sort == Sort.DEF || to.sort == Sort.DEF) {
+        if (from.sort == Sort.DEF && to.sort != Sort.VOID || from.sort != Sort.VOID && to.sort == Sort.DEF) {
             final Transform transform = definition.transforms.get(cast);
 
             if (transform != null) {

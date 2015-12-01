@@ -32,6 +32,8 @@ class Adapter {
     static class StatementMetadata {
         final ParserRuleContext source;
 
+        boolean last;
+
         boolean allExit;
         boolean allReturn;
         boolean anyReturn;
@@ -42,6 +44,8 @@ class Adapter {
 
         private StatementMetadata(final ParserRuleContext source) {
             this.source = source;
+
+            last = false;
 
             allExit = false;
             allReturn = false;
@@ -56,6 +60,7 @@ class Adapter {
     static class ExpressionMetadata {
         final ParserRuleContext source;
 
+        boolean read;
         boolean statement;
 
         Object preConst;
@@ -72,6 +77,7 @@ class Adapter {
         private ExpressionMetadata(final ParserRuleContext source) {
             this.source = source;
 
+            read = true;
             statement = false;
 
             preConst = null;

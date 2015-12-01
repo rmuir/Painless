@@ -1,8 +1,5 @@
 // ANTLR GENERATED CODE: DO NOT EDIT
 package org.elasticsearch.plan.a;
-
-    import java.util.Set;
-
 import org.antlr.v4.runtime.tree.ParseTreeVisitor;
 
 /**
@@ -12,7 +9,7 @@ import org.antlr.v4.runtime.tree.ParseTreeVisitor;
  * @param <T> The return type of the visit operation. Use {@link Void} for
  * operations with no return type.
  */
-interface PlanAVisitor<T> extends ParseTreeVisitor<T> {
+interface PlanAParserVisitor<T> extends ParseTreeVisitor<T> {
   /**
    * Visit a parse tree produced by {@link PlanAParser#source}.
    * @param ctx the parse tree
@@ -76,6 +73,20 @@ interface PlanAVisitor<T> extends ParseTreeVisitor<T> {
    */
   T visitReturn(PlanAParser.ReturnContext ctx);
   /**
+   * Visit a parse tree produced by the {@code try}
+   * labeled alternative in {@link PlanAParser#statement}.
+   * @param ctx the parse tree
+   * @return the visitor result
+   */
+  T visitTry(PlanAParser.TryContext ctx);
+  /**
+   * Visit a parse tree produced by the {@code throw}
+   * labeled alternative in {@link PlanAParser#statement}.
+   * @param ctx the parse tree
+   * @return the visitor result
+   */
+  T visitThrow(PlanAParser.ThrowContext ctx);
+  /**
    * Visit a parse tree produced by the {@code expr}
    * labeled alternative in {@link PlanAParser#statement}.
    * @param ctx the parse tree
@@ -132,18 +143,6 @@ interface PlanAVisitor<T> extends ParseTreeVisitor<T> {
    * @return the visitor result
    */
   T visitDeclvar(PlanAParser.DeclvarContext ctx);
-  /**
-   * Visit a parse tree produced by {@link PlanAParser#type}.
-   * @param ctx the parse tree
-   * @return the visitor result
-   */
-  T visitType(PlanAParser.TypeContext ctx);
-  /**
-   * Visit a parse tree produced by {@link PlanAParser#id}.
-   * @param ctx the parse tree
-   * @return the visitor result
-   */
-  T visitId(PlanAParser.IdContext ctx);
   /**
    * Visit a parse tree produced by the {@code comp}
    * labeled alternative in {@link PlanAParser#expression}.

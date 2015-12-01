@@ -1,31 +1,32 @@
-grammar PlanA;
+/*
+ * Licensed to Elasticsearch under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
-@parser::header {
-    import java.util.Set;
-}
+parser grammar PlanAParser;
 
-@parser::members {
-    private Set<String> types = null;
-
-    void setTypes(Set<String> types) {
-        this.types = types;
-    }
-
-    boolean isType() {
-        if (types == null) {
-            throw new IllegalStateException();
-        }
-
-        return types.contains(getCurrentToken().getText());
-    }
-}
+options { tokenVocab=PlanALexer; }
 
 source
     : statement+ EOF
     ;
 
 statement
-    : IF LP expression RP block (ELSE block)?                                                # if
+    : IF LP expression RP block ( ELSE block )?                                              # if
     | WHILE LP expression RP ( block | empty )                                               # while
     | DO block WHILE LP expression RP SEMICOLON?                                             # do
     | FOR LP initializer? SEMICOLON expression? SEMICOLON afterthought? RP ( block | empty ) # for
@@ -33,6 +34,8 @@ statement
     | CONTINUE SEMICOLON?                                                                    # continue
     | BREAK SEMICOLON?                                                                       # break
     | RETURN expression SEMICOLON?                                                           # return
+    | TRY block CATCH LP ( TYPE ID ) RP block                                                # try
+    | THROW extstart SEMICOLON?                                                              # throw
     | expression SEMICOLON?                                                                  # expr
     ;
 
@@ -59,20 +62,11 @@ declaration
     ;
 
 decltype
-    : type (LBRACE RBRACE)*
+    : TYPE (LBRACE RBRACE)*
     ;
 
 declvar
-    : id ( ASSIGN expression )?
-    ;
-
-type
-    : {isType()}? ID
-    | {isType()}? GENERIC
-    ;
-
-id
-    : {!isType()}? ID
+    : ID ( ASSIGN expression )?
     ;
 
 expression
@@ -82,11 +76,11 @@ expression
     |               TRUE                                                # true
     |               FALSE                                               # false
     |               NULL                                                # null
+    | <assoc=right> extstart increment                                  # postinc
+    | <assoc=right> increment extstart                                  # preinc
     |               extstart                                            # external
-    |               extstart increment                                  # postinc
-    |               increment extstart                                  # preinc
-    |               ( BOOLNOT | BWNOT | ADD | SUB ) expression          # unary
-    |               LP decltype RP expression                           # cast
+    | <assoc=right> ( BOOLNOT | BWNOT | ADD | SUB ) expression          # unary
+    | <assoc=right> LP decltype RP expression                           # cast
     |               expression ( MUL | DIV | REM ) expression           # binary
     |               expression ( ADD | SUB ) expression                 # binary
     |               expression ( LSH | RSH | USH ) expression           # binary
@@ -98,29 +92,29 @@ expression
     |               expression BOOLAND expression                       # bool
     |               expression BOOLOR expression                        # bool
     | <assoc=right> expression COND expression COLON expression         # conditional
-    |               extstart ( ASSIGN | AADD | ASUB | AMUL | ADIV
+    | <assoc=right> extstart ( ASSIGN | AADD | ASUB | AMUL | ADIV
                                       | AREM | AAND | AXOR | AOR
                                       | ALSH | ARSH | AUSH ) expression # assignment
     ;
 
 extstart
-   : extprec
-   | extcast
-   | exttype
-   | extvar
-   | extnew
-   | extstring
-   ;
+    : extprec
+    | extcast
+    | exttype
+    | extvar
+    | extnew
+    | extstring
+    ;
 
 extprec:   LP ( extprec | extcast | exttype | extvar | extnew | extstring ) RP ( extdot | extbrace )?;
 extcast:   LP decltype RP ( extprec | extcast | exttype | extvar | extnew | extstring );
 extbrace:  LBRACE expression RBRACE ( extdot | extbrace )?;
 extdot:    DOT ( extcall | extfield );
-exttype:   type extdot;
-extcall:   id arguments ( extdot | extbrace )?;
-extvar:    id (extdot | extbrace )?;
-extfield:  ( id | INTEGER ) (extdot | extbrace )?;
-extnew:    NEW type ( ( arguments ( extdot | extbrace)? ) | ( ( LBRACE expression RBRACE )+ extdot? ) );
+exttype:   TYPE extdot;
+extcall:   EXTID arguments ( extdot | extbrace )?;
+extvar:    ID ( extdot | extbrace )?;
+extfield:  ( EXTID | EXTINTEGER ) ( extdot | extbrace )?;
+extnew:    NEW TYPE ( ( arguments ( extdot | extbrace)? ) | ( ( LBRACE expression RBRACE )+ extdot? ) );
 extstring: STRING (extdot | extbrace )?;
 
 arguments
@@ -131,83 +125,3 @@ increment
     : INCR
     | DECR
     ;
-
-WS: [ \t\n\r]+ -> skip;
-COMMENT: ( '//' .*? '\n' | '/*' .*? '*/' ) -> skip;
-
-LBRACK:    '{';
-RBRACK:    '}';
-LBRACE:    '[';
-RBRACE:    ']';
-LP:        '(';
-RP:        ')';
-DOT:       '.';
-COMMA:     ',';
-SEMICOLON: ';';
-IF:        'if';
-ELSE:      'else';
-WHILE:     'while';
-DO:        'do';
-FOR:       'for';
-CONTINUE:  'continue';
-BREAK:     'break';
-RETURN:    'return';
-NEW:       'new';
-
-BOOLNOT: '!';
-BWNOT:   '~';
-MUL:     '*';
-DIV:     '/';
-REM:     '%';
-ADD:     '+';
-SUB:     '-';
-LSH:     '<<';
-RSH:     '>>';
-USH:     '>>>';
-LT:      '<';
-LTE:     '<=';
-GT:      '>';
-GTE:     '>=';
-EQ:      '==';
-EQR:     '===';
-NE:      '!=';
-NER:     '!==';
-BWAND:   '&';
-BWXOR:   '^';
-BWOR:    '|';
-BOOLAND: '&&';
-BOOLOR:  '||';
-COND:    '?';
-COLON:   ':';
-INCR:    '++';
-DECR:    '--';
-
-ASSIGN:    '=';
-AADD:      '+=';
-ASUB:      '-=';
-AMUL:      '*=';
-ADIV:      '/=';
-AREM:      '%=';
-AAND:      '&=';
-AXOR:      '^=';
-AOR:       '|=';
-ALSH:      '<<=';
-ARSH:      '>>=';
-AUSH:      '>>>=';
-ACAT:      '..=';
-
-OCTAL: '0' [0-7]+ [lL]?;
-HEX: '0' [xX] [0-9a-fA-F]+ [lL]?;
-INTEGER: ( '0' | [1-9] [0-9]* ) [lL]?;
-DECIMAL: ( ( '0' | [1-9] [0-9]* ) ( '.' [0-9]* )? | '.' [0-9]+ ) ( [eE] [+\-]? [0-9]+ )? [fF]?;
-
-STRING: '"' ( '\\"' | '\\\\' | ~[\\"] )*? '"' {setText(getText().substring(1, getText().length() - 1));};
-CHAR: '\'' . '\''                             {setText(getText().substring(1, getText().length() - 1));};
-
-TRUE:  'true';
-FALSE: 'false';
-
-NULL: 'null';
-
-ID: [_a-zA-Z] [_a-zA-Z0-9]*;
-GENERIC: ID '<' WS? ( ID | GENERIC ) WS? (COMMA WS? ( ID | GENERIC ) )* WS? '>' {setText(getText().replace(" ", ""));};

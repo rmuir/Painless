@@ -24,10 +24,12 @@ import java.net.URL;
 import java.security.CodeSource;
 import java.security.SecureClassLoader;
 import java.security.cert.Certificate;
+import java.util.List;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.Token;
 import org.elasticsearch.bootstrap.BootstrapInfo;
 
 final class Compiler {
@@ -70,8 +72,14 @@ final class Compiler {
         final ParserErrorStrategy strategy = new ParserErrorStrategy();
 
         lexer.removeErrorListeners();
+        lexer.setTypes(definition.structs.keySet());
 
-        parser.setTypes(definition.structs.keySet());
+        //List<? extends Token> tokens = lexer.getAllTokens();
+
+        //for (final Token token : tokens) {
+        //    System.out.println(token.getType() + " " + token.getText());
+        //}
+
         parser.removeErrorListeners();
         parser.setErrorHandler(strategy);
 
@@ -112,8 +120,8 @@ final class Compiler {
         final ParserErrorStrategy strategy = new ParserErrorStrategy();
 
         lexer.removeErrorListeners();
+        lexer.setTypes(definition.structs.keySet());
 
-        parser.setTypes(definition.structs.keySet());
         parser.removeErrorListeners();
         parser.setErrorHandler(strategy);
 

@@ -38,7 +38,7 @@ import static org.elasticsearch.plan.a.Adapter.*;
 import static org.elasticsearch.plan.a.Definition.*;
 import static org.elasticsearch.plan.a.PlanAParser.*;
 
-class Writer extends PlanABaseVisitor<Void> {
+class Writer extends PlanAParserBaseVisitor<Void> {
     private static class Branch {
         final ParserRuleContext source;
 
@@ -75,9 +75,11 @@ class Writer extends PlanABaseVisitor<Void> {
             "java.lang.Object methodCall(java.lang.Object, java.lang.String, " +
             "org.elasticsearch.plan.a.Definition, java.lang.Object[], boolean[])");
     private final static org.objectweb.asm.commons.Method DEF_ARRAY_STORE = org.objectweb.asm.commons.Method.getMethod(
-            "void arrayStore(java.lang.Object, int, java.lang.Object, org.elasticsearch.plan.a.Definition, boolean)");
+            "void arrayStore(java.lang.Object, java.lang.Object, java.lang.Object, " +
+            "org.elasticsearch.plan.a.Definition, boolean, boolean)");
     private final static org.objectweb.asm.commons.Method DEF_ARRAY_LOAD = org.objectweb.asm.commons.Method.getMethod(
-            "java.lang.Object arrayLoad(java.lang.Object, int)");
+            "java.lang.Object arrayLoad(java.lang.Object, java.lang.Object, " +
+            "org.elasticsearch.plan.a.Definition, boolean)");
     private final static org.objectweb.asm.commons.Method DEF_FIELD_STORE = org.objectweb.asm.commons.Method.getMethod(
             "void fieldStore(java.lang.Object, java.lang.Object, java.lang.String, " +
             "org.elasticsearch.plan.a.Definition, boolean)");
@@ -145,7 +147,7 @@ class Writer extends PlanABaseVisitor<Void> {
             org.objectweb.asm.commons.Method.getMethod("java.lang.String toString()");
 
     private final static org.objectweb.asm.commons.Method TOINTEXACT_LONG =
-            org.objectweb.asm.commons.Method.getMethod("int toIntWithoutOverflow(long)");
+            org.objectweb.asm.commons.Method.getMethod("int toIntExact(long)");
     private final static org.objectweb.asm.commons.Method NEGATEEXACT_INT =
             org.objectweb.asm.commons.Method.getMethod("int negateExact(int)");
     private final static org.objectweb.asm.commons.Method NEGATEEXACT_LONG =
@@ -169,7 +171,7 @@ class Writer extends PlanABaseVisitor<Void> {
             org.objectweb.asm.commons.Method.getMethod("byte toByteExact(int)");
     private final static org.objectweb.asm.commons.Method TOBYTEEXACT_LONG =
             org.objectweb.asm.commons.Method.getMethod("byte toByteExact(long)");
-    private final static org.objectweb.asm.commons.Method TOBYTEWOOVERLFOW_FLOAT =
+    private final static org.objectweb.asm.commons.Method TOBYTEWOOVERFLOW_FLOAT =
             org.objectweb.asm.commons.Method.getMethod("byte toByteWithoutOverflow(float)");
     private final static org.objectweb.asm.commons.Method TOBYTEWOOVERFLOW_DOUBLE =
             org.objectweb.asm.commons.Method.getMethod("byte toByteWithoutOverflow(double)");
@@ -490,7 +492,16 @@ class Writer extends PlanABaseVisitor<Void> {
 
     @Override
     public Void visitExpr(final ExprContext ctx) {
-        visit(ctx.expression());
+        final StatementMetadata exprsmd = adapter.getStatementMetadata(ctx);
+        final ExpressionContext exprctx = ctx.expression();
+        final ExpressionMetadata expremd = adapter.getExpressionMetadata(exprctx);
+        visit(exprctx);
+
+        if (exprsmd.allReturn) {
+            execute.returnValue();
+        } else {
+            writePop(expremd.to.type.getSize());
+        }
 
         return null;
     }
@@ -583,11 +594,6 @@ class Writer extends PlanABaseVisitor<Void> {
         execute.visitVarInsn(type.getOpcode(Opcodes.ISTORE), slot);
 
         return null;
-    }
-
-    @Override
-    public Void visitType(final TypeContext ctx) {
-        throw new UnsupportedOperationException(error(ctx) + "Unexpected parser state.");
     }
 
     @Override
@@ -1647,6 +1653,127 @@ class Writer extends PlanABaseVisitor<Void> {
         }
     }
 
+    /**
+     * Called for any compound assignment (including increment/decrement instructions).
+     * We have to be stricter than writeBinary, and do overflow checks against the original type's size
+     * instead of the promoted type's size, since the result will be implicitly cast back.
+     *
+     * @return true if an instruction is written, false otherwise
+     */
+    private boolean writeExactInstruction(final Sort osort, final Sort psort) {
+            if (psort == Sort.DOUBLE) {
+                if (osort == Sort.FLOAT) {
+                    execute.invokeStatic(definition.utilityType.type, TOFLOATWOOVERFLOW_DOUBLE);
+                } else if (osort == Sort.FLOAT_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOFLOATWOOVERFLOW_DOUBLE);
+                    execute.checkCast(definition.floatobjType.type);
+                } else if (osort == Sort.LONG) {
+                    execute.invokeStatic(definition.utilityType.type, TOLONGWOOVERFLOW_DOUBLE);
+                } else if (osort == Sort.LONG_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOLONGWOOVERFLOW_DOUBLE);
+                    execute.checkCast(definition.longobjType.type);
+                } else if (osort == Sort.INT) {
+                    execute.invokeStatic(definition.utilityType.type, TOINTWOOVERFLOW_DOUBLE);
+                } else if (osort == Sort.INT_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOINTWOOVERFLOW_DOUBLE);
+                    execute.checkCast(definition.intobjType.type);
+                } else if (osort == Sort.CHAR) {
+                    execute.invokeStatic(definition.utilityType.type, TOCHARWOOVERFLOW_DOUBLE);
+                } else if (osort == Sort.CHAR_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOCHARWOOVERFLOW_DOUBLE);
+                    execute.checkCast(definition.charobjType.type);
+                } else if (osort == Sort.SHORT) {
+                    execute.invokeStatic(definition.utilityType.type, TOSHORTWOOVERFLOW_DOUBLE);
+                } else if (osort == Sort.SHORT_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOSHORTWOOVERFLOW_DOUBLE);
+                    execute.checkCast(definition.shortobjType.type);
+                } else if (osort == Sort.BYTE) {
+                    execute.invokeStatic(definition.utilityType.type, TOBYTEWOOVERFLOW_DOUBLE);
+                } else if (osort == Sort.BYTE_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOBYTEWOOVERFLOW_DOUBLE);
+                    execute.checkCast(definition.byteobjType.type);
+                } else {
+                    return false;
+                }
+            } else if (psort == Sort.FLOAT) {
+                if (osort == Sort.LONG) {
+                    execute.invokeStatic(definition.utilityType.type, TOLONGWOOVERFLOW_FLOAT);
+                } else if (osort == Sort.LONG_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOLONGWOOVERFLOW_FLOAT);
+                    execute.checkCast(definition.longobjType.type);
+                } else if (osort == Sort.INT) {
+                    execute.invokeStatic(definition.utilityType.type, TOINTWOOVERFLOW_FLOAT);
+                } else if (osort == Sort.INT_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOINTWOOVERFLOW_FLOAT);
+                    execute.checkCast(definition.intobjType.type);
+                } else if (osort == Sort.CHAR) {
+                    execute.invokeStatic(definition.utilityType.type, TOCHARWOOVERFLOW_FLOAT);
+                } else if (osort == Sort.CHAR_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOCHARWOOVERFLOW_FLOAT);
+                    execute.checkCast(definition.charobjType.type);
+                } else if (osort == Sort.SHORT) {
+                    execute.invokeStatic(definition.utilityType.type, TOSHORTWOOVERFLOW_FLOAT);
+                } else if (osort == Sort.SHORT_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOSHORTWOOVERFLOW_FLOAT);
+                    execute.checkCast(definition.shortobjType.type);
+                } else if (osort == Sort.BYTE) {
+                    execute.invokeStatic(definition.utilityType.type, TOBYTEWOOVERFLOW_FLOAT);
+                } else if (osort == Sort.BYTE_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOBYTEWOOVERFLOW_FLOAT);
+                    execute.checkCast(definition.byteobjType.type);
+                } else {
+                    return false;
+                }
+            } else if (psort == Sort.LONG) {
+                if (osort == Sort.INT) {
+                    execute.invokeStatic(definition.mathType.type, TOINTEXACT_LONG);
+                } else if (osort == Sort.INT_OBJ) {
+                    execute.invokeStatic(definition.mathType.type, TOINTEXACT_LONG);
+                    execute.checkCast(definition.intobjType.type);
+                } else if (osort == Sort.CHAR) {
+                    execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_LONG);
+                } else if (osort == Sort.CHAR_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_LONG);
+                    execute.checkCast(definition.charobjType.type);
+                } else if (osort == Sort.SHORT) {
+                    execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_LONG);
+                } else if (osort == Sort.SHORT_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_LONG);
+                    execute.checkCast(definition.shortobjType.type);
+                } else if (osort == Sort.BYTE) {
+                    execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_LONG);
+                } else if (osort == Sort.BYTE_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_LONG);
+                    execute.checkCast(definition.byteobjType.type);
+                } else {
+                    return false;
+                }
+            } else if (psort == Sort.INT) {
+                if (osort == Sort.CHAR) {
+                    execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_INT);
+                } else if (osort == Sort.CHAR_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_INT);
+                    execute.checkCast(definition.charobjType.type);
+                } else if (osort == Sort.SHORT) {
+                    execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_INT);
+                } else if (osort == Sort.SHORT_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_INT);
+                    execute.checkCast(definition.shortobjType.type);
+                } else if (osort == Sort.BYTE) {
+                    execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_INT);
+                } else if (osort == Sort.BYTE_OBJ) {
+                    execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_INT);
+                    execute.checkCast(definition.byteobjType.type);
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+
+        return true;
+    }
+
     private void writeLoadStoreExternal(final ParserRuleContext source) {
         final ExtNodeMetadata sourceenmd = adapter.getExtNodeMetadata(source);
         final ExternalMetadata parentemd = adapter.getExternalMetadata(sourceenmd.parent);
@@ -1656,10 +1783,17 @@ class Writer extends PlanABaseVisitor<Void> {
         final boolean name = sourceenmd.target instanceof String && !length && !array;
         final boolean variable = sourceenmd.target instanceof Integer;
         final boolean field = sourceenmd.target instanceof Field;
+        final boolean shortcut = sourceenmd.target instanceof Object[];
 
-        if (!length && !variable && !field && !array && !name) {
+        if (!length && !variable && !field && !array && !name && !shortcut) {
             throw new IllegalStateException(error(source) + "Target not found for load/store.");
         }
+
+        final boolean maplist = shortcut && (boolean)((Object[])sourceenmd.target)[2];
+        final Object constant = shortcut ? ((Object[])sourceenmd.target)[3] : null;
+
+        final boolean x1 = field || name || (shortcut && !maplist);
+        final boolean x2 = array || (shortcut && maplist);
 
         if (length) {
             execute.arrayLength();
@@ -1668,13 +1802,21 @@ class Writer extends PlanABaseVisitor<Void> {
             final boolean cat = strings.contains(parentemd.storeExpr);
 
             if (cat) {
-                if (field || name) {
+                if (field || name || shortcut) {
                     execute.dupX1();
                 } else if (array) {
                     execute.dup2X1();
                 }
 
-                writeLoadStoreInstruction(source, false, variable, field, name, array);
+                if (maplist) {
+                    if (constant != null) {
+                        writeConstant(source, constant);
+                    }
+
+                    execute.dupX2();
+                }
+
+                writeLoadStoreInstruction(source, false, variable, field, name, array, shortcut);
                 writeAppendStrings(sourceenmd.type.sort);
                 visit(parentemd.storeExpr);
 
@@ -1687,175 +1829,80 @@ class Writer extends PlanABaseVisitor<Void> {
                 checkWriteCast(source, sourceenmd.castTo);
 
                 if (parentemd.read) {
-                    writeDup(sourceenmd.type.sort.size, field || name, array);
+                    writeDup(sourceenmd.type.sort.size, x1, x2);
                 }
 
-                writeLoadStoreInstruction(source, true, variable, field, name, array);
+                writeLoadStoreInstruction(source, true, variable, field, name, array, shortcut);
             } else if (parentemd.token > 0) {
                 final int token = parentemd.token;
                 
-                if (field || name) {
+                if (field || name || shortcut) {
                     execute.dup();
                 } else if (array) {
                     execute.dup2();
                 }
 
-                writeLoadStoreInstruction(source, false, variable, field, name, array);
+                if (maplist) {
+                    if (constant != null) {
+                        writeConstant(source, constant);
+                    }
+
+                    execute.dupX2();
+                }
+
+                writeLoadStoreInstruction(source, false, variable, field, name, array, shortcut);
 
                 if (parentemd.read && parentemd.post) {
-                    writeDup(sourceenmd.type.sort.size, field || name, array);
+                    writeDup(sourceenmd.type.sort.size, x1, x2);
                 }
 
                 checkWriteCast(source, sourceenmd.castFrom);
                 visit(parentemd.storeExpr);
 
-                final Sort osort = sourceenmd.type.sort;
-                final Sort psort = sourceenmd.promote.sort;
-
                 writeBinaryInstruction(source, sourceenmd.promote, token);
 
-                /**
-                 * Called for any compound assignment (including increment/decrement instructions).
-                 * We have to be stricter than writeBinary, and do overflow checks against the original type's size
-                 * instead of the promoted type's size, since the result will be implicitly cast back.
-                 */
+                boolean exact = false;
 
-                if (settings.getNumericOverflow() == false && expremd.typesafe && osort != Sort.DEF &&
+                if (!settings.getNumericOverflow() && expremd.typesafe && sourceenmd.type.sort != Sort.DEF &&
                         (token == MUL || token == DIV || token == REM || token == ADD || token == SUB)) {
-                    if (psort == Sort.DOUBLE) {
-                        if (osort == Sort.FLOAT) {
-                            execute.invokeStatic(definition.utilityType.type, TOFLOATWOOVERFLOW_DOUBLE);
-                        } else if (osort == Sort.FLOAT_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOFLOATWOOVERFLOW_DOUBLE);
-                            execute.checkCast(definition.floatobjType.type);
-                        } else if (osort == Sort.LONG) {
-                            execute.invokeStatic(definition.utilityType.type, TOLONGWOOVERFLOW_DOUBLE);
-                        } else if (osort == Sort.LONG_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOLONGWOOVERFLOW_DOUBLE);
-                            execute.checkCast(definition.longobjType.type);
-                        } else if (osort == Sort.INT) {
-                            execute.invokeStatic(definition.utilityType.type, TOINTWOOVERFLOW_DOUBLE);
-                        } else if (osort == Sort.INT_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOINTWOOVERFLOW_DOUBLE);
-                            execute.checkCast(definition.intobjType.type);
-                        } else if (osort == Sort.CHAR) {
-                            execute.invokeStatic(definition.utilityType.type, TOCHARWOOVERFLOW_DOUBLE);
-                        } else if (osort == Sort.CHAR_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOCHARWOOVERFLOW_DOUBLE);
-                            execute.checkCast(definition.charobjType.type);
-                        } else if (osort == Sort.SHORT) {
-                            execute.invokeStatic(definition.utilityType.type, TOSHORTWOOVERFLOW_DOUBLE);
-                        } else if (osort == Sort.SHORT_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOSHORTWOOVERFLOW_DOUBLE);
-                            execute.checkCast(definition.shortobjType.type);
-                        } else if (osort == Sort.BYTE) {
-                            execute.invokeStatic(definition.utilityType.type, TOBYTEWOOVERFLOW_DOUBLE);
-                        } else if (osort == Sort.BYTE_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOBYTEWOOVERFLOW_DOUBLE);
-                            execute.checkCast(definition.byteobjType.type);
-                        } else {
-                            checkWriteCast(source, sourceenmd.castTo);
-                        }
-                    } else if (psort == Sort.FLOAT) {
-                        if (osort == Sort.LONG) {
-                            execute.invokeStatic(definition.utilityType.type, TOLONGWOOVERFLOW_FLOAT);
-                        } else if (osort == Sort.LONG_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOLONGWOOVERFLOW_FLOAT);
-                            execute.checkCast(definition.longobjType.type);
-                        } else if (osort == Sort.INT) {
-                            execute.invokeStatic(definition.utilityType.type, TOINTWOOVERFLOW_FLOAT);
-                        } else if (osort == Sort.INT_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOINTWOOVERFLOW_FLOAT);
-                            execute.checkCast(definition.intobjType.type);
-                        } else if (osort == Sort.CHAR) {
-                            execute.invokeStatic(definition.utilityType.type, TOCHARWOOVERFLOW_FLOAT);
-                        } else if (osort == Sort.CHAR_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOCHARWOOVERFLOW_FLOAT);
-                            execute.checkCast(definition.charobjType.type);
-                        } else if (osort == Sort.SHORT) {
-                            execute.invokeStatic(definition.utilityType.type, TOSHORTWOOVERFLOW_FLOAT);
-                        } else if (osort == Sort.SHORT_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOSHORTWOOVERFLOW_FLOAT);
-                            execute.checkCast(definition.shortobjType.type);
-                        } else if (osort == Sort.BYTE) {
-                            execute.invokeStatic(definition.utilityType.type, TOBYTEWOOVERLFOW_FLOAT);
-                        } else if (osort == Sort.BYTE_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOBYTEWOOVERLFOW_FLOAT);
-                            execute.checkCast(definition.byteobjType.type);
-                        } else {
-                            checkWriteCast(source, sourceenmd.castTo);
-                        }
-                    } else if (psort == Sort.LONG) {
-                        if (osort == Sort.INT) {
-                            execute.invokeStatic(definition.mathType.type, TOINTEXACT_LONG);
-                        } else if (osort == Sort.INT_OBJ) {
-                            execute.invokeStatic(definition.mathType.type, TOINTEXACT_LONG);
-                            execute.checkCast(definition.intobjType.type);
-                        } else if (osort == Sort.CHAR) {
-                            execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_LONG);
-                        } else if (osort == Sort.CHAR_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_LONG);
-                            execute.checkCast(definition.charobjType.type);
-                        } else if (osort == Sort.SHORT) {
-                            execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_LONG);
-                        } else if (osort == Sort.SHORT_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_LONG);
-                            execute.checkCast(definition.shortobjType.type);
-                        } else if (osort == Sort.BYTE) {
-                            execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_LONG);
-                        } else if (osort == Sort.BYTE_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_LONG);
-                            execute.checkCast(definition.byteobjType.type);
-                        } else {
-                            checkWriteCast(source, sourceenmd.castTo);
-                        }
-                    } else if (psort == Sort.INT) {
-                        if (osort == Sort.CHAR) {
-                            execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_INT);
-                        } else if (osort == Sort.CHAR_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOCHAREXACT_INT);
-                            execute.checkCast(definition.charobjType.type);
-                        } else if (osort == Sort.SHORT) {
-                            execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_INT);
-                        } else if (osort == Sort.SHORT_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOSHORTEXACT_INT);
-                            execute.checkCast(definition.shortobjType.type);
-                        } else if (osort == Sort.BYTE) {
-                            execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_INT);
-                        } else if (osort == Sort.BYTE_OBJ) {
-                            execute.invokeStatic(definition.utilityType.type, TOBYTEEXACT_INT);
-                            execute.checkCast(definition.byteobjType.type);
-                        } else {
-                            checkWriteCast(source, sourceenmd.castTo);
-                        }
-                    } else {
-                        checkWriteCast(source, sourceenmd.castTo);
-                    }
-                } else {
+                    exact = writeExactInstruction(sourceenmd.type.sort, sourceenmd.promote.sort);
+                }
+
+                if (!exact) {
                     checkWriteCast(source, sourceenmd.castTo);
                 }
 
                 if (parentemd.read && !parentemd.post) {
-                    writeDup(sourceenmd.type.sort.size, field || name, array);
+                    writeDup(sourceenmd.type.sort.size, x1, x2);
                 }
 
-                writeLoadStoreInstruction(source, true, variable, field, name, array);
+                writeLoadStoreInstruction(source, true, variable, field, name, array, shortcut);
             } else {
+                if (constant != null) {
+                    writeConstant(source, constant);
+                }
+
                 visit(parentemd.storeExpr);
 
                 if (parentemd.read) {
-                    writeDup(sourceenmd.type.sort.size, field || name, array);
+                    writeDup(sourceenmd.type.sort.size, x1, x2);
                 }
 
-                writeLoadStoreInstruction(source, true, variable, field, name, array);
+                writeLoadStoreInstruction(source, true, variable, field, name, array, shortcut);
             }
         } else {
-            writeLoadStoreInstruction(source, false, variable, field, name, array);
+            if (constant != null) {
+                writeConstant(source, constant);
+            }
+
+            writeLoadStoreInstruction(source, false, variable, field, name, array, shortcut);
         }
     }
 
-    private void writeLoadStoreInstruction(final ParserRuleContext source, final boolean store, final boolean variable,
-                                           final boolean field, final boolean name, final boolean array) {
+    private void writeLoadStoreInstruction(final ParserRuleContext source,
+                                           final boolean store, final boolean variable,
+                                           final boolean field, final boolean name,
+                                           final boolean array, final boolean shortcut) {
         final ExtNodeMetadata sourceemd = adapter.getExtNodeMetadata(source);
 
         if (variable) {
@@ -1866,6 +1913,9 @@ class Writer extends PlanABaseVisitor<Void> {
             writeLoadStoreField(source, store, (String)sourceemd.target);
         } else if (array) {
             writeLoadStoreArray(source, store, sourceemd.type);
+        } else if (shortcut) {
+            Object[] targets = (Object[])sourceemd.target;
+            writeLoadStoreShortcut(store, (Method)targets[0], (Method)targets[1]);
         } else {
             throw new IllegalStateException(error(source) + "Load/Store requires a variable, field, or array.");
         }
@@ -1890,12 +1940,20 @@ class Writer extends PlanABaseVisitor<Void> {
                 execute.putStatic(field.owner.type, field.reflect.getName(), field.type.type);
             } else {
                 execute.getStatic(field.owner.type, field.reflect.getName(), field.type.type);
+
+                if (!field.generic.clazz.equals(field.type.clazz)) {
+                    execute.checkCast(field.generic.type);
+                }
             }
         } else {
             if (store) {
                 execute.putField(field.owner.type, field.reflect.getName(), field.type.type);
             } else {
                 execute.getField(field.owner.type, field.reflect.getName(), field.type.type);
+
+                if (!field.generic.clazz.equals(field.type.clazz)) {
+                    execute.checkCast(field.generic.type);
+                }
             }
         }
     }
@@ -1925,16 +1983,23 @@ class Writer extends PlanABaseVisitor<Void> {
         }
 
         if (type.sort == Sort.DEF) {
+            final ExtbraceContext bracectx = (ExtbraceContext)source;
+            final ExpressionMetadata expremd0 = adapter.getExpressionMetadata(bracectx.expression());
+
             if (store) {
-                final ExtNodeMetadata sourceemd = adapter.getExtNodeMetadata(source);
-                final ExternalMetadata parentemd = adapter.getExternalMetadata(sourceemd.parent);
-                final ExpressionMetadata expremd = adapter.getExpressionMetadata(parentemd.storeExpr);
+                final ExtNodeMetadata braceenmd = adapter.getExtNodeMetadata(bracectx);
+                final ExternalMetadata parentemd = adapter.getExternalMetadata(braceenmd.parent);
+                final ExpressionMetadata expremd1 = adapter.getExpressionMetadata(parentemd.storeExpr);
 
                 execute.loadThis();
                 execute.getField(CLASS_TYPE, "definition", DEFINITION_TYPE);
-                execute.push(parentemd.token == 0 && expremd.typesafe);
+                execute.push(expremd0.typesafe);
+                execute.push(parentemd.token == 0 && expremd1.typesafe);
                 execute.invokeStatic(definition.defobjType.type, DEF_ARRAY_STORE);
             } else {
+                execute.loadThis();
+                execute.getField(CLASS_TYPE, "definition", DEFINITION_TYPE);
+                execute.push(expremd0.typesafe);
                 execute.invokeStatic(definition.defobjType.type, DEF_ARRAY_LOAD);
             }
         } else {
@@ -1943,6 +2008,22 @@ class Writer extends PlanABaseVisitor<Void> {
             } else {
                 execute.arrayLoad(type.type);
             }
+        }
+    }
+
+    private void writeLoadStoreShortcut(final boolean store, final Method getter, final Method setter) {
+        final Method method = store ? setter : getter;
+
+        if (java.lang.reflect.Modifier.isInterface(getter.owner.clazz.getModifiers())) {
+            execute.invokeInterface(method.owner.type, method.method);
+        } else {
+            execute.invokeVirtual(method.owner.type, method.method);
+        }
+
+        if (store) {
+            writePop(method.rtn.type.getSize());
+        } else if (!method.rtn.clazz.equals(method.handle.type().returnType())) {
+            execute.checkCast(method.rtn.type);
         }
     }
 
@@ -1987,7 +2068,7 @@ class Writer extends PlanABaseVisitor<Void> {
             } else {
                 execute.newArray(sourceenmd.type.type);
             }
-        } else if (constructor) {
+        } else {
             execute.newInstance(sourceenmd.type.type);
 
             if (parentemd.read) {
@@ -2005,7 +2086,6 @@ class Writer extends PlanABaseVisitor<Void> {
 
     private void writeCallExternal(final ExtcallContext source) {
         final ExtNodeMetadata sourceenmd = adapter.getExtNodeMetadata(source);
-        final ExternalMetadata parentemd = adapter.getExternalMetadata(sourceenmd.parent);
 
         final boolean method = sourceenmd.target instanceof Method;
         final boolean def = sourceenmd.target instanceof String;
@@ -2029,6 +2109,10 @@ class Writer extends PlanABaseVisitor<Void> {
                 execute.invokeInterface(target.owner.type, target.method);
             } else {
                 execute.invokeVirtual(target.owner.type, target.method);
+            }
+
+            if (!target.rtn.clazz.equals(target.handle.type().returnType())) {
+                execute.checkCast(target.rtn.type);
             }
         } else {
             execute.push((String)sourceenmd.target);
@@ -2056,10 +2140,6 @@ class Writer extends PlanABaseVisitor<Void> {
             }
 
             execute.invokeStatic(definition.defobjType.type, DEF_METHOD_CALL);
-        }
-
-        if (!parentemd.read) {
-            writePop(sourceenmd.type.sort.size);
         }
     }
 

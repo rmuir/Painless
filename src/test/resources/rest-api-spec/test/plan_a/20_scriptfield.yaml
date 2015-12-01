@@ -19,7 +19,7 @@ setup:
                 script_fields:
                     bar:
                         script: 
-                            inline: "return input.get(\"doc\").get(\"foo\").get(0) + input.get(\"x\");"
+                            inline: "input.doc.foo.0 + input.x;"
                             lang: plan-a
                             params:
                                 x: "bbb"

@@ -1,19 +1,16 @@
 // ANTLR GENERATED CODE: DO NOT EDIT
 package org.elasticsearch.plan.a;
-
-    import java.util.Set;
-
 import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 
 /**
- * This class provides an empty implementation of {@link PlanAVisitor},
+ * This class provides an empty implementation of {@link PlanAParserVisitor},
  * which can be extended to create a visitor which only needs to handle a subset
  * of the available methods.
  *
  * @param <T> The return type of the visit operation. Use {@link Void} for
  * operations with no return type.
  */
-class PlanABaseVisitor<T> extends AbstractParseTreeVisitor<T> implements PlanAVisitor<T> {
+class PlanAParserBaseVisitor<T> extends AbstractParseTreeVisitor<T> implements PlanAParserVisitor<T> {
   /**
    * {@inheritDoc}
    *
@@ -83,6 +80,20 @@ class PlanABaseVisitor<T> extends AbstractParseTreeVisitor<T> implements PlanAVi
    * <p>The default implementation returns the result of calling
    * {@link #visitChildren} on {@code ctx}.</p>
    */
+  @Override public T visitTry(PlanAParser.TryContext ctx) { return visitChildren(ctx); }
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The default implementation returns the result of calling
+   * {@link #visitChildren} on {@code ctx}.</p>
+   */
+  @Override public T visitThrow(PlanAParser.ThrowContext ctx) { return visitChildren(ctx); }
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The default implementation returns the result of calling
+   * {@link #visitChildren} on {@code ctx}.</p>
+   */
   @Override public T visitExpr(PlanAParser.ExprContext ctx) { return visitChildren(ctx); }
   /**
    * {@inheritDoc}
@@ -140,20 +151,6 @@ class PlanABaseVisitor<T> extends AbstractParseTreeVisitor<T> implements PlanAVi
    * {@link #visitChildren} on {@code ctx}.</p>
    */
   @Override public T visitDeclvar(PlanAParser.DeclvarContext ctx) { return visitChildren(ctx); }
-  /**
-   * {@inheritDoc}
-   *
-   * <p>The default implementation returns the result of calling
-   * {@link #visitChildren} on {@code ctx}.</p>
-   */
-  @Override public T visitType(PlanAParser.TypeContext ctx) { return visitChildren(ctx); }
-  /**
-   * {@inheritDoc}
-   *
-   * <p>The default implementation returns the result of calling
-   * {@link #visitChildren} on {@code ctx}.</p>
-   */
-  @Override public T visitId(PlanAParser.IdContext ctx) { return visitChildren(ctx); }
   /**
    * {@inheritDoc}
    *

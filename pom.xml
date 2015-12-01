@@ -111,10 +111,10 @@
                 <configuration>
                     <excludes>
                         <!-- Generated antlr -->
-                        <exclude>src/main/java/org/elasticsearch/plan/a/PlanABaseVisitor.java</exclude>
                         <exclude>src/main/java/org/elasticsearch/plan/a/PlanALexer.java</exclude>
                         <exclude>src/main/java/org/elasticsearch/plan/a/PlanAParser.java</exclude>
-                        <exclude>src/main/java/org/elasticsearch/plan/a/PlanAVisitor.java</exclude>
+                        <exclude>src/main/java/org/elasticsearch/plan/a/PlanAParserVisitor.java</exclude>
+                        <exclude>src/main/java/org/elasticsearch/plan/a/PlanAParserBaseVisitor.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
