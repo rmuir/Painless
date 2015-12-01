@@ -32,8 +32,11 @@ import org.elasticsearch.script.SearchScript;
 import org.elasticsearch.search.lookup.SearchLookup;
 
 import java.io.IOException;
+import java.security.AccessControlContext;
 import java.security.AccessController;
+import java.security.Permissions;
 import java.security.PrivilegedAction;
+import java.security.ProtectionDomain;
 import java.util.Map;
 
 public class PlanAScriptEngineService extends AbstractComponent implements ScriptEngineService {
@@ -72,20 +75,37 @@ public class PlanAScriptEngineService extends AbstractComponent implements Scrip
         return true;
     }
 
+    // context used during compilation
+    private static final AccessControlContext COMPILATION_CONTEXT;
+    static {
+        Permissions none = new Permissions();
+        none.setReadOnly();
+        COMPILATION_CONTEXT = new AccessControlContext(new ProtectionDomain[] {
+                new ProtectionDomain(null, none)
+        });
+    }
+
     @Override
     public Object compile(String script) {
-        // classloader created here
+        // check we ourselves are not being called by unprivileged code
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             sm.checkPermission(new SpecialPermission());
         }
+        // create our loader (which loads compiled code with no permissions)
+        Compiler.Loader loader = AccessController.doPrivileged(new PrivilegedAction<Compiler.Loader>() {
+            @Override
+            public Compiler.Loader run() {
+                return new Compiler.Loader(getClass().getClassLoader());
+            }
+        });
+        // drop all permissions to actually compile the code itself
         return AccessController.doPrivileged(new PrivilegedAction<Executable>() {
             @Override
             public Executable run() {
-                // NOTE: validation is delayed to allow runtime vars, and we don't have access to per index stuff here
-                return Compiler.compile("something", script, definition, compilerSettings);
+                return Compiler.compile(loader, "something", script, definition, compilerSettings);
             }
-        });
+        }, COMPILATION_CONTEXT);
     }
 
     @Override

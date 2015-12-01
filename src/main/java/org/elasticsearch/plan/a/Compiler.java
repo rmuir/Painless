@@ -24,12 +24,10 @@ import java.net.URL;
 import java.security.CodeSource;
 import java.security.SecureClassLoader;
 import java.security.cert.Certificate;
-import java.util.List;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.Token;
 import org.elasticsearch.bootstrap.BootstrapInfo;
 
 final class Compiler {
@@ -46,7 +44,7 @@ final class Compiler {
         }
     }
 
-    private static class Loader extends SecureClassLoader {
+    static class Loader extends SecureClassLoader {
         Loader(ClassLoader parent) {
             super(parent);
         }
@@ -56,7 +54,7 @@ final class Compiler {
         }
     }
 
-    static Executable compile(final String name, final String source, final Definition custom, CompilerSettings settings) {
+    static Executable compile(Loader loader, final String name, final String source, final Definition custom, CompilerSettings settings) {
         long start = System.currentTimeMillis();
 
         final Definition definition = custom == null ? DEFAULT_DEFINITION : new Definition(custom);
@@ -105,7 +103,7 @@ final class Compiler {
         //System.out.println("write: " + end);
         //start = System.currentTimeMillis();
 
-        final Executable executable = createExecutable(definition, name, source, bytes);
+        final Executable executable = createExecutable(loader, definition, name, source, bytes);
 
         //end = System.currentTimeMillis() - start;
         //System.out.println("create: " + end);
@@ -130,7 +128,7 @@ final class Compiler {
         return root;
     }
 
-    private static Executable createExecutable(final Definition definition, final String name, final String source, byte[] bytes) {
+    private static Executable createExecutable(Loader loader, Definition definition, String name, String source, byte[] bytes) {
         try {
             // for debugging:
              //try {
@@ -141,7 +139,6 @@ final class Compiler {
              //   throw new RuntimeException(e);
              //}
 
-            final Loader loader = new Loader(definition.getClass().getClassLoader());
             final Class<? extends Executable> clazz = loader.define(Writer.CLASS_NAME, bytes);
             final java.lang.reflect.Constructor<? extends Executable> constructor =
                     clazz.getConstructor(Definition.class, String.class, String.class);
